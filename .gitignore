@@ -1,0 +1,29 @@
+# data never goes in git
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# python
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# node
+node_modules/
+dist/
+.vite/
+coverage/
+playwright-report/
+test-results/
+
+# notebooks
+.ipynb_checkpoints/
+
+# env and os
+.env
+.env.*
+!.env.example
+.DS_Store
