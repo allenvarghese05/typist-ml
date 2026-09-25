@@ -34,6 +34,27 @@ changing telemetry, attribution or drill generation.
 - Never change keys in `experiment_config` after they are frozen.
 - `keystroke_events` rows are append-only (except filling in key-up time).
 
+## How work gets done (pipeline)
+
+Every task from design doc section 16 goes through five phases. Each phase has
+one owner, and the owner's model is fixed in its subagent file.
+
+| Phase | Command | Subagent | Model | Output |
+|---|---|---|---|---|
+| 1 Understand | /understand T1.3 | analyst | opus | docs/plans/T1.3-brief.md |
+| 2 Blueprint | /blueprint T1.3 | architect | opus | docs/plans/T1.3-plan.md |
+| 3 Build | /build T1.3 | builder | sonnet | code, tests, commits |
+| 4 Review | /review T1.3 | reviewer (+ builder fixes) | opus | verdict |
+| 5 Ship | /ship T1.3 | main session | - | pull request |
+
+Rules for the main session:
+- You are the orchestrator. Delegate each phase to its subagent; do not do a
+  subagent's work yourself.
+- Stop at every gate and wait for the owner. Never skip phases 1 or 2.
+- Never change a plan during build. Plan problems go back to the owner.
+- Never merge PRs.
+
+
 ## Do not
 - Copy code from Monkeytype or any GPL project. Behaviour reference only.
 - Add cloud AI APIs, telemetry services, or analytics. Everything stays local.
