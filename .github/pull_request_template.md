@@ -6,6 +6,7 @@
 
 ## How I tested it
 - [ ] `just check` passes locally
+- [ ] `just security` passes (or reason noted if not)
 - [ ] New or changed logic has tests
 - [ ] Telemetry or attribution changes checked against the golden fixture
 

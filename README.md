@@ -12,7 +12,9 @@ Design: [docs/design/Typist-ML_Technical_Design.pdf](docs/design/Typist-ML_Techn
 
 1. Install the tools: [uv](https://docs.astral.sh/uv/), Node 22 (exact version in `.nvmrc`),
    pnpm (`npm install -g pnpm@12.6.0`, the version pinned in `apps/web/package.json`),
-   then `uv tool install rust-just`, `uv tool install pre-commit` and `uv python install 3.12`.
+   then `uv tool install rust-just`, `uv tool install pre-commit`,
+   `uv tool install semgrep==1.178.0` (for `just security`, see
+   [D22](docs/decisions/D22-security-scanning.md)) and `uv python install 3.12`.
 2. Activate the commit hooks once per clone: `pre-commit install`.
 3. Install the web dependencies: `(cd apps/web && pnpm install --frozen-lockfile)`.
 4. Run `just` to list the recipes. Run `just check` before pushing (see
@@ -27,6 +29,7 @@ of truth for library versions.
 |---|---|---|
 | just | `just --version` | just 1.58.0 |
 | pre-commit | `pre-commit --version` | pre-commit 4.6.2 |
+| semgrep | `semgrep --version` | 1.178.0 |
 | uv | `uv --version` | uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin) |
 | pnpm | `pnpm --version` | 12.6.0 |
 | Node | `node --version` | v22.22.2 |
