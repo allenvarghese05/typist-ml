@@ -1,0 +1,18 @@
+# Local hooks only: each tool runs at the version pinned in the app's lockfile
+# (services/api/uv.lock, apps/web/pnpm-lock.yaml). Hooks auto-fix; a commit that a hook
+# changed fails once, then passes after `git add`. pyright and tests run in `just check` and CI.
+# The golden fixture is the source of truth for errors and is never touched by a tool.
+exclude: ^services/api/tests/fixtures/golden_session\.json$
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff (services/api)
+        entry: bash scripts/pre-commit-ruff.sh
+        language: system
+        files: ^services/api/.*\.pyi?$
+      - id: biome
+        name: biome (apps/web)
+        entry: bash scripts/pre-commit-biome.sh
+        language: system
+        files: ^apps/web/
