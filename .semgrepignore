@@ -1,0 +1,8 @@
+# Paths semgrep never scans (decision D22). When this file exists, semgrep does not apply its
+# built-in ignore list, so every directory to skip is listed here. data/ holds participant data
+# and is listed explicitly even though .gitignore already excludes it.
+node_modules/
+.venv/
+dist/
+.claude/worktrees/
+data/
