@@ -4,8 +4,8 @@
 # `check` is defined by decision D21 (docs/decisions/D21-just-check.md).
 #
 # Contracts later tasks must meet for these recipes to work unchanged:
-#   apps/web (T0.2):     package.json with a `dev` script; @biomejs/biome, typescript and vitest
-#                        as dev dependencies; tsconfig files set "noEmit" so `tsc -b` only checks.
+#   apps/web (T0.2):     package.json with a `dev` script; @biomejs/biome, typescript, vitest and
+#                        vite as dev dependencies; tsconfig files set "noEmit" so `tsc -b` only checks.
 #   services/api (T0.3): pyproject.toml with ruff, pyright and pytest in the dev group;
 #                        FastAPI app factory `typist.main:create_app`; alembic.ini in services/api.
 #   worker (T2.5):       services/api/src/typist/worker.py and the `typist worker` command.
@@ -15,13 +15,13 @@
 default:
     @"{{just_executable()}}" --list --justfile "{{justfile()}}"
 
-# Lint both apps (Biome for apps/web, ruff for services/api).
+# Lint both apps (`biome ci` for apps/web: lint, format and import order; ruff for services/api).
 lint:
     #!/usr/bin/env bash
     set -euo pipefail
     cd "{{justfile_directory()}}"
     if [ -f apps/web/package.json ]; then
-        (cd apps/web && pnpm exec biome lint .)
+        (cd apps/web && pnpm exec biome ci .)
     else
         echo "apps/web not yet scaffolded, skipping lint"
     fi
@@ -79,8 +79,19 @@ test:
         echo "services/api not yet scaffolded, skipping test"
     fi
 
-# Lint, format-check, type-check and test both apps (decision D21). Run before pushing.
-check: lint format-check types test
+# Build apps/web for production (vite build). services/api has no build step.
+build:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{justfile_directory()}}"
+    if [ -f apps/web/package.json ]; then
+        (cd apps/web && pnpm exec vite build)
+    else
+        echo "apps/web not yet scaffolded, skipping build"
+    fi
+
+# Lint, format-check, type-check, test and build both apps (decision D21). Run before pushing.
+check: lint format-check types test build
     @echo "just check: all steps passed (apps not yet scaffolded were skipped)"
 
 # Start the web app, API and worker together (macOS only). Ctrl-C stops all of them.
