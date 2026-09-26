@@ -6,6 +6,7 @@ export PATH="$HOME/.local/bin:$PATH"
 
 command -v uv   >/dev/null 2>&1 || pip install --quiet uv
 command -v just >/dev/null 2>&1 || uv tool install rust-just
+command -v pre-commit >/dev/null 2>&1 || uv tool install pre-commit
 command -v pnpm >/dev/null 2>&1 || npm install -g pnpm
 
 # Install project dependencies once the apps exist (no mlx extra on Linux)
