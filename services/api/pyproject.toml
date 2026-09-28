@@ -1,0 +1,66 @@
+[project]
+name = "typist-api"
+version = "0.0.0"
+description = "Typist-ML local API, admin CLI and (from M2) generation worker."
+requires-python = ">=3.12,<3.13"
+# Exact pins (T0.3 owner answer 14); transitive versions live in uv.lock. mlx-lm arrives in T0.5.
+dependencies = [
+    "alembic==1.20.0",
+    "fastapi==0.141.1",
+    "pydantic-settings==2.15.0",
+    "sqlmodel==0.0.47",
+    "typer==0.27.2",
+    "uvicorn==0.54.0",
+]
+
+[project.scripts]
+typist = "typist.cli:app"
+
+[dependency-groups]
+dev = [
+    "bandit==1.9.4",
+    "httpx==0.28.1",
+    "pip-audit==2.10.1",
+    "pyright==1.1.414",
+    "pytest==9.1.1",
+    "ruff==0.16.9",
+]
+
+[build-system]
+requires = ["uv_build==0.12.19"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "typist"
+module-root = "src"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Only src/ holds first-party code; the local alembic/ directory must not shadow the alembic package.
+src = ["src"]
+
+[tool.ruff.lint]
+extend-select = ["I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["typist"]
+
+[tool.pyright]
+include = ["src", "tests", "alembic"]
+exclude = ["alembic/versions", "**/__pycache__"]
+typeCheckingMode = "standard"
+strict = ["src"]
+pythonVersion = "3.12"
+venvPath = "."
+venv = ".venv"
+executionEnvironments = [
+    { root = "src" },
+    { root = "tests" },
+    { root = "alembic" },
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The mlx marker is registered in tests/conftest.py; pytester is used by tests/unit/test_mlx_marker.py.
+addopts = ["--strict-markers", "-p", "pytester"]
