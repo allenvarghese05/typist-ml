@@ -1,7 +1,7 @@
 # Typist-ML task runner. Run `just` (or `just --list`) to see the recipes.
 #
 # Every recipe skips an app that is not scaffolded yet: it prints a message and exits 0.
-# `check` is defined by decision D21 (docs/decisions/D21-just-check.md).
+# `check`, `check-web` and `check-api` are defined by decision D21 (docs/decisions/D21-just-check.md).
 # `security` and its parts are defined by decision D22 (docs/decisions/D22-security-scanning.md).
 # They also skip a missing tool or an unreachable registry, and they are not part of `check`.
 #
@@ -18,6 +18,7 @@
 #                        (decision D22, amended by T0.3).
 
 # semgrep CLI version pinned by decision D22. Keep it equal to README.md and scripts/cloud-setup.sh.
+# CI reads it with `just --evaluate semgrep_version` (.github/workflows/ci.yml).
 semgrep_version := "1.178.0"
 
 [private]
@@ -102,6 +103,39 @@ build:
 # Lint, format-check, type-check, test and build both apps (decision D21). Run before pushing.
 check: lint format-check types test build
     @echo "just check: all steps passed (apps not yet scaffolded were skipped)"
+
+# Lint, format-check, type-check, test and build apps/web only (D21). CI's `web` job runs the same commands.
+check-web:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{justfile_directory()}}"
+    if [ ! -f apps/web/package.json ]; then
+        echo "apps/web not yet scaffolded, skipping check-web"
+        exit 0
+    fi
+    cd apps/web
+    pnpm exec biome ci .
+    pnpm exec biome format .
+    pnpm exec tsc -b
+    pnpm exec vitest run
+    pnpm exec vite build
+    echo "just check-web: all steps passed"
+
+# Lint, format-check, type-check and test services/api only (D21). CI's `api` job runs the same commands.
+check-api:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{justfile_directory()}}"
+    if [ ! -f services/api/pyproject.toml ]; then
+        echo "services/api not yet scaffolded, skipping check-api"
+        exit 0
+    fi
+    cd services/api
+    uv run --locked ruff check .
+    uv run --locked ruff format --check .
+    uv run --locked pyright
+    uv run --locked pytest
+    echo "just check-api: all steps passed"
 
 # Start the web app, API and worker together (macOS only). Ctrl-C stops all of them.
 dev:
