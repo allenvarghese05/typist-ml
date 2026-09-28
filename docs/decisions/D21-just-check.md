@@ -27,3 +27,9 @@ pushing ("lint, types, tests for both apps"). The design doc (sections 5.3 and 7
 - Amended 2026-09-25 by T0.2 (owner answers 8 and 14): the web lint step became `biome ci .` so the
   gate matches the pre-commit hook, and a `build` step (`vite build`) was added so a broken build
   or Tailwind setup fails the gate.
+- Amended 2026-09-28 by T0.3 (owner answers 15 and 16): the services/api commands in the justfile
+  recipes and the pre-commit hooks pass `--locked` to uv (`uv run --locked`, `uv export --locked`),
+  so `just check` fails instead of silently rewriting `services/api/uv.lock` when it is out of
+  date with `pyproject.toml`. The API adds no CORS middleware: the Vite dev-server proxy (T0.2
+  owner answer 16) makes browser requests same-origin, which supersedes the CORS sentence in
+  design doc section 6.2.

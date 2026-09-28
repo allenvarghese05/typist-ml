@@ -8,12 +8,14 @@
 # Contracts later tasks must meet for these recipes to work unchanged:
 #   apps/web (T0.2):     package.json with a `dev` script; @biomejs/biome, typescript, vitest and
 #                        vite as dev dependencies; tsconfig files set "noEmit" so `tsc -b` only checks.
-#   services/api (T0.3): pyproject.toml with ruff, pyright and pytest in the dev group;
-#                        FastAPI app factory `typist.main:create_app`; alembic.ini in services/api.
+#   services/api (T0.3): pyproject.toml with ruff, pyright and pytest in the dev group and a
+#                        committed uv.lock that API commands never rewrite (`--locked`); FastAPI
+#                        app factory `typist.main:create_app`; alembic.ini in services/api; the
+#                        `typist db migrate` command.
 #   worker (T2.5):       services/api/src/typist/worker.py and the `typist worker` command.
 #   gen-types:           placeholder until the task that adds openapi-typescript replaces it.
-#   security-py (T0.3):  placeholder; T0.3 replaces its body with bandit and pip-audit, both added
-#                        as dev dependencies in services/api/pyproject.toml (decision D22).
+#   security-py (T0.3):  bandit and pip-audit, both dev dependencies in services/api/pyproject.toml
+#                        (decision D22, amended by T0.3).
 
 # semgrep CLI version pinned by decision D22. Keep it equal to README.md and scripts/cloud-setup.sh.
 semgrep_version := "1.178.0"
@@ -33,7 +35,7 @@ lint:
         echo "apps/web not yet scaffolded, skipping lint"
     fi
     if [ -f services/api/pyproject.toml ]; then
-        (cd services/api && uv run ruff check .)
+        (cd services/api && uv run --locked ruff check .)
     else
         echo "services/api not yet scaffolded, skipping lint"
     fi
@@ -49,7 +51,7 @@ format-check:
         echo "apps/web not yet scaffolded, skipping format-check"
     fi
     if [ -f services/api/pyproject.toml ]; then
-        (cd services/api && uv run ruff format --check .)
+        (cd services/api && uv run --locked ruff format --check .)
     else
         echo "services/api not yet scaffolded, skipping format-check"
     fi
@@ -65,7 +67,7 @@ types:
         echo "apps/web not yet scaffolded, skipping types"
     fi
     if [ -f services/api/pyproject.toml ]; then
-        (cd services/api && uv run pyright)
+        (cd services/api && uv run --locked pyright)
     else
         echo "services/api not yet scaffolded, skipping types"
     fi
@@ -81,7 +83,7 @@ test:
         echo "apps/web not yet scaffolded, skipping test"
     fi
     if [ -f services/api/pyproject.toml ]; then
-        (cd services/api && uv run pytest)
+        (cd services/api && uv run --locked pytest)
     else
         echo "services/api not yet scaffolded, skipping test"
     fi
@@ -125,13 +127,13 @@ dev:
         echo "apps/web not yet scaffolded, skipping web"
     fi
     if [ -f services/api/pyproject.toml ]; then
-        (cd services/api && exec uv run uvicorn --factory typist.main:create_app --host 127.0.0.1 --port 8000 --reload) &
+        (cd services/api && exec uv run --locked uvicorn --factory typist.main:create_app --host 127.0.0.1 --port 8000 --reload --reload-dir src) &
         pids="$pids $!"
     else
         echo "services/api not yet scaffolded, skipping api"
     fi
     if [ -f services/api/src/typist/worker.py ]; then
-        (cd services/api && exec uv run typist worker) &
+        (cd services/api && exec uv run --locked typist worker) &
         pids="$pids $!"
     else
         echo "worker not yet implemented (M2)"
@@ -156,7 +158,7 @@ migrate:
         exit 0
     fi
     cd services/api
-    uv run alembic upgrade head
+    uv run --locked typist db migrate
 
 # Run the generation worker on its own (macOS only; arrives in M2).
 worker:
@@ -172,7 +174,7 @@ worker:
         exit 0
     fi
     cd services/api
-    uv run typist worker
+    uv run --locked typist worker
 
 # Generate apps/web/src/api/schema.d.ts from the API's OpenAPI schema (not ready yet).
 gen-types:
@@ -241,9 +243,64 @@ security:
     fi
     echo "just security: no failures (skipped parts are listed above)"
 
-# Python security scan for services/api: a placeholder until T0.3 replaces it (decision D22).
+# Python security scan for services/api: bandit on src/ and pip-audit on uv.lock (decision D22). Uses the network.
 security-py:
-    @echo "security-py not yet implemented (T0.3 replaces it with bandit and pip-audit), skipping"
+    #!/usr/bin/env bash
+    # Both tools run; the recipe fails at the end if either failed. A missing app, a missing uv or an
+    # unreachable registry (pip-audit only) is a skip, and every skip message contains "skipping"
+    # (see `security`). Must stay bash 3.2 compatible (macOS).
+    set -euo pipefail
+    cd "{{justfile_directory()}}"
+    if [ ! -f services/api/pyproject.toml ]; then
+        echo "services/api not yet scaffolded, skipping security-py"
+        exit 0
+    fi
+    if ! command -v uv >/dev/null 2>&1; then
+        echo "uv not found, skipping security-py (install uv, see README.md)"
+        exit 0
+    fi
+    cd services/api
+    summary=""
+    failed=""
+    # bandit scans src/ only (tests are pytest asserts, B101) and fails at medium severity and above.
+    if uv run --locked bandit -q -r src -ll; then
+        rc=0
+    else
+        rc=$?
+    fi
+    if [ "$rc" -eq 0 ]; then
+        summary="${summary}  bandit: passed"$'\n'
+    else
+        summary="${summary}  bandit: FAILED (exit ${rc}, see output above)"$'\n'
+        failed="${failed} bandit"
+    fi
+    # pip-audit checks the package names and versions pinned in uv.lock (the local project excluded)
+    # against PyPI's advisory data; no code leaves the machine (D22).
+    if command -v curl >/dev/null 2>&1 && ! curl --silent --head --output /dev/null --connect-timeout 5 --max-time 10 https://pypi.org/; then
+        echo "couldn't reach the registry, skipping pip-audit (https://pypi.org not reachable)"
+        summary="${summary}  pip-audit: skipped (registry unreachable)"$'\n'
+    else
+        req="$(mktemp)"
+        trap 'rm -f "$req"' EXIT
+        if uv export --locked --no-emit-project > "$req" && uv run --locked pip-audit --requirement "$req" --no-deps --disable-pip --progress-spinner off; then
+            rc=0
+        else
+            rc=$?
+        fi
+        if [ "$rc" -eq 0 ]; then
+            summary="${summary}  pip-audit: passed"$'\n'
+        else
+            summary="${summary}  pip-audit: FAILED (exit ${rc}, see output above)"$'\n'
+            failed="${failed} pip-audit"
+        fi
+    fi
+    echo "security-py summary:"
+    printf '%s' "$summary"
+    if [ -n "$failed" ]; then
+        echo "security-py: FAILED:${failed}"
+        exit 1
+    fi
+    echo "security-py: no failures"
 
 # Audit apps/web dependencies, dev dependencies included: pnpm audit --audit-level=high (decision D22).
 security-web:

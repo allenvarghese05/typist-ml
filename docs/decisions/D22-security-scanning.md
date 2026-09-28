@@ -38,3 +38,15 @@ directory.
 - T0.4 decides whether CI runs `just security` or its parts.
 - Deleting the workflow file does not touch GitHub-side Codacy items (repository secret, app,
   existing code-scanning alerts). Cleaning them up is not part of this decision.
+- Amended 2026-09-28 by T0.3 (owner answers 19 and 20): `security-py` runs bandit on
+  `services/api/src/` only (`-r src -ll`: medium severity and above fails; tests are not scanned,
+  so pytest asserts (B101) do not arise). It then runs pip-audit on the dependencies pinned in
+  `services/api/uv.lock`, exported with `uv export --locked --no-emit-project` (the local project
+  is not audited) and checked with `--no-deps --disable-pip`, without `--strict`. pip-audit is
+  skipped when a `curl` HEAD probe of `https://pypi.org/` gets no response; bandit runs
+  regardless. Each tool's result is printed with a summary, and `security-py` fails if either tool
+  failed. A skipped pip-audit makes `security` report `security-py` as skipped (the "skipping"
+  keyword rule), with bandit's own result shown above it. bandit and pip-audit are pinned dev
+  dependencies in `services/api/uv.lock`. The local pre-commit hook `bandit`
+  (`scripts/pre-commit-bandit.sh`, run through `uv run --locked` from services/api) scans staged
+  files under `services/api/src/` with the same threshold.
