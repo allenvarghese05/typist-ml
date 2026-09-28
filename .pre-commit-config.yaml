@@ -11,6 +11,11 @@ repos:
         entry: bash scripts/pre-commit-ruff.sh
         language: system
         files: ^services/api/.*\.pyi?$
+      - id: bandit
+        name: bandit (services/api/src)
+        entry: bash scripts/pre-commit-bandit.sh
+        language: system
+        files: ^services/api/src/.*\.py$
       - id: biome
         name: biome (apps/web)
         entry: bash scripts/pre-commit-biome.sh

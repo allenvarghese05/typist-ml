@@ -8,8 +8,10 @@
 # Contracts later tasks must meet for these recipes to work unchanged:
 #   apps/web (T0.2):     package.json with a `dev` script; @biomejs/biome, typescript, vitest and
 #                        vite as dev dependencies; tsconfig files set "noEmit" so `tsc -b` only checks.
-#   services/api (T0.3): pyproject.toml with ruff, pyright and pytest in the dev group;
-#                        FastAPI app factory `typist.main:create_app`; alembic.ini in services/api.
+#   services/api (T0.3): pyproject.toml with ruff, pyright and pytest in the dev group and a
+#                        committed uv.lock that API commands never rewrite (`--locked`); FastAPI
+#                        app factory `typist.main:create_app`; alembic.ini in services/api; the
+#                        `typist db migrate` command.
 #   worker (T2.5):       services/api/src/typist/worker.py and the `typist worker` command.
 #   gen-types:           placeholder until the task that adds openapi-typescript replaces it.
 #   security-py (T0.3):  placeholder; T0.3 replaces its body with bandit and pip-audit, both added
@@ -33,7 +35,7 @@ lint:
         echo "apps/web not yet scaffolded, skipping lint"
     fi
     if [ -f services/api/pyproject.toml ]; then
-        (cd services/api && uv run ruff check .)
+        (cd services/api && uv run --locked ruff check .)
     else
         echo "services/api not yet scaffolded, skipping lint"
     fi
@@ -49,7 +51,7 @@ format-check:
         echo "apps/web not yet scaffolded, skipping format-check"
     fi
     if [ -f services/api/pyproject.toml ]; then
-        (cd services/api && uv run ruff format --check .)
+        (cd services/api && uv run --locked ruff format --check .)
     else
         echo "services/api not yet scaffolded, skipping format-check"
     fi
@@ -65,7 +67,7 @@ types:
         echo "apps/web not yet scaffolded, skipping types"
     fi
     if [ -f services/api/pyproject.toml ]; then
-        (cd services/api && uv run pyright)
+        (cd services/api && uv run --locked pyright)
     else
         echo "services/api not yet scaffolded, skipping types"
     fi
@@ -81,7 +83,7 @@ test:
         echo "apps/web not yet scaffolded, skipping test"
     fi
     if [ -f services/api/pyproject.toml ]; then
-        (cd services/api && uv run pytest)
+        (cd services/api && uv run --locked pytest)
     else
         echo "services/api not yet scaffolded, skipping test"
     fi
@@ -125,13 +127,13 @@ dev:
         echo "apps/web not yet scaffolded, skipping web"
     fi
     if [ -f services/api/pyproject.toml ]; then
-        (cd services/api && exec uv run uvicorn --factory typist.main:create_app --host 127.0.0.1 --port 8000 --reload) &
+        (cd services/api && exec uv run --locked uvicorn --factory typist.main:create_app --host 127.0.0.1 --port 8000 --reload --reload-dir src) &
         pids="$pids $!"
     else
         echo "services/api not yet scaffolded, skipping api"
     fi
     if [ -f services/api/src/typist/worker.py ]; then
-        (cd services/api && exec uv run typist worker) &
+        (cd services/api && exec uv run --locked typist worker) &
         pids="$pids $!"
     else
         echo "worker not yet implemented (M2)"
@@ -156,7 +158,7 @@ migrate:
         exit 0
     fi
     cd services/api
-    uv run alembic upgrade head
+    uv run --locked typist db migrate
 
 # Run the generation worker on its own (macOS only; arrives in M2).
 worker:
@@ -172,7 +174,7 @@ worker:
         exit 0
     fi
     cd services/api
-    uv run typist worker
+    uv run --locked typist worker
 
 # Generate apps/web/src/api/schema.d.ts from the API's OpenAPI schema (not ready yet).
 gen-types:

@@ -15,5 +15,5 @@ for f in "$@"; do
     files+=("${f#services/api/}")
 done
 cd services/api
-uv run ruff check --fix --force-exclude "${files[@]}"
-uv run ruff format --force-exclude "${files[@]}"
+uv run --locked ruff check --fix --force-exclude "${files[@]}"
+uv run --locked ruff format --force-exclude "${files[@]}"
