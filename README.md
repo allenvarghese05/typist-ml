@@ -17,7 +17,10 @@ Design: [docs/design/Typist-ML_Technical_Design.pdf](docs/design/Typist-ML_Techn
    [D22](docs/decisions/D22-security-scanning.md)) and `uv python install 3.12`.
 2. Activate the commit hooks once per clone: `pre-commit install`.
 3. Install the web dependencies: `(cd apps/web && pnpm install --frozen-lockfile)`.
-4. Run `just` to list the recipes. Run `just check` before pushing (see
+4. Install the API dependencies: `(cd services/api && uv sync --locked)`. The database is
+   `data/typist.db` at the repo root (gitignored); `TYPIST_*` variables or `services/api/.env`
+   override the settings (see `services/api/.env.example`). `just migrate` applies migrations.
+5. Run `just` to list the recipes. Run `just check` before pushing (see
    [D21](docs/decisions/D21-just-check.md)). `just dev` runs on macOS only.
 
 ### Installed versions (milestone 0, recorded 2026-09-25)
@@ -50,3 +53,23 @@ Exact versions pinned in `apps/web/package.json`; transitive versions are in `ap
 | tailwindcss | 4.3.3 |
 | @tailwindcss/vite | 4.3.3 |
 | @vitejs/plugin-react | 6.1.1 |
+
+### Python library versions (services/api, recorded 2026-09-28)
+
+Exact versions pinned in `services/api/pyproject.toml`; transitive versions are in
+`services/api/uv.lock`. The build backend is `uv_build` 0.12.19.
+
+| Package | Version |
+|---|---|
+| alembic | 1.20.0 |
+| fastapi | 0.141.1 |
+| pydantic-settings | 2.15.0 |
+| sqlmodel | 0.0.47 |
+| typer | 0.27.2 |
+| uvicorn | 0.54.0 |
+| bandit | 1.9.4 |
+| httpx | 0.28.1 |
+| pip-audit | 2.10.1 |
+| pyright | 1.1.414 |
+| pytest | 9.1.1 |
+| ruff | 0.16.9 |

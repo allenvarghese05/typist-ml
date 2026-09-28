@@ -11,5 +11,5 @@ command -v semgrep >/dev/null 2>&1 || uv tool install semgrep==1.178.0
 command -v pnpm >/dev/null 2>&1 || npm install -g pnpm@12.6.0
 
 # Install project dependencies once the apps exist (no mlx extra on Linux)
-if [ -f services/api/pyproject.toml ]; then (cd services/api && uv sync); fi
+if [ -f services/api/pyproject.toml ]; then (cd services/api && uv sync --locked); fi
 if [ -f apps/web/package.json ];       then (cd apps/web && pnpm install); fi
