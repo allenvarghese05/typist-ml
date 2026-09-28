@@ -14,8 +14,8 @@
 #                        `typist db migrate` command.
 #   worker (T2.5):       services/api/src/typist/worker.py and the `typist worker` command.
 #   gen-types:           placeholder until the task that adds openapi-typescript replaces it.
-#   security-py (T0.3):  placeholder; T0.3 replaces its body with bandit and pip-audit, both added
-#                        as dev dependencies in services/api/pyproject.toml (decision D22).
+#   security-py (T0.3):  bandit and pip-audit, both dev dependencies in services/api/pyproject.toml
+#                        (decision D22, amended by T0.3).
 
 # semgrep CLI version pinned by decision D22. Keep it equal to README.md and scripts/cloud-setup.sh.
 semgrep_version := "1.178.0"
@@ -243,9 +243,64 @@ security:
     fi
     echo "just security: no failures (skipped parts are listed above)"
 
-# Python security scan for services/api: a placeholder until T0.3 replaces it (decision D22).
+# Python security scan for services/api: bandit on src/ and pip-audit on uv.lock (decision D22). Uses the network.
 security-py:
-    @echo "security-py not yet implemented (T0.3 replaces it with bandit and pip-audit), skipping"
+    #!/usr/bin/env bash
+    # Both tools run; the recipe fails at the end if either failed. A missing app, a missing uv or an
+    # unreachable registry (pip-audit only) is a skip, and every skip message contains "skipping"
+    # (see `security`). Must stay bash 3.2 compatible (macOS).
+    set -euo pipefail
+    cd "{{justfile_directory()}}"
+    if [ ! -f services/api/pyproject.toml ]; then
+        echo "services/api not yet scaffolded, skipping security-py"
+        exit 0
+    fi
+    if ! command -v uv >/dev/null 2>&1; then
+        echo "uv not found, skipping security-py (install uv, see README.md)"
+        exit 0
+    fi
+    cd services/api
+    summary=""
+    failed=""
+    # bandit scans src/ only (tests are pytest asserts, B101) and fails at medium severity and above.
+    if uv run --locked bandit -q -r src -ll; then
+        rc=0
+    else
+        rc=$?
+    fi
+    if [ "$rc" -eq 0 ]; then
+        summary="${summary}  bandit: passed"$'\n'
+    else
+        summary="${summary}  bandit: FAILED (exit ${rc}, see output above)"$'\n'
+        failed="${failed} bandit"
+    fi
+    # pip-audit checks the package names and versions pinned in uv.lock (the local project excluded)
+    # against PyPI's advisory data; no code leaves the machine (D22).
+    if command -v curl >/dev/null 2>&1 && ! curl --silent --head --output /dev/null --connect-timeout 5 --max-time 10 https://pypi.org/; then
+        echo "couldn't reach the registry, skipping pip-audit (https://pypi.org not reachable)"
+        summary="${summary}  pip-audit: skipped (registry unreachable)"$'\n'
+    else
+        req="$(mktemp)"
+        trap 'rm -f "$req"' EXIT
+        if uv export --locked --no-emit-project > "$req" && uv run --locked pip-audit --requirement "$req" --no-deps --disable-pip --progress-spinner off; then
+            rc=0
+        else
+            rc=$?
+        fi
+        if [ "$rc" -eq 0 ]; then
+            summary="${summary}  pip-audit: passed"$'\n'
+        else
+            summary="${summary}  pip-audit: FAILED (exit ${rc}, see output above)"$'\n'
+            failed="${failed} pip-audit"
+        fi
+    fi
+    echo "security-py summary:"
+    printf '%s' "$summary"
+    if [ -n "$failed" ]; then
+        echo "security-py: FAILED:${failed}"
+        exit 1
+    fi
+    echo "security-py: no failures"
 
 # Audit apps/web dependencies, dev dependencies included: pnpm audit --audit-level=high (decision D22).
 security-web:
