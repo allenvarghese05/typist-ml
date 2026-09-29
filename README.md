@@ -10,6 +10,8 @@ Status: milestone 0. No results yet.
 
 Design: [docs/design/Typist-ML_Technical_Design.pdf](docs/design/Typist-ML_Technical_Design.pdf)
 
+Analysis plan (draft, not yet pre-registered): [docs/analysis-plan.md](docs/analysis-plan.md)
+
 ## Setup (macOS, Apple Silicon)
 
 1. Install the tools: [uv](https://docs.astral.sh/uv/), Node 22 (exact version in `.nvmrc`),
