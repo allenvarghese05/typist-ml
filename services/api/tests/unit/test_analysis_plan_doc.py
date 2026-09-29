@@ -8,6 +8,8 @@ in the same pull request.
 
 from pathlib import Path
 
+import pytest
+
 from typist.config import REPO_ROOT
 
 PLAN = REPO_ROOT / "docs" / "analysis-plan.md"
@@ -62,3 +64,35 @@ def test_definitions_adr_exists_and_is_accepted() -> None:
     assert lines[0] == "# D23: Analysis plan exclusion definitions"
     assert "- Status: accepted" in lines
     assert "- Task: T0.6" in lines
+
+
+def test_analysis_plan_exists() -> None:
+    assert PLAN.is_file()
+
+
+@pytest.mark.parametrize("heading", SECTION_15_1_HEADINGS)
+def test_analysis_plan_has_each_section_15_1_heading_once(heading: str) -> None:
+    assert headings(PLAN).count(heading) == 1
+
+
+def test_section_15_1_headings_are_in_15_1_order() -> None:
+    found = headings(PLAN)
+    positions = [found.index(heading) for heading in SECTION_15_1_HEADINGS]
+    assert positions == sorted(positions)
+
+
+@pytest.mark.parametrize("heading", EXTRA_HEADINGS)
+def test_analysis_plan_has_each_extra_heading_once(heading: str) -> None:
+    assert headings(PLAN).count(heading) == 1
+
+
+def test_analysis_plan_title_and_status_line() -> None:
+    lines = read_lines(PLAN)
+    assert lines[0] == "# Typist-ML Analysis Plan"
+    assert lines[2] == STATUS_LINE
+    assert lines.count(STATUS_LINE) == 1
+
+
+def test_analysis_plan_is_not_dated_yet() -> None:
+    # Owner answer 4: no frozen date in T0.6; T3.6 writes the pre-registration date.
+    assert not any(line.startswith(("Date:", "- Date:")) for line in read_lines(PLAN))
