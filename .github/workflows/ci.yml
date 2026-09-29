@@ -1,0 +1,139 @@
+# CI (T0.4, design doc section 5.3). The job names `web` and `api` are the required status checks
+# of the protect-main ruleset (scripts/github-ruleset.json): never rename them, and never give them
+# a matrix or a path filter. Each job runs the same commands as `just check-web` / `just check-api`
+# (D21); `api` also runs bandit and semgrep (D22). Nothing is deployed or uploaded and no secrets
+# are used. Actions are pinned to commit SHAs; Dependabot updates them (.github/dependabot.yml).
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to a PR or branch cancels its older run. Every run on main gets its own group, so a
+# run on main is never cancelled, and never replaced while it waits.
+concurrency:
+  group: ci-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node from .nvmrc
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      # corepack installs the pnpm version named in apps/web/package.json (packageManager).
+      - name: Enable corepack and check the pnpm version
+        run: |
+          corepack enable
+          expected="$(node -p "require('./package.json').packageManager")"
+          actual="pnpm@$(pnpm --version)"
+          echo "pnpm: ${actual}, package.json: ${expected}"
+          test "${actual}" = "${expected}"
+      # Second setup-node call: pnpm exists now, so setup-node can find the pnpm store and restore
+      # the cache, keyed on apps/web/pnpm-lock.yaml.
+      - name: Restore the pnpm store cache
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+      - name: Lint (biome ci)
+        run: pnpm exec biome ci .
+      - name: Format check (biome format)
+        run: pnpm exec biome format .
+      - name: Types (tsc -b)
+        run: pnpm exec tsc -b
+      - name: Tests (vitest run)
+        run: pnpm exec vitest run
+      - name: Build (vite build)
+        run: pnpm exec vite build
+
+  api:
+    name: api
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/api
+    env:
+      # pyright (venv = ".venv") and the Alembic post-write hooks (.venv/bin/ruff) need the venv at
+      # services/api/.venv (T0.4 owner answer 22). uv resolves a relative path against the project.
+      UV_PROJECT_ENVIRONMENT: .venv
+      # Python 3.12 (requires-python) as a uv-managed interpreter, not the runner's system Python.
+      UV_PYTHON_PREFERENCE: only-managed
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The pyright wrapper runs the npm pyright package with the node on PATH.
+      - name: Set up Node from .nvmrc
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.18"
+          enable-cache: true
+          cache-dependency-glob: services/api/uv.lock
+      - name: Restore the pyright cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pyright-python
+          key: pyright-${{ runner.os }}-${{ hashFiles('services/api/uv.lock') }}
+      - name: Install dependencies (locked, no extras)
+        run: |
+          uv sync --locked
+          test -x .venv/bin/ruff
+      - name: Lint (ruff check)
+        run: uv run --locked ruff check .
+      - name: Format check (ruff format --check)
+        run: uv run --locked ruff format --check .
+      - name: Types (pyright)
+        run: uv run --locked pyright
+      - name: Tests (pytest)
+        run: uv run --locked pytest
+      - name: Security (bandit on src)
+        run: uv run --locked bandit -q -r src -ll
+      - name: Install just
+        working-directory: .
+        run: |
+          uv tool install rust-just==1.58.0
+          uv tool dir --bin >> "$GITHUB_PATH"
+      - name: Install semgrep (version from the justfile)
+        working-directory: .
+        run: uv tool install "semgrep==$(just --evaluate semgrep_version)"
+      # No skip here, unlike `just security`: a different version or a ruleset that cannot be
+      # downloaded fails the job (T0.4 owner answer 6, D22 amended by T0.4).
+      - name: Security (semgrep p/security-audit, whole repository)
+        working-directory: .
+        env:
+          SEMGREP_ENABLE_VERSION_CHECK: "0"
+        run: |
+          expected="$(just --evaluate semgrep_version)"
+          installed="$(semgrep --version)"
+          echo "semgrep ${installed}, justfile pins ${expected}"
+          test "${installed}" = "${expected}"
+          semgrep --config=p/security-audit --metrics=off --error --quiet .

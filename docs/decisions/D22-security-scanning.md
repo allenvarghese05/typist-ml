@@ -50,3 +50,15 @@ directory.
   dependencies in `services/api/uv.lock`. The local pre-commit hook `bandit`
   (`scripts/pre-commit-bandit.sh`, run through `uv run --locked` from services/api) scans staged
   files under `services/api/src/` with the same threshold.
+- Amended 2026-09-28 by T0.4 (owner answers 6, 7, 18 and 19): the required CI job `api` runs bandit
+  (`uv run --locked bandit -q -r src -ll`) and semgrep on the whole repository
+  (`p/security-audit`, `--metrics=off`, `--error`, `SEMGREP_ENABLE_VERSION_CHECK=0`), with the
+  semgrep version read from the justfile (`just --evaluate semgrep_version`). CI has no skip: a
+  semgrep version that differs from the pin, or a ruleset that cannot be downloaded, fails the
+  job, because a skip inside a required check would pass without scanning. pip-audit and
+  `pnpm audit` are not part of any required check, since advisories change without code changes:
+  `.github/workflows/audit.yml` runs `just security-py` and `just security-web` weekly and by hand
+  as a non-required job, where the D22 skip for an unreachable registry is accepted. `just
+  security` is unchanged. CodeQL (`.github/workflows/codeql.yml`) analyses `actions`,
+  `javascript-typescript` and `python` with the `security-extended` query suite and is not a
+  required check.

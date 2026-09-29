@@ -29,33 +29,10 @@ gh repo edit "$OWNER/$REPO" \
   --delete-branch-on-merge \
   --enable-auto-merge
 
-# 4. Protect main: PR required, CI (web + api) must pass, no force-push or deletion.
-#    Approvals are 0 because GitHub does not let you approve your own PR.
-if gh api --method POST "repos/$OWNER/$REPO/rulesets" --input - <<'JSON'
-{
-  "name": "protect-main",
-  "target": "branch",
-  "enforcement": "active",
-  "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
-  "rules": [
-    { "type": "deletion" },
-    { "type": "non_fast_forward" },
-    { "type": "pull_request",
-      "parameters": {
-        "required_approving_review_count": 0,
-        "dismiss_stale_reviews_on_push": false,
-        "require_code_owner_review": false,
-        "require_last_push_approval": false,
-        "required_review_thread_resolution": true
-      } },
-    { "type": "required_status_checks",
-      "parameters": {
-        "strict_required_status_checks_policy": true,
-        "required_status_checks": [ { "context": "web" }, { "context": "api" } ]
-      } }
-  ]
-}
-JSON
+# 4. Protect main: PR required, CI (web + api) must pass, no force-push or deletion, and no
+#    bypass actors. Approvals are 0 because GitHub does not let you approve your own PR.
+#    The ruleset lives in scripts/github-ruleset.json (T0.4).
+if gh api --method POST "repos/$OWNER/$REPO/rulesets" --input "$(dirname "$0")/github-ruleset.json"
 then
   echo "Ruleset created: main is protected."
 else

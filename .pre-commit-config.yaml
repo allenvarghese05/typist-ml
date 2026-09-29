@@ -1,7 +1,9 @@
-# Local hooks only: each tool runs at the version pinned in the app's lockfile
-# (services/api/uv.lock, apps/web/pnpm-lock.yaml). Hooks auto-fix; a commit that a hook
-# changed fails once, then passes after `git add`. pyright and tests run in `just check` and CI.
-# The golden fixture is the source of truth for errors and is never touched by a tool.
+# Local hooks only: each tool runs at the version pinned in the repo. ruff, bandit and Biome come
+# from the app lockfiles (services/api/uv.lock, apps/web/pnpm-lock.yaml); actionlint is pinned in
+# scripts/pre-commit-actionlint.sh and installed with uv tool (README). ruff and Biome auto-fix; a
+# commit that a hook changed fails once, then passes after `git add`. pyright and tests run in
+# `just check` and CI. The golden fixture is the source of truth for errors and is never touched
+# by a tool.
 exclude: ^services/api/tests/fixtures/golden_session\.json$
 repos:
   - repo: local
@@ -21,3 +23,8 @@ repos:
         entry: bash scripts/pre-commit-biome.sh
         language: system
         files: ^apps/web/
+      - id: actionlint
+        name: actionlint (.github/workflows)
+        entry: bash scripts/pre-commit-actionlint.sh
+        language: system
+        files: ^\.github/workflows/.*\.ya?ml$
