@@ -33,3 +33,11 @@ pushing ("lint, types, tests for both apps"). The design doc (sections 5.3 and 7
   date with `pyproject.toml`. The API adds no CORS middleware: the Vite dev-server proxy (T0.2
   owner answer 16) makes browser requests same-origin, which supersedes the CORS sentence in
   design doc section 6.2.
+- Amended 2026-09-28 by T0.4 (owner answers 3 to 5, 7 and 22): CI (`.github/workflows/ci.yml`)
+  does not call `just check`, because `check` always runs both apps. It runs the same per-app
+  commands in two independent jobs, `web` and `api`, which are the ruleset's required checks, so a
+  failure in one app never hides the other app's result. The new recipes `just check-web` and
+  `just check-api` run exactly those commands for one app; `just check` is unchanged and still
+  stops at the first failure. CI's `api` job also runs bandit and semgrep, which stay outside
+  `just check` (D22, amended by T0.4), and keeps the venv at `services/api/.venv` for pyright and
+  the Alembic post-write hooks. A change to a recipe's commands changes `ci.yml` in the same PR.
