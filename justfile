@@ -13,6 +13,8 @@
 #                        app factory `typist.main:create_app`; alembic.ini in services/api; the
 #                        `typist db migrate` command.
 #   worker (T2.5):       services/api/src/typist/worker.py and the `typist worker` command.
+#   mlx-smoke (T0.5):    services/api/scripts/mlx_smoke.py and the `mlx` extra (macOS arm64) in
+#                        services/api/pyproject.toml.
 #   gen-types:           placeholder until the task that adds openapi-typescript replaces it.
 #   security-py (T0.3):  bandit and pip-audit, both dev dependencies in services/api/pyproject.toml
 #                        (decision D22, amended by T0.3).
@@ -209,6 +211,18 @@ worker:
     fi
     cd services/api
     uv run --locked typist worker
+
+# Model smoke test with mlx-lm (T0.5, macOS arm64; `--download` fetches the pinned model once, D23).
+mlx-smoke *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{justfile_directory()}}"
+    if [ "$(uname -s)" != "Darwin" ] || [ "$(uname -m)" != "arm64" ]; then
+        echo "just mlx-smoke requires macOS on Apple Silicon (mlx-lm), skipping"
+        exit 0
+    fi
+    cd services/api
+    uv run --locked --extra mlx python scripts/mlx_smoke.py {{args}}
 
 # Generate apps/web/src/api/schema.d.ts from the API's OpenAPI schema (not ready yet).
 gen-types:
