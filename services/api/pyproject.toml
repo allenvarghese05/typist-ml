@@ -3,7 +3,7 @@ name = "typist-api"
 version = "0.0.0"
 description = "Typist-ML local API, admin CLI and (from M2) generation worker."
 requires-python = ">=3.12,<3.13"
-# Exact pins (T0.3 owner answer 14); transitive versions live in uv.lock. mlx-lm arrives in T0.5.
+# Exact pins (T0.3 owner answer 14); transitive versions live in uv.lock. mlx and mlx-lm: extra `mlx`.
 dependencies = [
     "alembic==1.20.0",
     "fastapi==0.141.1",
@@ -15,6 +15,14 @@ dependencies = [
 
 [project.scripts]
 typist = "typist.cli:app"
+
+[project.optional-dependencies]
+# Model runtime (T0.5, D09, D23): macOS arm64 only; mlx-metal and the rest are in uv.lock.
+# Install with `uv sync --locked --extra mlx`. No upgrades during the pilot (section 5).
+mlx = [
+    "mlx==0.32.3; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "mlx-lm==0.31.3; sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
 
 [dependency-groups]
 dev = [

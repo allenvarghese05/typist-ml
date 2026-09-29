@@ -24,6 +24,11 @@ Design: [docs/design/Typist-ML_Technical_Design.pdf](docs/design/Typist-ML_Techn
 4. Install the API dependencies: `(cd services/api && uv sync --locked)`. The database is
    `data/typist.db` at the repo root (gitignored); `TYPIST_*` variables or `services/api/.env`
    override the settings (see `services/api/.env.example`). `just migrate` applies migrations.
+   On Apple Silicon only, `(cd services/api && uv sync --locked --extra mlx)` also installs the
+   model runtime (mlx-lm); a later `uv sync --locked` without `--extra mlx` removes it again.
+   `just mlx-smoke --download` fetches the pinned model once into the Hugging Face cache outside
+   the repo (see [D23](docs/decisions/D23-model-download.md)); `just mlx-smoke` then runs the
+   model smoke test offline.
 5. Run `just` to list the recipes. Run `just check` before pushing (see
    [D21](docs/decisions/D21-just-check.md)); `just check-web` and `just check-api` run the same
    checks for one app, as the CI jobs do. `just dev` runs on macOS only.
@@ -79,6 +84,26 @@ Exact versions pinned in `services/api/pyproject.toml`; transitive versions are 
 | pyright | 1.1.414 |
 | pytest | 9.1.1 |
 | ruff | 0.16.9 |
+
+### Model runtime (services/api `mlx` extra, macOS arm64 only, recorded 2026-09-29)
+
+Recorded by the T0.5 smoke test (`just mlx-smoke`). mlx-lm and mlx are pinned in
+`services/api/pyproject.toml` (extra `mlx`), mlx-metal and the other dependencies in
+`services/api/uv.lock`, and the model revision in `services/api/scripts/mlx_smoke.py`
+(see [D23](docs/decisions/D23-model-download.md)). None of them is upgraded during the pilot.
+Speed and memory measurements are in the T0.5 pull request, not here.
+
+| Item | Version |
+|---|---|
+| mlx-lm | 0.31.3 |
+| mlx | 0.32.3 |
+| mlx-metal | 0.32.3 |
+| Model | `mlx-community/Llama-3.2-1B-Instruct-4bit` |
+| Model revision (Hugging Face commit) | `08231374eeacb049a0eade7922910865b8fce912` |
+| macOS | 15.3.2 |
+| Chip | Apple M1 Pro |
+| RAM | 16 GB |
+| Python | 3.12.2 |
 
 ## Continuous integration
 
