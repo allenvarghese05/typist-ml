@@ -1,0 +1,11 @@
+# Dependabot keeps the SHA-pinned GitHub Actions current (T0.4 owner answer 11). npm and uv
+# dependencies are not updated this way: lockfiles change only on purpose (design doc section 18).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+      include: scope
