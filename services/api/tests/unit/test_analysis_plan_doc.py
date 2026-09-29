@@ -96,3 +96,11 @@ def test_analysis_plan_title_and_status_line() -> None:
 def test_analysis_plan_is_not_dated_yet() -> None:
     # Owner answer 4: no frozen date in T0.6; T3.6 writes the pre-registration date.
     assert not any(line.startswith(("Date:", "- Date:")) for line in read_lines(PLAN))
+
+
+def test_readme_links_the_analysis_plan_next_to_the_design_doc() -> None:
+    lines = read_lines(README)
+    design = lines.index(DESIGN_LINK)
+    assert lines[design + 1] == ""
+    assert lines[design + 2] == PLAN_LINK
+    assert lines.count(PLAN_LINK) == 1
