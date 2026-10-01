@@ -146,7 +146,10 @@ def test_migration_log_lines_are_readable(capsys: pytest.CaptureFixture[str]) ->
     upgrade_to_head()
     err = capsys.readouterr().err
     assert "INFO  [alembic.runtime.migration] Context impl SQLiteImpl." in err
-    assert f"INFO  [alembic.runtime.migration] Running upgrade  -> {HEAD}" in err
+    assert (
+        f"INFO  [alembic.runtime.migration] Running upgrade  -> {HEAD}, initial schema: "
+        "the six section 8.1 tables and the experiment_config defaults"
+    ) in err
     assert "%(levelname)" not in err
 
 

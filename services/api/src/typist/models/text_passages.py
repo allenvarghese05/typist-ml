@@ -5,7 +5,7 @@ from typing import Any, ClassVar, Final
 import sqlalchemy as sa
 from sqlmodel import Field, SQLModel
 
-from typist.models.base import new_id, sql_in
+from typist.models.base import JSONText, new_id, sql_in
 
 TEXT_PASSAGE_KINDS: Final[tuple[str, ...]] = ("baseline", "retest")
 TEXT_PASSAGE_FORMS: Final[tuple[str, ...]] = ("A", "B")
@@ -50,4 +50,4 @@ class TextPassage(SQLModel, table=True):
     part: int
     participant_id: str | None = Field(default=None, foreign_key="participants.id")
     text: str
-    bigram_counts: dict[str, int] = Field(sa_type=sa.JSON)
+    bigram_counts: dict[str, int] = Field(sa_type=JSONText)

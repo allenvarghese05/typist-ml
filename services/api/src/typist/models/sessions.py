@@ -11,7 +11,7 @@ from typing import Any, ClassVar, Final
 import sqlalchemy as sa
 from sqlmodel import Field, SQLModel
 
-from typist.models.base import new_id, sql_in
+from typist.models.base import JSONText, new_id, sql_in
 
 SESSION_PHASES: Final[tuple[str, ...]] = ("baseline", "practice", "retest")
 SESSION_STATUSES: Final[tuple[str, ...]] = ("in_progress", "completed", "abandoned")
@@ -47,7 +47,7 @@ class Session(SQLModel, table=True):
     status: str = "in_progress"
     wpm: float | None = None
     accuracy: float | None = None
-    client_info: dict[str, Any] = Field(sa_type=sa.JSON)
+    client_info: dict[str, Any] = Field(sa_type=JSONText)
     started_at: datetime
     ended_at: datetime | None = None
 

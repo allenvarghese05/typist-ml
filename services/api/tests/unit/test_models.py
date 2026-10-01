@@ -5,11 +5,12 @@ from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import inspect
+from sqlalchemy.dialects import sqlite
 from sqlmodel import SQLModel
 
 from typist.models import ExperimentConfig, KeystrokeEvent, Participant, SessionBlock, TextPassage
 from typist.models import Session as TypingSession
-from typist.models.base import NAMING_CONVENTION, new_id, sql_in
+from typist.models.base import NAMING_CONVENTION, JSONText, new_id, sql_in
 
 
 def test_metadata_uses_the_naming_convention() -> None:
@@ -124,3 +125,34 @@ def test_keystroke_event_defaults() -> None:
         None,
     )
     assert (event.expected_char, event.first_attempt) == (None, None)
+
+
+SQLITE_DIALECT = sqlite.dialect()
+JSON_COLUMNS = (
+    ("experiment_config", "value"),
+    ("text_passages", "bigram_counts"),
+    ("sessions", "client_info"),
+)
+
+
+def test_json_text_encodes_values_on_bind() -> None:
+    json_text = JSONText()
+    assert json_text.process_bind_param(10, SQLITE_DIALECT) == "10"
+    assert json_text.process_bind_param(0.4, SQLITE_DIALECT) == "0.4"
+    assert json_text.process_bind_param("x", SQLITE_DIALECT) == '"x"'
+    assert json_text.process_bind_param(["a"], SQLITE_DIALECT) == '["a"]'
+    assert json_text.process_bind_param(None, SQLITE_DIALECT) is None
+
+
+def test_json_text_decodes_stored_text() -> None:
+    json_text = JSONText()
+    assert json_text.process_result_value("10", SQLITE_DIALECT) == 10
+    assert json_text.process_result_value("0.4", SQLITE_DIALECT) == 0.4
+    assert json_text.process_result_value('"x"', SQLITE_DIALECT) == "x"
+    assert json_text.process_result_value(None, SQLITE_DIALECT) is None
+
+
+def test_json_columns_use_json_text() -> None:
+    for table, column in JSON_COLUMNS:
+        column_type = SQLModel.metadata.tables[table].c[column].type
+        assert isinstance(column_type, JSONText), (table, column)

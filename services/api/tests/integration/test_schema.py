@@ -13,7 +13,7 @@ from alembic.autogenerate import compare_metadata
 from alembic.runtime.migration import MigrationContext
 from sqlalchemy import CheckConstraint, Engine
 from sqlalchemy.exc import StatementError
-from sqlmodel import Session, SQLModel
+from sqlmodel import Session, SQLModel, select
 
 from typist.db import utc_now
 from typist.models import ExperimentConfig, KeystrokeEvent, Participant
@@ -584,3 +584,53 @@ def test_naive_datetimes_are_rejected_on_write(migrated_engine: Engine) -> None:
         session.add(Participant(alias="p01", consent_at=naive))
         with pytest.raises(StatementError, match="timezone"):
             session.commit()
+
+
+JSON_DECLARED_TYPE_QUERIES = (
+    "SELECT type FROM pragma_table_info('experiment_config') WHERE name = 'value'",
+    "SELECT type FROM pragma_table_info('text_passages') WHERE name = 'bigram_counts'",
+    "SELECT type FROM pragma_table_info('sessions') WHERE name = 'client_info'",
+)
+JSON_STORAGE_QUERIES = (
+    "SELECT DISTINCT typeof(value) FROM experiment_config",
+    "SELECT DISTINCT typeof(bigram_counts) FROM text_passages",
+    "SELECT DISTINCT typeof(client_info) FROM sessions",
+)
+JSON_VALUES: list[object] = [10, 0.4, "mlx-community/model", ["control", "heuristic"], {"th": 3}]
+
+
+@pytest.mark.usefixtures("seeded_ids")
+def test_json_columns_are_declared_and_stored_as_text(isolated_settings: Path) -> None:
+    with closing(sqlite3.connect(isolated_settings)) as connection:
+        declared = [connection.execute(query).fetchone()[0] for query in JSON_DECLARED_TYPE_QUERIES]
+        stored = [connection.execute(query).fetchall() for query in JSON_STORAGE_QUERIES]
+    assert declared == ["TEXT", "TEXT", "TEXT"]
+    assert stored == [[("text",)], [("text",)], [("text",)]]
+
+
+def test_seeded_config_values_read_back_through_the_orm(migrated_engine: Engine) -> None:
+    with Session(migrated_engine) as session:
+        rows = session.exec(select(ExperimentConfig)).all()
+        values = {row.key: row.value for row in rows}
+    assert values == EXPECTED_CONFIG
+    assert type(values["practice_days"]) is int
+    assert type(values["d_max"]) is float
+
+
+@pytest.mark.parametrize("value", JSON_VALUES, ids=["int", "float", "str", "list", "dict"])
+def test_json_value_round_trips_through_the_orm_as_text(
+    isolated_settings: Path, migrated_engine: Engine, value: object
+) -> None:
+    with Session(migrated_engine) as session:
+        session.add(ExperimentConfig(key="probe", value=value))
+        session.commit()
+    with Session(migrated_engine) as session:
+        stored = session.get(ExperimentConfig, "probe")
+        assert stored is not None
+        assert stored.value == value
+        assert type(stored.value) is type(value)
+    with closing(sqlite3.connect(isolated_settings)) as connection:
+        row = connection.execute(
+            "SELECT typeof(value), value FROM experiment_config WHERE key = 'probe'"
+        ).fetchone()
+    assert row == ("text", json.dumps(value))

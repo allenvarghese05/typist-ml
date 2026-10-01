@@ -10,16 +10,17 @@ with participant_id in code (T1.1 owner answer 17).
 from datetime import datetime
 from typing import Any, ClassVar
 
-import sqlalchemy as sa
 from sqlmodel import Field, SQLModel
+
+from typist.models.base import JSONText
 
 
 class ExperimentConfig(SQLModel, table=True):
-    """One experiment parameter; value is JSON (number, string, list or object)."""
+    """One experiment parameter; value is JSON (number, string, list or object) stored as TEXT."""
 
     # ClassVar[Any]: see "Table names" in typist/models/__init__.py.
     __tablename__: ClassVar[Any] = "experiment_config"
 
     key: str = Field(primary_key=True)
-    value: Any = Field(sa_type=sa.JSON, nullable=False)
+    value: Any = Field(sa_type=JSONText, nullable=False)
     frozen_at: datetime | None = None

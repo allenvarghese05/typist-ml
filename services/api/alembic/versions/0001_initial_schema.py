@@ -9,8 +9,14 @@ keystroke_events (design doc section 8.1, D24, T1.1 owner answers 2 to 19). Cons
 names follow typist.models.base.NAMING_CONVENTION and are written out with op.f(). Column types
 are plain SQLAlchemy types, so this file never imports app code; tests/integration/test_schema.py
 proves the result matches the SQLModel classes.
+
+JSON columns (experiment_config.value, text_passages.bigram_counts, sessions.client_info) are
+declared TEXT and hold json.dumps text: a declared type of JSON has NUMERIC affinity in SQLite
+and would store "10" as the integer 10 (T1.1 Revision 3). The models read and write them
+through typist.models.base.JSONText, which compiles to TEXT.
 """
 
+import json
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -64,7 +70,7 @@ def upgrade() -> None:
     experiment_config = op.create_table(
         "experiment_config",
         sa.Column("key", sa.String(), nullable=False),
-        sa.Column("value", sa.JSON(), nullable=False),
+        sa.Column("value", sa.Text(), nullable=False),
         sa.Column("frozen_at", sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint("key", name=op.f("pk_experiment_config")),
     )
@@ -76,7 +82,7 @@ def upgrade() -> None:
         sa.Column("part", sa.Integer(), nullable=False),
         sa.Column("participant_id", sa.String(), nullable=True),
         sa.Column("text", sa.String(), nullable=False),
-        sa.Column("bigram_counts", sa.JSON(), nullable=False),
+        sa.Column("bigram_counts", sa.Text(), nullable=False),
         sa.CheckConstraint("kind IN ('baseline', 'retest')", name=op.f("ck_text_passages_kind")),
         sa.CheckConstraint("form IN ('A', 'B')", name=op.f("ck_text_passages_form")),
         sa.ForeignKeyConstraint(
@@ -110,7 +116,7 @@ def upgrade() -> None:
         sa.Column("status", sa.String(), nullable=False),
         sa.Column("wpm", sa.Float(), nullable=True),
         sa.Column("accuracy", sa.Float(), nullable=True),
-        sa.Column("client_info", sa.JSON(), nullable=False),
+        sa.Column("client_info", sa.Text(), nullable=False),
         sa.Column("started_at", sa.DateTime(), nullable=False),
         sa.Column("ended_at", sa.DateTime(), nullable=True),
         sa.CheckConstraint(
@@ -196,7 +202,7 @@ def upgrade() -> None:
     op.bulk_insert(
         experiment_config,
         [
-            {"key": key, "value": value, "frozen_at": None}
+            {"key": key, "value": json.dumps(value), "frozen_at": None}
             for key, value in EXPERIMENT_CONFIG_DEFAULTS.items()
         ],
     )

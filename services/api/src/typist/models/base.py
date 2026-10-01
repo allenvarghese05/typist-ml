@@ -1,14 +1,17 @@
-"""Shared pieces of the table modules: constraint naming, row ids and CHECK text (T1.1).
+"""Shared pieces of the table modules: constraint naming, row ids, CHECK text and JSON (T1.1).
 
 Importing this module sets SQLModel.metadata's naming convention (T1.1 owner answer 19), so every
 constraint gets a stable name that later SQLite batch migrations can address.
 typist/models/__init__.py imports this module before any table module.
 """
 
+import json
 import uuid
 from collections.abc import Sequence
-from typing import Final
+from typing import Any, Final, override
 
+from sqlalchemy.engine import Dialect
+from sqlalchemy.types import Text, TypeDecorator
 from sqlmodel import SQLModel
 
 NAMING_CONVENTION: Final[dict[str, str]] = {
@@ -20,6 +23,33 @@ NAMING_CONVENTION: Final[dict[str, str]] = {
 }
 
 SQLModel.metadata.naming_convention = NAMING_CONVENTION
+
+
+class JSONText(TypeDecorator[Any]):
+    """A JSON value stored as TEXT (T1.1 Revision 3).
+
+    SQLAlchemy's JSON type declares the column JSON, which has NUMERIC affinity in SQLite, so JSON
+    text such as "10" or "0.4" is stored as a number and then fails JSON decoding on read. This
+    type declares TEXT, writes json.dumps(value) and reads json.loads(text). Python None is SQL
+    NULL in both directions; a JSON null value cannot be stored.
+    """
+
+    impl = Text
+    cache_ok = True
+
+    @override
+    def process_bind_param(self, value: Any, dialect: Dialect) -> str | None:
+        """Encode a Python value as JSON text; None stays SQL NULL."""
+        if value is None:
+            return None
+        return json.dumps(value)
+
+    @override
+    def process_result_value(self, value: Any, dialect: Dialect) -> Any:
+        """Decode stored JSON text; SQL NULL becomes None."""
+        if value is None:
+            return None
+        return json.loads(value)
 
 
 def new_id() -> str:
