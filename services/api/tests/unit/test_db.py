@@ -1,12 +1,13 @@
 """SQLite engine: pragmas on every connection, parent directory creation, the database check."""
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from typist.db import check_database, create_db_engine, get_session
+from typist.db import check_database, create_db_engine, get_session, utc_now
 
 
 def test_pragmas_are_set_on_every_connection(tmp_path: Path) -> None:
@@ -78,3 +79,11 @@ def test_get_session_yields_a_working_session(tmp_path: Path) -> None:
         sessions.close()
     finally:
         engine.dispose()
+
+
+def test_utc_now_is_timezone_aware_utc() -> None:
+    before = datetime.now(UTC)
+    now = utc_now()
+    after = datetime.now(UTC)
+    assert now.tzinfo is UTC
+    assert before <= now <= after

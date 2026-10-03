@@ -1,8 +1,18 @@
-"""Database engine, session dependency and SQLite pragmas (design doc sections 5.2, 7 and 8)."""
+"""Database engine, session dependency, SQLite pragmas and the UTC clock (design doc 5.2, 7, 8).
+
+Timestamps (section 8: "Timestamps are UTC ISO-8601"; T1.1 owner answer 14): every datetime the
+app writes is timezone-aware UTC from utc_now(), never a naive datetime.now(). sqlmodel 0.0.47
+maps `datetime` fields to UTCDateTime, which rejects naive values on write and returns aware
+UTC values on read. SQLite stores them as naive UTC text "YYYY-MM-DD HH:MM:SS.ffffff" (space
+separator, no offset). The database default CURRENT_TIMESTAMP (participants.created_at) is UTC
+with whole seconds, "YYYY-MM-DD HH:MM:SS". Anything reading the file directly treats both
+formats as UTC.
+"""
 
 import logging
 import sqlite3
 from collections.abc import Generator
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -19,6 +29,11 @@ SQLITE_PRAGMAS: tuple[str, ...] = (
     "PRAGMA foreign_keys=ON",
     "PRAGMA synchronous=NORMAL",
 )
+
+
+def utc_now() -> datetime:
+    """Return the current time as a timezone-aware UTC datetime. Use it for every timestamp."""
+    return datetime.now(UTC)
 
 
 def _apply_sqlite_pragmas(dbapi_connection: sqlite3.Connection, _connection_record: object) -> None:
