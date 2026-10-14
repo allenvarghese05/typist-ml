@@ -28,7 +28,9 @@ ADR in docs/decisions/."
 - T1.5 builds the idle warning (5 s), the abandon-and-restart (10 s) and blur-as-idle. It must
   decide how an abandoned block is marked and how its restart is stored: `session_blocks` (T1.1)
   has no status column, and `UNIQUE (session_id, block_index)` stops a second row with the same
-  index. That needs the owner's decision and possibly a migration in T1.5.
+  index. The owner has decided that abandoned and restarted blocks are tracked in the database,
+  through a status column or a new table in migration 0002. The design is settled first, when the
+  idle rule is designed (T1.5, or a small dedicated task before it).
 - No press-to-press gap inside a completed block can exceed 10 s, so a pause adds at most about
   10 s to a block's elapsed time.
 - `docs/analysis-plan.md` (draft until T3.6): the exploratory measure "Overall WPM and accuracy"
