@@ -1,11 +1,19 @@
 # Dependabot keeps the SHA-pinned GitHub Actions current (T0.4 owner answer 11). npm and uv
 # dependencies are not updated this way: lockfiles change only on purpose (design doc section 18).
+# All action updates are grouped into one PR every Sunday (chore-codeql owner answers 1 and 2):
+# CodeQL init and analyze must share a version, and the owner reviews one weekly PR. One failing
+# update holds back the whole bundle until it is fixed.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+      day: sunday
+    groups:
+      github-actions:
+        patterns:
+          - "*"
     commit-message:
       prefix: chore
       include: scope
