@@ -1,13 +1,19 @@
-import { API_BASE } from "../api/paths";
+import { useMemo } from "react";
+import { createCollectorSink } from "../features/session/collector";
+import { DEMO_BLOCK_LABEL, DEMO_BLOCK_TEXT } from "../features/session/fixtures";
+import { TypingSurface } from "../features/session/TypingSurface";
 
-/** Milestone 0 placeholder page. Replaced by the real screens from T1.5 on. */
+/** Milestone 1 demo: one typing block fed from a fixture, rows caught by an in-memory sink. */
 export function App() {
+  const sink = useMemo(() => createCollectorSink(), []);
   return (
-    <main className="mx-auto max-w-2xl p-8 font-sans">
-      <h1 className="text-2xl font-semibold">Typist-ML</h1>
-      <p className="mt-4 text-gray-700">
-        Milestone 0 scaffold. The API is reached through <code>{API_BASE}</code>.
-      </p>
+    <main className="min-h-screen bg-white">
+      <TypingSurface
+        blockLabel={DEMO_BLOCK_LABEL}
+        onLifecycle={sink.recordLifecycle}
+        sink={sink}
+        targetText={DEMO_BLOCK_TEXT}
+      />
     </main>
   );
 }
