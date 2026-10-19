@@ -13,8 +13,9 @@ Task: $ARGUMENTS
    - What: from the plan summary.
    - Why: task id and the D-numbers from the brief.
    - How I tested it: the check results.
-   - Notes for review: the plan's review focus list and the reviewer's MINOR
-     findings.
+   - Notes for review: the plan's review focus list, the reviewer's MINOR
+     findings, and every question the orchestrator answered on the owner's
+     behalf (with its source) so the owner can override any of them.
    Title: "<task-id>: <task title>".
    If `gh` is not signed in, do not try to fix authentication. Instead print
    the filled-in PR title and description, and the link

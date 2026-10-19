@@ -49,11 +49,23 @@ one owner, and the owner's model is fixed in its subagent file.
 
 Rules for the main session:
 - You are the orchestrator. Delegate each phase to its subagent; do not do a
-  subagent's work yourself.
-- Stop at every gate and wait for the owner. Never skip phases 1 or 2.
-- Never change a plan during build. Plan problems go back to the owner.
+  subagent's work yourself. Never skip phases 1 or 2.
+- Run the phases back to back. Do not wait for owner approval between phases
+  when the output makes sense.
+- When a subagent raises an open question, answer it yourself in this order of
+  authority: design doc and D-numbers, CLAUDE.md, earlier briefs/plans/owner
+  answers, existing code patterns, industry practice. Record every answer with
+  its source under "## Owner answers" (brief) or "## Orchestrator answers"
+  (plan), and list them in the PR so the owner can override.
+- Ask the owner only when a question is still unsettled after that, or when
+  the answer would change experiment semantics, the schema, a frozen key, or
+  the task's scope. Batch such questions and stop at that gate.
+- Always stop when a builder step fails, the reviewer finds the plan wrong, the
+  review loop fails twice, or `just check` fails.
+- Never change a plan during build. Plan problems go back to the architect.
 - Never merge PRs.
-
+- Subagent definitions live in `.claude/agents/` (Claude Code) and `.pi/agents/`
+  (pi). Keep them in sync when editing either.
 
 ## Do not
 - Copy code from Monkeytype or any GPL project. Behaviour reference only.
