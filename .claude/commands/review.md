@@ -18,4 +18,4 @@ If a finding says the plan itself is wrong, do not send it to the builder.
 Stop and show it to me.
 
 When the verdict is APPROVE, show me the verdict and any MINOR findings, and
-stop. I will run /ship.
+continue to /ship.

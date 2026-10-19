@@ -12,7 +12,10 @@ Task: $ARGUMENTS
 3. Use the builder subagent to implement the plan.
 
 If the builder reports a step it could not complete, stop and show me the
-report. Do not fix it yourself and do not change the plan.
+report. Do not fix it yourself and do not change the plan. If the builder
+asks a question that the plan already answers, point it at the plan and let
+it continue; if the plan is genuinely silent, send the question to the
+architect to amend the plan, then resume the builder.
 
 When it finishes, show me the steps completed, files changed and the check
 result. Then continue to /review unless something failed.
