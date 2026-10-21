@@ -209,9 +209,9 @@ def assign(
         except AssignmentError as error:
             typer.echo(f"cannot assign {pid}: {error}", err=True)
             raise typer.Exit(code=1) from None
-    labels = sorted({row.set_label for row in rows})
-    mapping = {
-        label: next(row.arm for row in rows if row.set_label == label) for label in labels
-    }
-    summary = ", ".join(f"{label}->{mapping[label]}" for label in labels)
-    typer.echo(f"assigned {pid}: {len(rows)} bigrams frozen; sets {summary}")
+        labels = sorted({row.set_label for row in rows})
+        mapping = {
+            label: next(row.arm for row in rows if row.set_label == label) for label in labels
+        }
+        summary = ", ".join(f"{label}->{mapping[label]}" for label in labels)
+        typer.echo(f"assigned {pid}: {len(rows)} bigrams frozen; sets {summary}")
