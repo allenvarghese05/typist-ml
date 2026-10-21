@@ -14,7 +14,17 @@ from sqlmodel import Session
 
 from typist.db import create_db_engine
 from typist.migrations import upgrade_to_head
-from typist.models import BigramStat, KeystrokeEvent, Participant, SessionBlock, TextPassage
+from typist.models import (
+    BigramAssignment,
+    BigramStat,
+    Drill,
+    GenerationAttempt,
+    GenerationJob,
+    KeystrokeEvent,
+    Participant,
+    SessionBlock,
+    TextPassage,
+)
 from typist.models import Session as TypingSession
 
 SEED_STARTED_AT = datetime(2026, 9, 29, 9, 0, 0, tzinfo=UTC)
@@ -38,7 +48,10 @@ def seeded_ids(migrated_engine: Engine) -> dict[str, str]:
     experiment_config already holds the migration's five rows. Added: participant "p01"; a shared
     baseline passage (form A, part 0, "the cat"); a baseline session (day 1) for p01; one test
     block (block_index 0) showing that passage; one keystroke (seq 0, "t", correct, t_up known);
-    one bigram_stats row (bigram "th").
+    one bigram_stats row (bigram "th"); one bigram_assignment row (bigram "th", set A, arm control);
+    one generation_jobs row (arm control, requested 1, pending); one drills row (arm control, status
+    ready, used_in_block_id = the test block); one generation_attempts row (accepted, drill_id = that
+    drill).
     Keys: participant_id, passage_id, session_id, block_id.
     """
     with Session(migrated_engine) as session:
@@ -97,6 +110,52 @@ def seeded_ids(migrated_engine: Engine) -> dict[str, str]:
                 errors=0,
                 iki_median_ms=None,
                 iki_n=0,
+            )
+        )
+        session.add(
+            BigramAssignment(
+                participant_id=participant.id,
+                bigram="th",
+                set_label="A",
+                arm="control",
+                baseline_rank=1,
+                weakness_score=0.5,
+                baseline_attempts=1,
+                baseline_errors=0,
+            )
+        )
+        job = GenerationJob(
+            participant_id=participant.id,
+            arm="control",
+            requested=1,
+            status="pending",
+        )
+        session.add(job)
+        session.flush()
+        drill = Drill(
+            participant_id=participant.id,
+            arm="control",
+            target_bigrams=[],
+            text="the cat",
+            target_density=0.0,
+            mean_word_len=3.0,
+            real_word_ratio=1.0,
+            generator_version="v0",
+            seed=0,
+            status="ready",
+            used_in_block_id=block.id,
+        )
+        session.add(drill)
+        session.flush()
+        session.add(
+            GenerationAttempt(
+                job_id=job.id,
+                drill_id=drill.id,
+                raw_output="the cat",
+                clean_text="the cat",
+                density=0.0,
+                accepted=True,
+                reject_reasons=[],
             )
         )
         ids = {
