@@ -11,6 +11,7 @@ from typist.corpus.word_index import WordIndex
 from typist.db import create_db_engine
 from typist.migrations import upgrade_to_head
 from typist.models import ExperimentConfig
+from typist.services.overhead import format_report, overhead_report
 from typist.services.session_stats import recompute_stats
 from typist.services.test_composer import (
     BaselinePassagesInUseError,
@@ -109,6 +110,31 @@ def compose_baseline_command(
             typer.echo("refusing to replace form A: a session block references it", err=True)
             raise typer.Exit(code=1) from None
     typer.echo(f"{result.status}: {result.parts} baseline passages (form A)")
+
+
+@app.command("overhead")
+def overhead(
+    pid: str | None = typer.Option(
+        None, "--pid", help="Only this participant's sessions (default: all)."
+    ),
+    session_id: str | None = typer.Option(
+        None, "--session", help="Only this session (default: all)."
+    ),
+) -> None:
+    """Print instrumentation-overhead percentiles (handler_ms, dispatch_lag_ms) per session.
+
+    Reports p50/p95/p99 in milliseconds for each matching session plus a pooled "all" row
+    (design doc 12.5). --session narrows to one session; else --pid narrows to one participant;
+    else every session is reported. Prints "no keystroke events" and exits 0 when nothing matches.
+    """
+    settings = get_settings()
+    engine = create_db_engine(settings.db_path)
+    with Session(engine) as session:
+        rows = overhead_report(session, pid, session_id)
+    if rows[-1].events == 0:
+        typer.echo("no keystroke events")
+        return
+    typer.echo(format_report(rows))
 
 
 stats_app = typer.Typer(help="Statistics commands (design doc 14.1).", no_args_is_help=True)
