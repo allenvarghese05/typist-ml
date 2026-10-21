@@ -13,16 +13,23 @@ sqlalchemy.inspect(Model).tables[0].name, not Model.__tablename__.
 """
 
 from typist.models import base
+from typist.models.bigram_assignment import BigramAssignment
 from typist.models.bigram_stats import BigramStat
+from typist.models.drills import Drill
 from typist.models.experiment_config import ExperimentConfig
+from typist.models.generation import GenerationAttempt, GenerationJob
 from typist.models.keystroke_events import KeystrokeEvent
 from typist.models.participants import Participant
 from typist.models.sessions import Session, SessionBlock
 from typist.models.text_passages import TextPassage
 
 __all__ = [
+    "BigramAssignment",
     "BigramStat",
+    "Drill",
     "ExperimentConfig",
+    "GenerationAttempt",
+    "GenerationJob",
     "KeystrokeEvent",
     "Participant",
     "Session",
