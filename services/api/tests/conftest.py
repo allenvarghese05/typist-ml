@@ -43,12 +43,14 @@ def isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterat
     """Point every test at its own temporary database and ignore services/api/.env.
 
     Yields the database path (TYPIST_DB_PATH). No test may touch the repo-root data/ directory.
+    The corpus artifacts go to a per-test temporary directory too (TYPIST_CORPUS_DIR).
     """
     db_path = tmp_path / "typist.db"
     monkeypatch.setitem(Settings.model_config, "env_file", None)
     monkeypatch.delenv("TYPIST_HOST", raising=False)
     monkeypatch.delenv("TYPIST_PORT", raising=False)
     monkeypatch.setenv("TYPIST_DB_PATH", str(db_path))
+    monkeypatch.setenv("TYPIST_CORPUS_DIR", str(tmp_path / "corpus"))
     get_settings.cache_clear()
     yield db_path
     get_settings.cache_clear()

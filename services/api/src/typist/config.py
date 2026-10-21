@@ -17,6 +17,7 @@ API_DIR = Path(__file__).resolve().parents[2]
 # The repository root: holds the justfile and the gitignored data/ directory.
 REPO_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_DB_PATH = REPO_ROOT / "data" / "typist.db"
+DEFAULT_CORPUS_DIR = REPO_ROOT / "data" / "corpus"
 
 
 class Settings(BaseSettings):
@@ -25,6 +26,8 @@ class Settings(BaseSettings):
     Attributes:
         db_path: SQLite database file. Default <repo>/data/typist.db. A relative value is taken
             relative to the repository root.
+        corpus_dir: Directory for the gitignored corpus artifacts (words.json, top_bigrams.json).
+            Default <repo>/data/corpus. A relative value is taken relative to the repository root.
         host: Address the API serves on. `just dev` passes the same value to uvicorn.
         port: Port the API serves on. `just dev` passes the same value to uvicorn.
     """
@@ -37,13 +40,14 @@ class Settings(BaseSettings):
     )
 
     db_path: Path = DEFAULT_DB_PATH
+    corpus_dir: Path = DEFAULT_CORPUS_DIR
     host: str = "127.0.0.1"
     port: int = 8000
 
-    @field_validator("db_path")
+    @field_validator("db_path", "corpus_dir")
     @classmethod
-    def _anchor_db_path(cls, value: Path) -> Path:
-        """Resolve a relative db_path against the repository root (never the working directory)."""
+    def _anchor_path(cls, value: Path) -> Path:
+        """Resolve a relative path against the repository root (never the working directory)."""
         path = value.expanduser()
         return path if path.is_absolute() else REPO_ROOT / path
 
