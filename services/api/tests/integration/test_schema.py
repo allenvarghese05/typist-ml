@@ -57,6 +57,17 @@ EXPECTED_NAMES: dict[str, set[str]] = {
         "ck_keystroke_events_outcome",
         "ck_keystroke_events_seq",
     },
+    "bigram_stats": {
+        "pk_bigram_stats",
+        "fk_bigram_stats_participant_id_participants",
+        "fk_bigram_stats_session_id_sessions",
+        "uq_bigram_stats_session_id_bigram",
+        "ix_bigram_stats_participant_id_bigram",
+        "ck_bigram_stats_attempts",
+        "ck_bigram_stats_errors",
+        "ck_bigram_stats_iki_n",
+        "ck_bigram_stats_bigram",
+    },
 }
 
 EXPECTED_CHECKS: dict[str, str] = {
@@ -73,6 +84,10 @@ EXPECTED_CHECKS: dict[str, str] = {
     "ck_session_blocks_block_index": "block_index >= 0",
     "ck_keystroke_events_outcome": "outcome IN ('correct', 'error', 'backspace')",
     "ck_keystroke_events_seq": "seq >= 0",
+    "ck_bigram_stats_attempts": "attempts >= 0",
+    "ck_bigram_stats_errors": "errors >= 0",
+    "ck_bigram_stats_iki_n": "iki_n >= 0",
+    "ck_bigram_stats_bigram": "length(bigram) = 2",
 }
 
 EXPECTED_CONFIG: dict[str, object] = {
