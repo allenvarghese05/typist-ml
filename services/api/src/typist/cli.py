@@ -11,6 +11,7 @@ from typist.corpus.word_index import WordIndex
 from typist.db import create_db_engine
 from typist.migrations import upgrade_to_head
 from typist.models import ExperimentConfig
+from typist.services.session_stats import recompute_stats
 from typist.services.test_composer import (
     BaselinePassagesInUseError,
     BaselineTextsDifferError,
@@ -108,3 +109,32 @@ def compose_baseline_command(
             typer.echo("refusing to replace form A: a session block references it", err=True)
             raise typer.Exit(code=1) from None
     typer.echo(f"{result.status}: {result.parts} baseline passages (form A)")
+
+
+stats_app = typer.Typer(help="Statistics commands (design doc 14.1).", no_args_is_help=True)
+app.add_typer(stats_app, name="stats")
+
+
+@stats_app.callback()
+def stats() -> None:
+    """Rebuild derived statistics from raw keystrokes (design doc sections 6.2, 14.1)."""
+
+
+@stats_app.command("recompute")
+def recompute(
+    pid: str | None = typer.Option(
+        None, "--pid", help="Only this participant's sessions (default: all)."
+    ),
+) -> None:
+    """Rebuild bigram_stats and sessions.wpm/accuracy for every completed session.
+
+    Deterministic and idempotent: each completed session is deleted-and-reinserted in its own
+    transaction, so re-running reproduces the same numbers (the T1.9 acceptance). Non-completed
+    sessions (in_progress, abandoned) are skipped and never changed. status/ended_at are never
+    touched by recompute (owner answers 4, 6, 8).
+    """
+    settings = get_settings()
+    engine = create_db_engine(settings.db_path)
+    with Session(engine) as session:
+        result = recompute_stats(session, pid)
+    typer.echo(f"recomputed {result.recomputed} session(s); skipped {result.skipped} not completed")
