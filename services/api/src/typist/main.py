@@ -7,7 +7,7 @@ from importlib.metadata import version
 from fastapi import FastAPI
 from sqlalchemy import Engine
 
-from typist.api.routers import events, health
+from typist.api.routers import events, health, sessions
 from typist.config import Settings, get_settings
 from typist.db import create_db_engine
 
@@ -45,4 +45,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.engine = create_db_engine(resolved.db_path)
     app.include_router(health.router, prefix=API_PREFIX)
     app.include_router(events.router, prefix=API_PREFIX)
+    app.include_router(sessions.router, prefix=API_PREFIX)
     return app
