@@ -81,6 +81,13 @@ EXPECTED_CONFIG: dict[str, object] = {
     "d_min": 0.15,
     "d_max": 0.40,
     "arms_enabled": ["control", "heuristic", "markov", "llm"],
+    # 0002_baseline_config keys (T1.8)
+    "tracked_bigram_count": 150,
+    "baseline_min_occurrences": 15,
+    "baseline_parts": 2,
+    "baseline_part_chars": 2700,
+    "corpus_seed": 20261019,
+    "corpus_word_count": 20000,
 }
 
 # Assumption C: CURRENT_TIMESTAMP writes whole seconds, Python writes microseconds.

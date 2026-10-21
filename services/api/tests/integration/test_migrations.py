@@ -21,7 +21,7 @@ from typist.db import create_db_engine
 from typist.migrations import alembic_config, upgrade_to_head
 from typist.models import Participant
 
-HEAD = "0001_initial_schema"
+HEAD = "0002_baseline_config"
 APP_TABLES = frozenset(
     {
         "participants",
@@ -41,7 +41,7 @@ COUNT_QUERIES: dict[str, str] = {
     "session_blocks": "SELECT count(*) FROM session_blocks",
     "keystroke_events": "SELECT count(*) FROM keystroke_events",
 }
-SEEDED_CONFIG_ROWS = 5
+SEEDED_CONFIG_ROWS = 11  # 5 from 0001_initial_schema + 6 from 0002_baseline_config
 
 
 def _table_names(db_path: Path) -> set[str]:
@@ -147,7 +147,7 @@ def test_migration_log_lines_are_readable(capsys: pytest.CaptureFixture[str]) ->
     err = capsys.readouterr().err
     assert "INFO  [alembic.runtime.migration] Context impl SQLiteImpl." in err
     assert (
-        f"INFO  [alembic.runtime.migration] Running upgrade  -> {HEAD}, initial schema: "
+        "INFO  [alembic.runtime.migration] Running upgrade  -> 0001_initial_schema, initial schema: "
         "the six section 8.1 tables and the experiment_config defaults"
     ) in err
     assert "%(levelname)" not in err
@@ -161,7 +161,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "0002probe"
-down_revision = "0001_initial_schema"
+down_revision = "0002_baseline_config"
 branch_labels = None
 depends_on = None
 

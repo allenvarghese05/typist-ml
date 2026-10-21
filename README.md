@@ -107,6 +107,16 @@ Speed and memory measurements are in the T0.5 pull request, not here.
 | RAM | 16 GB |
 | Python | 3.12.2 |
 
+## Data and licences
+
+The word list and word frequencies come from
+[`wordfreq`](https://pypi.org/project/wordfreq/) (Robyn Speer), pinned to `3.1.1`
+(decision D17). `wordfreq`'s English data is distributed under the Creative Commons
+Attribution-ShareAlike 4.0 (CC BY-SA 4.0) licence; it combines several freely available
+corpora (see the package's data credits). The corpus artifacts built from it
+(`data/corpus/words.json`, `data/corpus/top_bigrams.json`) are gitignored and are never
+committed. No network access is needed at runtime: `wordfreq` ships its data in-package.
+
 ## Continuous integration
 
 GitHub Actions runs on every pull request to `main`, every push to `main`, and by hand
