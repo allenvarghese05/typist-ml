@@ -29,8 +29,22 @@ PID = "p-assign-01"
 # Sixteen distinct two-letter tracked bigrams and their session-0 error counts (0..15), so every
 # smoothed rate is distinct and the rank order is fixed (rank 1 = most errors = "ro").
 WORDS = (
-    "th", "he", "in", "er", "an", "re", "nd", "at",
-    "on", "nt", "ha", "es", "st", "en", "ed", "ro",
+    "th",
+    "he",
+    "in",
+    "er",
+    "an",
+    "re",
+    "nd",
+    "at",
+    "on",
+    "nt",
+    "ha",
+    "es",
+    "st",
+    "en",
+    "ed",
+    "ro",
 )
 ERRORS = {word: errors for word, errors in zip(WORDS, range(16), strict=True)}
 REPEATS = 15
@@ -165,8 +179,15 @@ def test_same_seed_gives_identical_rows_on_a_fresh_database(
                 session, PID, rng=random.Random(f"{SEED_A}:{PID}"), now=NOW, index=_index()
             )
             return [
-                (r.bigram, r.set_label, r.arm, r.baseline_rank, r.weakness_score,
-                 r.baseline_attempts, r.baseline_errors)
+                (
+                    r.bigram,
+                    r.set_label,
+                    r.arm,
+                    r.baseline_rank,
+                    r.weakness_score,
+                    r.baseline_attempts,
+                    r.baseline_errors,
+                )
                 for r in _rows(session, PID)
             ]
 
@@ -232,7 +253,7 @@ def test_update_of_a_frozen_row_is_rejected_by_the_trigger(migrated_engine: Engi
             session, PID, rng=random.Random(f"{SEED_A}:{PID}"), now=NOW, index=_index()
         )
     with Session(migrated_engine) as session, pytest.raises(IntegrityError):
-        session.exec(
+        session.execute(
             text("UPDATE bigram_assignment SET arm = 'control' WHERE participant_id = :pid"),
             params={"pid": PID},
         )

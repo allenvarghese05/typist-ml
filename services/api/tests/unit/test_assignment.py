@@ -74,7 +74,10 @@ def _sets(dealt: list[tuple[RankedBigram, int]]) -> dict[int, set[int]]:
 
 
 def _ranked(n: int) -> list[RankedBigram]:
-    return [RankedBigram(f"b{i}", rank=i, smoothed_rate=0.0, attempts=20, errors=0) for i in range(1, n + 1)]
+    return [
+        RankedBigram(f"b{i}", rank=i, smoothed_rate=0.0, attempts=20, errors=0)
+        for i in range(1, n + 1)
+    ]
 
 
 def test_snake_deal_16_over_4_sets() -> None:

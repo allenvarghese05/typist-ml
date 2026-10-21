@@ -200,9 +200,7 @@ def assign(
             raise typer.Exit(code=1) from None
         rng = random.Random(f"{config.seed}:{pid}")
         try:
-            rows = assign_participant(
-                session, pid, rng=rng, now=datetime.now(UTC), index=index
-            )
+            rows = assign_participant(session, pid, rng=rng, now=datetime.now(UTC), index=index)
         except ParticipantNotFoundError:
             typer.echo(f"no participant with id {pid!r}", err=True)
             raise typer.Exit(code=1) from None

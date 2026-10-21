@@ -5,12 +5,12 @@ from pathlib import Path
 
 from sqlalchemy import Engine
 from sqlmodel import Session, col, select
+from test_assignment_service import PID, WORDS, _seed_baseline
 from typer.testing import CliRunner
 
 from typist.cli import app
 from typist.models import BigramAssignment
 from typist.models import Session as TypingSession  # noqa: F401  (ensures models import)
-from test_assignment_service import PID, WORDS, _seed_baseline
 
 runner = CliRunner()
 

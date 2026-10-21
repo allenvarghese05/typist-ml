@@ -61,7 +61,9 @@ def test_0005_trigger_blocks_update_of_a_frozen_row(
         )
         connection.commit()
         try:
-            connection.execute("UPDATE bigram_assignment SET arm = 'llm' WHERE participant_id = 'p9'")
+            connection.execute(
+                "UPDATE bigram_assignment SET arm = 'llm' WHERE participant_id = 'p9'"
+            )
         except sqlite3.IntegrityError as error:
             assert "frozen" in str(error)
         else:  # pragma: no cover - the trigger must abort

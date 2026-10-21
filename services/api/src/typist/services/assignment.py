@@ -259,9 +259,7 @@ def _completed_baseline_session_ids(session: Session, participant_id: str) -> li
     )
 
 
-def load_baseline(
-    session: Session, participant_id: str, config: AssignmentConfig
-) -> Baseline:
+def load_baseline(session: Session, participant_id: str, config: AssignmentConfig) -> Baseline:
     """Pool bigram_stats counts and re-pool raw IKI samples across the completed baseline sessions.
 
     attempts/errors per bigram are summed over the participant's completed baseline-session
@@ -361,9 +359,7 @@ def assign_participant(
         raise NoBaselineDataError(participant_id)
     tracked = set(index.tracked_bigrams)
     candidates = [
-        b
-        for b in baseline.bigrams
-        if b.bigram in tracked and b.attempts >= config.min_observations
+        b for b in baseline.bigrams if b.bigram in tracked and b.attempts >= config.min_observations
     ]
     sets = len(config.arms)
     count = select_count(
@@ -379,9 +375,7 @@ def assign_participant(
             participant_id,
             count,
         )
-    ranked = rank_candidates(
-        candidates, p0=baseline.p0, strength=config.prior_strength
-    )[:count]
+    ranked = rank_candidates(candidates, p0=baseline.p0, strength=config.prior_strength)[:count]
     arms = shuffle_arms(config.arms, rng)
     rows = [
         BigramAssignment(
