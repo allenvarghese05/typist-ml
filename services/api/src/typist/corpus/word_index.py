@@ -35,7 +35,7 @@ def count_bigrams(text: str) -> dict[str, int]:
     return counts
 
 
-def _word_bigrams(word: str) -> list[str]:
+def word_bigrams(word: str) -> list[str]:
     """Return the list of adjacent 2-character slices of word (its letter bigrams, with repeats)."""
     return [word[i : i + 2] for i in range(len(word) - 1)]
 
@@ -67,7 +67,7 @@ class WordIndex:
         tracked_bigrams = tuple(str(entry[0]) for entry in bigrams_data["bigrams"])
         grouped: dict[str, list[str]] = defaultdict(list)
         for word in words:
-            for bigram in set(_word_bigrams(word)):
+            for bigram in set(word_bigrams(word)):
                 grouped[bigram].append(word)
         by_bigram = {bigram: tuple(members) for bigram, members in grouped.items()}
         return cls(
