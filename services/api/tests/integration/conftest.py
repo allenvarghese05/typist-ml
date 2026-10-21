@@ -14,7 +14,7 @@ from sqlmodel import Session
 
 from typist.db import create_db_engine
 from typist.migrations import upgrade_to_head
-from typist.models import KeystrokeEvent, Participant, SessionBlock, TextPassage
+from typist.models import BigramStat, KeystrokeEvent, Participant, SessionBlock, TextPassage
 from typist.models import Session as TypingSession
 
 SEED_STARTED_AT = datetime(2026, 9, 29, 9, 0, 0, tzinfo=UTC)
@@ -37,7 +37,8 @@ def seeded_ids(migrated_engine: Engine) -> dict[str, str]:
 
     experiment_config already holds the migration's five rows. Added: participant "p01"; a shared
     baseline passage (form A, part 0, "the cat"); a baseline session (day 1) for p01; one test
-    block (block_index 0) showing that passage; one keystroke (seq 0, "t", correct, t_up known).
+    block (block_index 0) showing that passage; one keystroke (seq 0, "t", correct, t_up known);
+    one bigram_stats row (bigram "th").
     Keys: participant_id, passage_id, session_id, block_id.
     """
     with Session(migrated_engine) as session:
@@ -85,6 +86,17 @@ def seeded_ids(migrated_engine: Engine) -> dict[str, str]:
                 first_attempt=True,
                 handler_ms=0.2,
                 dispatch_lag_ms=1.1,
+            )
+        )
+        session.add(
+            BigramStat(
+                participant_id=participant.id,
+                session_id=typing_session.id,
+                bigram="th",
+                attempts=1,
+                errors=0,
+                iki_median_ms=None,
+                iki_n=0,
             )
         )
         ids = {
