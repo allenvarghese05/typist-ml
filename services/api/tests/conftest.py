@@ -6,11 +6,18 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from hypothesis import settings as hypothesis_settings
 
 from typist.config import Settings, get_settings
 
 MLX_MARKER = "mlx: loads a model with mlx-lm; runs only on macOS arm64 (Apple Silicon)"
 MLX_SKIP_REASON = "needs mlx-lm on Apple Silicon (macOS arm64)"
+
+# Derandomised Hypothesis so the property tests (T1.7) are reproducible and never flaky on timing
+# (T1.7 owner answer 4; CLAUDE.md "randomness always comes from a seeded generator"). deadline=None
+# because attribution builds and sorts rows; wall-clock time is irrelevant to correctness.
+hypothesis_settings.register_profile("ci", derandomize=True, max_examples=200, deadline=None)
+hypothesis_settings.load_profile("ci")
 
 
 def pytest_configure(config: pytest.Config) -> None:
