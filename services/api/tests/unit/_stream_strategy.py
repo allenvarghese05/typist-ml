@@ -7,8 +7,7 @@ ports TextCursor (owner answer 5). "Well-formed" means every position has at mos
 row, which is exactly what makes the attempts-vs-letter-pairs invariant provable.
 """
 
-from collections.abc import Callable
-from typing import Any, Final
+from typing import Final, Protocol, TypeVar
 
 from hypothesis import strategies as st
 
@@ -32,7 +31,16 @@ def letter_pair_positions(target: str) -> int:
     )
 
 
-def build_stream(draw: Callable[..., Any], target: str) -> list[KeystrokeEvent]:
+_T = TypeVar("_T")
+
+
+class Draw(Protocol):
+    """The shape of `st.DataObject.draw`, which pyright will not accept as `DrawFn`."""
+
+    def __call__(self, strategy: st.SearchStrategy[_T], /) -> _T: ...
+
+
+def build_stream(draw: Draw, target: str) -> list[KeystrokeEvent]:
     """Draw a well-formed keystroke stream for target: a list of KeystrokeEvent rows.
 
     Each step draws correct / wrong / backspace (backspace only when index > 0). A printable key
