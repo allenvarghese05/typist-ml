@@ -23,7 +23,7 @@ control does as well as the LLM, that is the finding."
   (D02). D02's random-text block of equal length is practice, not a comparison: "versus the
   control set" always means the held-out control bigram set.
 - **Weak bigrams (section 3.4).** A candidate needs "at least 20 first-attempt observations in the
-  two baseline sessions". Candidates are ranked with a Beta prior "centred on the participant's
+  two baseline sessions" (lowered to 15 for assignment by [D28](decisions/D28-assignment-observation-threshold.md)). Candidates are ranked with a Beta prior "centred on the participant's
   overall bigram error rate with strength 20 (empirical Bayes)", and the top 16 are taken (4 per
   set). They are split into sets by rank, snake split and a seeded shuffle, and frozen before
   practice (D04). This ranking prior only chooses bigrams; outcomes use the Jeffreys prior below.

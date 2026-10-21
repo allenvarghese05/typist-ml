@@ -148,6 +148,12 @@ EXPECTED_CONFIG: dict[str, object] = {
     "baseline_part_chars": 2700,
     "corpus_seed": 20261019,
     "corpus_word_count": 20000,
+    # 0005_assignment_config keys (T2.2)
+    "assignment_seed": 20261021,
+    "assignment_prior_strength": 20,
+    "assignment_min_observations": 15,
+    "assignment_per_set": 4,
+    "assignment_per_set_fallback": 3,
 }
 
 # Assumption C: CURRENT_TIMESTAMP writes whole seconds, Python writes microseconds.
