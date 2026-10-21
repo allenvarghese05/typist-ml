@@ -59,9 +59,7 @@ def upgrade() -> None:
             ["participants.id"],
             name=op.f("fk_bigram_assignment_participant_id_participants"),
         ),
-        sa.PrimaryKeyConstraint(
-            "participant_id", "bigram", name=op.f("pk_bigram_assignment")
-        ),
+        sa.PrimaryKeyConstraint("participant_id", "bigram", name=op.f("pk_bigram_assignment")),
     )
     op.create_table(
         "drills",
@@ -88,9 +86,7 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "arm IN ('control', 'heuristic', 'markov', 'llm')", name=op.f("ck_drills_arm")
         ),
-        sa.CheckConstraint(
-            "status IN ('ready', 'used', 'retired')", name=op.f("ck_drills_status")
-        ),
+        sa.CheckConstraint("status IN ('ready', 'used', 'retired')", name=op.f("ck_drills_status")),
         sa.ForeignKeyConstraint(
             ["participant_id"],
             ["participants.id"],

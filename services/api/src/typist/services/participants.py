@@ -77,9 +77,7 @@ def delete_participant(session: Session, participant_id: str) -> ParticipantDele
             delete(Drill).where(col(Drill.participant_id) == participant_id)
         ).rowcount
         assignments = session.exec(
-            delete(BigramAssignment).where(
-                col(BigramAssignment.participant_id) == participant_id
-            )
+            delete(BigramAssignment).where(col(BigramAssignment.participant_id) == participant_id)
         ).rowcount
         events = session.exec(
             delete(KeystrokeEvent).where(col(KeystrokeEvent.block_id).in_(block_ids))

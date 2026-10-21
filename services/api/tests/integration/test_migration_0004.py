@@ -30,7 +30,7 @@ def _schema_sql(db_path: Path) -> str:
 def test_0004_creates_the_four_m2_tables_with_constraints_and_indexes(
     isolated_settings: Path, migrated_engine: Engine
 ) -> None:
-    assert NEW_TABLES <= _tables(isolated_settings)
+    assert _tables(isolated_settings) >= NEW_TABLES
     sql = _schema_sql(isolated_settings)
     assert "CONSTRAINT pk_bigram_assignment PRIMARY KEY (participant_id, bigram)" in sql
     assert "ix_drills_participant_id_arm_status" in sql
@@ -54,4 +54,10 @@ def test_downgrade_0004_drops_only_the_four_m2_tables(
     command.downgrade(alembic_config(), "0003_bigram_stats")
     tables = _tables(isolated_settings)
     assert tables.isdisjoint(NEW_TABLES)
-    assert {"bigram_stats", "sessions", "session_blocks", "participants", "keystroke_events"} <= tables
+    assert {
+        "bigram_stats",
+        "sessions",
+        "session_blocks",
+        "participants",
+        "keystroke_events",
+    } <= tables
