@@ -8,7 +8,17 @@ from sqlalchemy import inspect
 from sqlalchemy.dialects import sqlite
 from sqlmodel import SQLModel
 
-from typist.models import ExperimentConfig, KeystrokeEvent, Participant, SessionBlock, TextPassage
+from typist.models import (
+    BigramAssignment,
+    Drill,
+    ExperimentConfig,
+    GenerationAttempt,
+    GenerationJob,
+    KeystrokeEvent,
+    Participant,
+    SessionBlock,
+    TextPassage,
+)
 from typist.models import Session as TypingSession
 from typist.models.base import NAMING_CONVENTION, JSONText, new_id, sql_in
 
@@ -36,7 +46,7 @@ def test_sql_in_rejects_a_single_quote() -> None:
         sql_in("arm", ("o'brien",))
 
 
-SEVEN_TABLES = {
+ELEVEN_TABLES = {
     "participants",
     "experiment_config",
     "text_passages",
@@ -44,11 +54,15 @@ SEVEN_TABLES = {
     "session_blocks",
     "keystroke_events",
     "bigram_stats",
+    "bigram_assignment",
+    "drills",
+    "generation_jobs",
+    "generation_attempts",
 }
 
 
-def test_metadata_holds_exactly_the_seven_tables() -> None:
-    assert set(SQLModel.metadata.tables) == SEVEN_TABLES
+def test_metadata_holds_exactly_the_eleven_tables() -> None:
+    assert set(SQLModel.metadata.tables) == ELEVEN_TABLES
 
 
 def test_table_names_follow_section_8_1() -> None:
@@ -59,6 +73,10 @@ def test_table_names_follow_section_8_1() -> None:
     assert inspect(TypingSession).tables[0].name == "sessions"
     assert inspect(SessionBlock).tables[0].name == "session_blocks"
     assert inspect(KeystrokeEvent).tables[0].name == "keystroke_events"
+    assert inspect(BigramAssignment).tables[0].name == "bigram_assignment"
+    assert inspect(Drill).tables[0].name == "drills"
+    assert inspect(GenerationJob).tables[0].name == "generation_jobs"
+    assert inspect(GenerationAttempt).tables[0].name == "generation_attempts"
 
 
 def test_every_constraint_and_index_is_named() -> None:

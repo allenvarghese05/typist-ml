@@ -68,6 +68,39 @@ EXPECTED_NAMES: dict[str, set[str]] = {
         "ck_bigram_stats_iki_n",
         "ck_bigram_stats_bigram",
     },
+    "bigram_assignment": {
+        "pk_bigram_assignment",
+        "fk_bigram_assignment_participant_id_participants",
+        "ck_bigram_assignment_set_label",
+        "ck_bigram_assignment_arm",
+        "ck_bigram_assignment_bigram",
+        "ck_bigram_assignment_baseline_rank",
+        "ck_bigram_assignment_baseline_attempts",
+        "ck_bigram_assignment_baseline_errors",
+    },
+    "drills": {
+        "pk_drills",
+        "fk_drills_participant_id_participants",
+        "fk_drills_used_in_block_id_session_blocks",
+        "ck_drills_arm",
+        "ck_drills_status",
+        "ix_drills_participant_id_arm_status",
+    },
+    "generation_jobs": {
+        "pk_generation_jobs",
+        "fk_generation_jobs_participant_id_participants",
+        "ck_generation_jobs_arm",
+        "ck_generation_jobs_status",
+        "ck_generation_jobs_requested",
+        "ck_generation_jobs_retries",
+        "ix_generation_jobs_status_created_at",
+    },
+    "generation_attempts": {
+        "pk_generation_attempts",
+        "fk_generation_attempts_job_id_generation_jobs",
+        "fk_generation_attempts_drill_id_drills",
+        "ix_generation_attempts_job_id",
+    },
 }
 
 EXPECTED_CHECKS: dict[str, str] = {
@@ -88,6 +121,18 @@ EXPECTED_CHECKS: dict[str, str] = {
     "ck_bigram_stats_errors": "errors >= 0",
     "ck_bigram_stats_iki_n": "iki_n >= 0",
     "ck_bigram_stats_bigram": "length(bigram) = 2",
+    "ck_bigram_assignment_set_label": "set_label IN ('A', 'B', 'C', 'D')",
+    "ck_bigram_assignment_arm": "arm IN ('control', 'heuristic', 'markov', 'llm')",
+    "ck_bigram_assignment_bigram": "length(bigram) = 2",
+    "ck_bigram_assignment_baseline_rank": "baseline_rank >= 1",
+    "ck_bigram_assignment_baseline_attempts": "baseline_attempts >= 0",
+    "ck_bigram_assignment_baseline_errors": "baseline_errors >= 0",
+    "ck_drills_arm": "arm IN ('control', 'heuristic', 'markov', 'llm')",
+    "ck_drills_status": "status IN ('ready', 'used', 'retired')",
+    "ck_generation_jobs_arm": "arm IN ('control', 'heuristic', 'markov', 'llm')",
+    "ck_generation_jobs_status": "status IN ('pending', 'running', 'done', 'failed')",
+    "ck_generation_jobs_requested": "requested >= 1",
+    "ck_generation_jobs_retries": "retries >= 0",
 }
 
 EXPECTED_CONFIG: dict[str, object] = {

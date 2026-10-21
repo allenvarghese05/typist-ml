@@ -107,6 +107,10 @@ def test_delete_participant_removes_only_that_participants_rows(
         deletion = delete_participant(session, p01)
 
     assert deletion == ParticipantDeletion(
+        bigram_assignment=1,
+        drills=1,
+        generation_jobs=1,
+        generation_attempts=1,
         bigram_stats=1,
         keystroke_events=3,
         session_blocks=2,
@@ -135,6 +139,10 @@ def test_delete_participant_without_sessions(migrated_engine: Engine) -> None:
     with Session(migrated_engine) as session:
         deletion = delete_participant(session, participant_id)
     assert deletion == ParticipantDeletion(
+        bigram_assignment=0,
+        drills=0,
+        generation_jobs=0,
+        generation_attempts=0,
         bigram_stats=0,
         keystroke_events=0,
         session_blocks=0,

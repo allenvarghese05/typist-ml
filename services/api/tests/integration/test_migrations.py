@@ -21,7 +21,7 @@ from typist.db import create_db_engine
 from typist.migrations import alembic_config, upgrade_to_head
 from typist.models import Participant
 
-HEAD = "0003_bigram_stats"
+HEAD = "0004_m2_tables"
 APP_TABLES = frozenset(
     {
         "participants",
@@ -31,6 +31,10 @@ APP_TABLES = frozenset(
         "session_blocks",
         "keystroke_events",
         "bigram_stats",
+        "bigram_assignment",
+        "drills",
+        "generation_jobs",
+        "generation_attempts",
     }
 )
 # Literal queries per table (no SQL is built from strings).
@@ -42,6 +46,10 @@ COUNT_QUERIES: dict[str, str] = {
     "session_blocks": "SELECT count(*) FROM session_blocks",
     "keystroke_events": "SELECT count(*) FROM keystroke_events",
     "bigram_stats": "SELECT count(*) FROM bigram_stats",
+    "bigram_assignment": "SELECT count(*) FROM bigram_assignment",
+    "drills": "SELECT count(*) FROM drills",
+    "generation_jobs": "SELECT count(*) FROM generation_jobs",
+    "generation_attempts": "SELECT count(*) FROM generation_attempts",
 }
 SEEDED_CONFIG_ROWS = 11  # 5 from 0001_initial_schema + 6 from 0002_baseline_config
 
@@ -87,7 +95,7 @@ def test_upgrade_head_on_a_new_database_uses_the_configured_database(
     assert _versions(isolated_settings) == [HEAD]
 
 
-def test_upgrade_creates_the_seven_tables(isolated_settings: Path) -> None:
+def test_upgrade_creates_the_eleven_tables(isolated_settings: Path) -> None:
     upgrade_to_head()
     assert _table_names(isolated_settings) == APP_TABLES | {"alembic_version"}
 
@@ -163,7 +171,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "0002probe"
-down_revision = "0003_bigram_stats"
+down_revision = "0004_m2_tables"
 branch_labels = None
 depends_on = None
 
