@@ -1,6 +1,7 @@
 """The `typist` command (design doc section 14.1). T0.3 adds only `typist db migrate`."""
 
 import random
+from datetime import UTC, datetime
 
 import typer
 from sqlmodel import Session
@@ -11,7 +12,14 @@ from typist.corpus.word_index import WordIndex
 from typist.db import create_db_engine
 from typist.migrations import upgrade_to_head
 from typist.models import ExperimentConfig
+from typist.services.assignment import (
+    AssignmentError,
+    MissingConfigError,
+    assign_participant,
+    load_assignment_config,
+)
 from typist.services.overhead import format_report, overhead_report
+from typist.services.participants import ParticipantNotFoundError
 from typist.services.session_stats import recompute_stats
 from typist.services.test_composer import (
     BaselinePassagesInUseError,
@@ -164,3 +172,46 @@ def recompute(
     with Session(engine) as session:
         result = recompute_stats(session, pid)
     typer.echo(f"recomputed {result.recomputed} session(s); skipped {result.skipped} not completed")
+
+
+@app.command("assign")
+def assign(
+    pid: str = typer.Option(..., "--pid", help="Participant id to rank, split, map and freeze."),
+) -> None:
+    """Rank, split, seed-shuffle and freeze one participant's weak bigrams (design doc 3.4, 14.1).
+
+    Allowed only when the participant has exactly baseline_parts completed baseline sessions and no
+    existing assignment (owner answer 6; T2.8 owns the status transition). Reproducible: the arm
+    shuffle uses random.Random(f"{assignment_seed}:{pid}") from experiment_config. Prints the frozen
+    set -> arm map and exits 1 with a message on any precondition or data error.
+    """
+    settings = get_settings()
+    try:
+        index = WordIndex.load(settings.corpus_dir)
+    except FileNotFoundError:
+        typer.echo("corpus artifacts missing; run `typist corpus build` first", err=True)
+        raise typer.Exit(code=1) from None
+    engine = create_db_engine(settings.db_path)
+    with Session(engine) as session:
+        try:
+            config = load_assignment_config(session)
+        except MissingConfigError as error:
+            typer.echo(f"experiment_config is missing '{error}'; run `typist db migrate`", err=True)
+            raise typer.Exit(code=1) from None
+        rng = random.Random(f"{config.seed}:{pid}")
+        try:
+            rows = assign_participant(
+                session, pid, rng=rng, now=datetime.now(UTC), index=index
+            )
+        except ParticipantNotFoundError:
+            typer.echo(f"no participant with id {pid!r}", err=True)
+            raise typer.Exit(code=1) from None
+        except AssignmentError as error:
+            typer.echo(f"cannot assign {pid}: {error}", err=True)
+            raise typer.Exit(code=1) from None
+    labels = sorted({row.set_label for row in rows})
+    mapping = {
+        label: next(row.arm for row in rows if row.set_label == label) for label in labels
+    }
+    summary = ", ".join(f"{label}->{mapping[label]}" for label in labels)
+    typer.echo(f"assigned {pid}: {len(rows)} bigrams frozen; sets {summary}")
