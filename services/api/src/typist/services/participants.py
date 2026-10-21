@@ -27,9 +27,9 @@ class ParticipantDeletion:
 def delete_participant(session: Session, participant_id: str) -> ParticipantDeletion:
     """Delete every row that belongs to one participant, children before parents, and commit.
 
-    Order: keystroke_events of the participant's blocks, session_blocks, sessions, the
-    participant's own text_passages (participant_id set; shared passages with a NULL
-    participant_id are never touched), then the participants row. There is no ON DELETE
+    Order: keystroke_events of the participant's blocks, session_blocks, bigram_stats,
+    sessions, the participant's own text_passages (participant_id set; shared passages with a
+    NULL participant_id are never touched), then the participants row. There is no ON DELETE
     CASCADE, so this is the only delete path. Raises ParticipantNotFoundError, deleting nothing,
     if the participant does not exist. Any database error rolls the whole delete back.
     """
