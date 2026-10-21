@@ -107,7 +107,12 @@ def test_delete_participant_removes_only_that_participants_rows(
         deletion = delete_participant(session, p01)
 
     assert deletion == ParticipantDeletion(
-        keystroke_events=3, session_blocks=2, sessions=2, text_passages=1, participants=1
+        bigram_stats=1,
+        keystroke_events=3,
+        session_blocks=2,
+        sessions=2,
+        text_passages=1,
+        participants=1,
     )
     with closing(sqlite3.connect(isolated_settings)) as connection:
         assert connection.execute("SELECT id FROM participants").fetchall() == [(other_id,)]
@@ -130,7 +135,12 @@ def test_delete_participant_without_sessions(migrated_engine: Engine) -> None:
     with Session(migrated_engine) as session:
         deletion = delete_participant(session, participant_id)
     assert deletion == ParticipantDeletion(
-        keystroke_events=0, session_blocks=0, sessions=0, text_passages=0, participants=1
+        bigram_stats=0,
+        keystroke_events=0,
+        session_blocks=0,
+        sessions=0,
+        text_passages=0,
+        participants=1,
     )
 
 

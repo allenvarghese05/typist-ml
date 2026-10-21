@@ -36,18 +36,19 @@ def test_sql_in_rejects_a_single_quote() -> None:
         sql_in("arm", ("o'brien",))
 
 
-SIX_TABLES = {
+SEVEN_TABLES = {
     "participants",
     "experiment_config",
     "text_passages",
     "sessions",
     "session_blocks",
     "keystroke_events",
+    "bigram_stats",
 }
 
 
-def test_metadata_holds_exactly_the_six_tables() -> None:
-    assert set(SQLModel.metadata.tables) == SIX_TABLES
+def test_metadata_holds_exactly_the_seven_tables() -> None:
+    assert set(SQLModel.metadata.tables) == SEVEN_TABLES
 
 
 def test_table_names_follow_section_8_1() -> None:

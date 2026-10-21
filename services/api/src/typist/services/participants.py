@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from sqlmodel import Session, col, delete, select
 
-from typist.models import KeystrokeEvent, Participant, SessionBlock, TextPassage
+from typist.models import BigramStat, KeystrokeEvent, Participant, SessionBlock, TextPassage
 from typist.models import Session as TypingSession
 
 
@@ -16,6 +16,7 @@ class ParticipantNotFoundError(LookupError):
 class ParticipantDeletion:
     """Rows removed by delete_participant, per table."""
 
+    bigram_stats: int
     keystroke_events: int
     session_blocks: int
     sessions: int
@@ -51,6 +52,9 @@ def delete_participant(session: Session, participant_id: str) -> ParticipantDele
         blocks = session.exec(
             delete(SessionBlock).where(col(SessionBlock.id).in_(block_ids))
         ).rowcount
+        bigrams = session.exec(
+            delete(BigramStat).where(col(BigramStat.session_id).in_(session_ids))
+        ).rowcount
         sessions = session.exec(
             delete(TypingSession).where(col(TypingSession.id).in_(session_ids))
         ).rowcount
@@ -65,6 +69,7 @@ def delete_participant(session: Session, participant_id: str) -> ParticipantDele
         session.rollback()
         raise
     return ParticipantDeletion(
+        bigram_stats=bigrams,
         keystroke_events=events,
         session_blocks=blocks,
         sessions=sessions,
