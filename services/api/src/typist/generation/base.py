@@ -7,7 +7,7 @@ DrillSpec is the request the GenerationService builds per participant/arm (its t
 from the frozen bigram_assignment rows, T2.2; empty for control). DrillCandidate is what a
 generator returns before validation -- it carries the text and the reproducibility/timing fields
 that map onto the drills/generation_attempts columns (section 8.1), but NO fairness metrics: the
-DrillValidator computes those, so a candidate can never report stale or self-measured numbers
+`validate` function computes those, so a candidate can never report stale or self-measured numbers
 (owner answer 1). DrillGenerator is the one protocol control/heuristic/markov/llm all satisfy
 (9.1 "Every generator implements the same DrillGenerator protocol").
 """
