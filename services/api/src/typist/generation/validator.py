@@ -118,18 +118,17 @@ def _longest_bigram_run(text: str) -> int:
 def _metrics(text: str, spec: DrillSpec, known_words: Collection[str]) -> DrillMetrics:
     """Measure one candidate. Density is Σ(target bigram occurrences) / all letter-letter bigrams
     (owner answer 4), 0.0 when there are no targets or no bigrams. mean_word_len and real_word_ratio
-    are over the space-split tokens (0.0 for empty text). Uses count_bigrams/word_bigrams only."""
+    are over non-empty space-split tokens (0.0 for zero words). Uses count_bigrams/word_bigrams
+    only. Empty tokens (from leading/trailing/doubled spaces) are excluded from word metrics."""
     counts = count_bigrams(text)
     total = sum(counts.values())
     coverage = {bigram: counts.get(bigram, 0) for bigram in spec.target_bigrams}
     target_occurrences = sum(coverage.values())
     density = target_occurrences / total if spec.target_bigrams and total > 0 else 0.0
-    tokens = text.split(" ")
-    mean_word_len = sum(len(token) for token in tokens) / len(tokens) if tokens else 0.0
-    real_word_ratio = (
-        sum(1 for token in tokens if token in known_words) / len(tokens) if tokens else 0.0
-    )
-    max_word_count = max((tokens.count(token) for token in set(tokens)), default=0)
+    words = [token for token in text.split(" ") if token]
+    mean_word_len = sum(len(w) for w in words) / len(words) if words else 0.0
+    real_word_ratio = sum(1 for w in words if w in known_words) / len(words) if words else 0.0
+    max_word_count = max((words.count(w) for w in set(words)), default=0)
     return DrillMetrics(
         length_chars=len(text),
         target_density=density,
