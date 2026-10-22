@@ -33,8 +33,9 @@ def _config(**overrides: object) -> ValidatorConfig:
     return ValidatorConfig(**values)  # type: ignore[arg-type]
 
 
-def _spec(arm: Arm, targets: tuple[str, ...], *, min_density: float = 0.15,
-          max_density: float = 0.40) -> DrillSpec:
+def _spec(
+    arm: Arm, targets: tuple[str, ...], *, min_density: float = 0.15, max_density: float = 0.40
+) -> DrillSpec:
     return DrillSpec(
         participant_id="p1",
         arm=arm,
@@ -139,7 +140,10 @@ def test_accepted_drill() -> None:
 def test_control_passes_with_empty_targets() -> None:
     spec = _spec(Arm.CONTROL, ())
     result = validate(
-        "hello world foo bar", spec, _config(min_length_chars=5), frozenset({"hello", "world", "foo", "bar"})
+        "hello world foo bar",
+        spec,
+        _config(min_length_chars=5),
+        frozenset({"hello", "world", "foo", "bar"}),
     )
     assert result.accepted is True
     assert result.reasons == ()

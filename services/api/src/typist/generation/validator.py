@@ -115,9 +115,7 @@ def _longest_bigram_run(text: str) -> int:
     return longest
 
 
-def _metrics(
-    text: str, spec: DrillSpec, known_words: Collection[str]
-) -> DrillMetrics:
+def _metrics(text: str, spec: DrillSpec, known_words: Collection[str]) -> DrillMetrics:
     """Measure one candidate. Density is Σ(target bigram occurrences) / all letter-letter bigrams
     (owner answer 4), 0.0 when there are no targets or no bigrams. mean_word_len and real_word_ratio
     are over the space-split tokens (0.0 for empty text). Uses count_bigrams/word_bigrams only."""
@@ -125,15 +123,11 @@ def _metrics(
     total = sum(counts.values())
     coverage = {bigram: counts.get(bigram, 0) for bigram in spec.target_bigrams}
     target_occurrences = sum(coverage.values())
-    density = (
-        target_occurrences / total if spec.target_bigrams and total > 0 else 0.0
-    )
+    density = target_occurrences / total if spec.target_bigrams and total > 0 else 0.0
     tokens = text.split(" ")
     mean_word_len = sum(len(token) for token in tokens) / len(tokens) if tokens else 0.0
     real_word_ratio = (
-        sum(1 for token in tokens if token in known_words) / len(tokens)
-        if tokens
-        else 0.0
+        sum(1 for token in tokens if token in known_words) / len(tokens) if tokens else 0.0
     )
     max_word_count = max((tokens.count(token) for token in set(tokens)), default=0)
     return DrillMetrics(
@@ -184,9 +178,7 @@ def validate(
         reasons.append(RejectReason.BIGRAM_REPEAT)
     if spec.arm is Arm.LLM and metrics.real_word_ratio < config.min_real_word_ratio:
         reasons.append(RejectReason.REAL_WORD_RATIO)
-    return ValidationResult(
-        accepted=not reasons, reasons=tuple(reasons), metrics=metrics
-    )
+    return ValidationResult(accepted=not reasons, reasons=tuple(reasons), metrics=metrics)
 
 
 def load_validator_config(session: Session) -> ValidatorConfig:
