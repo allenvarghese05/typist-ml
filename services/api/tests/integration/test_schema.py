@@ -161,6 +161,8 @@ EXPECTED_CONFIG: dict[str, object] = {
     "drill_max_word_repeats": 3,
     "drill_max_bigram_run": 3,
     "drill_min_real_word_ratio": 0.8,
+    # 0007_generator_config key (T2.4)
+    "control_word_pool": 5000,
 }
 
 # Assumption C: CURRENT_TIMESTAMP writes whole seconds, Python writes microseconds.
