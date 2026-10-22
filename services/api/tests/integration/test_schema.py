@@ -154,6 +154,13 @@ EXPECTED_CONFIG: dict[str, object] = {
     "assignment_min_observations": 15,
     "assignment_per_set": 4,
     "assignment_per_set_fallback": 3,
+    # 0006_validator_config keys (T2.3)
+    "drill_length_chars": 300,
+    "drill_min_length_chars": 270,
+    "drill_min_coverage": 3,
+    "drill_max_word_repeats": 3,
+    "drill_max_bigram_run": 3,
+    "drill_min_real_word_ratio": 0.8,
 }
 
 # Assumption C: CURRENT_TIMESTAMP writes whole seconds, Python writes microseconds.
