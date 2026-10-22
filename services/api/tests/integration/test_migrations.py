@@ -51,7 +51,9 @@ COUNT_QUERIES: dict[str, str] = {
     "generation_jobs": "SELECT count(*) FROM generation_jobs",
     "generation_attempts": "SELECT count(*) FROM generation_attempts",
 }
-SEEDED_CONFIG_ROWS = 23  # 5 from 0001 + 6 from 0002 + 5 from 0005 + 6 from 0006 + 1 from 0007_generator_config
+SEEDED_CONFIG_ROWS = (
+    23  # 5 from 0001 + 6 from 0002 + 5 from 0005 + 6 from 0006 + 1 from 0007_generator_config
+)
 
 
 def _table_names(db_path: Path) -> set[str]:

@@ -32,9 +32,7 @@ class ControlGenerator:
     arm = Arm.CONTROL
     version = _VERSION
 
-    def __init__(
-        self, index: WordIndex, config: ValidatorConfig, pool_size: int
-    ) -> None:
+    def __init__(self, index: WordIndex, config: ValidatorConfig, pool_size: int) -> None:
         """index supplies the ranked words and their frequencies; config is accepted for a uniform
         generator constructor (T2.5 wires every arm the same way) though control reads nothing from
         it; pool_size is control_word_pool (owner answer 1) -- the pool is index.words[:pool_size].

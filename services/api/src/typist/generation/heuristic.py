@@ -41,9 +41,7 @@ class HeuristicGenerator:
     arm = Arm.HEURISTIC
     version = _VERSION
 
-    def __init__(
-        self, index: WordIndex, config: ValidatorConfig, pool_size: int
-    ) -> None:
+    def __init__(self, index: WordIndex, config: ValidatorConfig, pool_size: int) -> None:
         """index supplies the words, frequencies and bigram index; config is accepted for a uniform
         generator constructor (T2.5) though the heuristic reads density bounds and length off the
         spec, not config; pool_size is control_word_pool, used for the filler pool (owner answers
@@ -53,9 +51,7 @@ class HeuristicGenerator:
         self._config = config
         self._min_frequency = min(index.frequencies.values())
         self._filler_pool: tuple[str, ...] = tuple(
-            word
-            for word in index.words[:pool_size]
-            if _MIN_WORD_LEN <= len(word) <= _MAX_WORD_LEN
+            word for word in index.words[:pool_size] if _MIN_WORD_LEN <= len(word) <= _MAX_WORD_LEN
         )
         self._sqrt_freq: dict[str, float] = {
             word: math.sqrt(index.frequencies[word]) for word in self._filler_pool
@@ -94,15 +90,11 @@ class HeuristicGenerator:
             ]
             word_scores = {word: self._word_score(word, bigram) for word in words}
             ranked[bigram] = tuple(
-                word for _, word in sorted(
-                    (-word_scores[word], word) for word in words
-                )
+                word for _, word in sorted((-word_scores[word], word) for word in words)
             )
             scores[bigram] = word_scores
         fillers = tuple(
-            word
-            for word in self._filler_pool
-            if not (frozenset(word_bigrams(word)) & target_set)
+            word for word in self._filler_pool if not (frozenset(word_bigrams(word)) & target_set)
         )
         midpoint = (spec.min_density + spec.max_density) / 2
         used: dict[str, int] = {}
@@ -115,9 +107,7 @@ class HeuristicGenerator:
             word: str | None = None
             if not density > midpoint:
                 lowest = min(coverage[bigram] for bigram in targets)
-                tied = sorted(
-                    bigram for bigram in targets if coverage[bigram] == lowest
-                )
+                tied = sorted(bigram for bigram in targets if coverage[bigram] == lowest)
                 rng.shuffle(tied)
                 for bigram in tied:
                     eligible = [

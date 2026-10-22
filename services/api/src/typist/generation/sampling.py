@@ -14,9 +14,7 @@ import random
 from collections.abc import Sequence
 
 
-def weighted_choice[T](
-    rng: random.Random, items: Sequence[T], weights: Sequence[float]
-) -> T:
+def weighted_choice[T](rng: random.Random, items: Sequence[T], weights: Sequence[float]) -> T:
     """Return one item chosen with probability proportional to its weight, using one rng draw.
 
     items and weights must be non-empty and the same length; every weight must be >= 0 and their

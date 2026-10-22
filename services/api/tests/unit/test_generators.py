@@ -2,8 +2,6 @@
 heuristic stays inside the density range; clean charset and the 2-use cap (T2.4). The corpus is
 built once per module (build_corpus, offline, ~0.2 s)."""
 
-import random
-
 import pytest
 
 from typist.corpus.build import build_corpus
@@ -48,9 +46,7 @@ def _control_spec(seed: int) -> DrillSpec:
 
 
 def _heuristic_spec(targets: tuple[str, ...], seed: int) -> DrillSpec:
-    return DrillSpec(
-        participant_id="p1", arm=Arm.HEURISTIC, target_bigrams=targets, seed=seed
-    )
+    return DrillSpec(participant_id="p1", arm=Arm.HEURISTIC, target_bigrams=targets, seed=seed)
 
 
 def _common(index: WordIndex) -> tuple[str, ...]:
