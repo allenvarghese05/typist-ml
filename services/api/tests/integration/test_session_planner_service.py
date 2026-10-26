@@ -233,6 +233,20 @@ def test_plan_session_returns_open_session_under_30_minutes_and_abandons_stale_s
         assert db_s2.ended_at == t_day2 + timedelta(minutes=31)
         assert db_s3 is not None and db_s3.block_order == "HMLC"
 
+        # If an older in_progress row coexists with an active <= 30m in_progress row (s3),
+        # plan_session returns s3 AND marks the older in_progress row 'abandoned'.
+        db_s2.status = "in_progress"
+        db_s2.ended_at = None
+        session.add(db_s2)
+        session.commit()
+
+        t_retry_s3 = t_day2 + timedelta(minutes=35)
+        s3_again = plan_session(session, "p-stale", now=t_retry_s3)
+        assert s3_again.session_id == s3.session_id
+        session.refresh(db_s2)
+        assert db_s2.status == "abandoned"
+        assert db_s2.ended_at == t_retry_s3
+
 
 def test_plan_session_supports_two_arm_cut_line_mode(migrated_engine: Engine) -> None:
     with Session(migrated_engine) as session:

@@ -310,11 +310,13 @@ def plan_session(
         .order_by(col(TypingSession.started_at).desc(), col(TypingSession.id).desc())
     ).all()
 
+    active_open_session_id: str | None = None
     abandoned_any = False
     for open_session in open_sessions:
         age = current_now - _ensure_aware_utc(open_session.started_at)
-        if age <= STALE_SESSION_TIMEOUT:
-            return get_session_plan(session, open_session.id)
+        if active_open_session_id is None and age <= STALE_SESSION_TIMEOUT:
+            active_open_session_id = open_session.id
+            continue
         open_session.status = "abandoned"
         open_session.ended_at = current_now
         session.add(open_session)
@@ -322,6 +324,9 @@ def plan_session(
 
     if abandoned_any:
         session.commit()
+
+    if active_open_session_id is not None:
+        return get_session_plan(session, active_open_session_id)
 
     prior_sessions = session.exec(
         select(TypingSession).where(
