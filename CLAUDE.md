@@ -64,8 +64,10 @@ Rules for the main session:
   review loop fails twice, or `just check` fails.
 - Never change a plan during build. Plan problems go back to the architect.
 - Never merge PRs.
-- Subagent definitions live in `.claude/agents/` (Claude Code) and `.pi/agents/`
-  (pi). Keep them in sync when editing either.
+- Subagent definitions live in `.claude/agents/` (Claude Code), `.pi/agents/`
+  (pi), and `.agents/agents/` (Antigravity / Gemini, with skills in
+  `.agents/skills/` and instructions in `GEMINI.md`). Keep them in sync when
+  editing any of them.
 
 ## Do not
 - Copy code from Monkeytype or any GPL project. Behaviour reference only.
