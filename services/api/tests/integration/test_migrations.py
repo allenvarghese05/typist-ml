@@ -21,7 +21,7 @@ from typist.db import create_db_engine
 from typist.migrations import alembic_config, upgrade_to_head
 from typist.models import Participant
 
-HEAD = "0007_generator_config"
+HEAD = "0008_retest_config"
 APP_TABLES = frozenset(
     {
         "participants",
@@ -52,7 +52,7 @@ COUNT_QUERIES: dict[str, str] = {
     "generation_attempts": "SELECT count(*) FROM generation_attempts",
 }
 SEEDED_CONFIG_ROWS = (
-    23  # 5 from 0001 + 6 from 0002 + 5 from 0005 + 6 from 0006 + 1 from 0007_generator_config
+    26  # 5 from 0001 + 6 from 0002 + 5 from 0005 + 6 from 0006 + 1 from 0007 + 3 from 0008
 )
 
 
@@ -173,7 +173,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "0002probe"
-down_revision = "0007_generator_config"
+down_revision = "0008_retest_config"
 branch_labels = None
 depends_on = None
 
