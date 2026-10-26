@@ -218,9 +218,7 @@ def assign(
 
 @app.command("worker")
 def worker(
-    once: bool = typer.Option(
-        False, "--once", help="Run a single poll/claim cycle and exit."
-    ),
+    once: bool = typer.Option(False, "--once", help="Run a single poll/claim cycle and exit."),
     poll_interval: float = typer.Option(
         DEFAULT_POLL_INTERVAL_S,
         "--poll-interval",
@@ -252,4 +250,3 @@ def worker(
         )
     finally:
         engine.dispose()
-

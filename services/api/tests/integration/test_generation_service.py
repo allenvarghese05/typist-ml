@@ -225,9 +225,7 @@ def test_generate_with_retries_logs_rejected_attempts_then_accepts_and_links_dri
         assert attempts[2].reject_reasons == []
         assert attempts[2].drill_id == drill.id
 
-        drills = session.exec(
-            select(Drill).where(col(Drill.participant_id) == PID)
-        ).all()
+        drills = session.exec(select(Drill).where(col(Drill.participant_id) == PID)).all()
         assert len(drills) == 1
         assert drills[0].id == drill.id
         assert drills[0].status == "ready"
@@ -272,9 +270,7 @@ def test_generate_with_retries_raises_when_all_attempts_exhausted(
         assert all(not a.accepted for a in attempts)
         assert all(a.drill_id is None for a in attempts)
 
-        drills = session.exec(
-            select(Drill).where(col(Drill.participant_id) == PID)
-        ).all()
+        drills = session.exec(select(Drill).where(col(Drill.participant_id) == PID)).all()
         assert len(drills) == 0
 
 
@@ -477,9 +473,7 @@ def test_run_job_partial_progress_and_retry_recovery(
         assert job.finished_at is not None
 
         # Verify 1 drill and 6 attempts (1 accepted + 5 rejected)
-        drills_in_db = session.exec(
-            select(Drill).where(col(Drill.participant_id) == PID)
-        ).all()
+        drills_in_db = session.exec(select(Drill).where(col(Drill.participant_id) == PID)).all()
         assert len(drills_in_db) == 1
 
         attempts_in_db = session.exec(
@@ -507,9 +501,7 @@ def test_run_job_partial_progress_and_retry_recovery(
         assert job.status == "done"
         assert job.error is None
 
-        drills_total = session.exec(
-            select(Drill).where(col(Drill.participant_id) == PID)
-        ).all()
+        drills_total = session.exec(select(Drill).where(col(Drill.participant_id) == PID)).all()
         assert len(drills_total) == 2
 
 
@@ -699,4 +691,3 @@ def test_run_worker_drains_queue_and_stops_on_event(
         j2 = session.get(GenerationJob, job2_id)
         assert j1 is not None and j1.status == "done"
         assert j2 is not None and j2.status == "done"
-

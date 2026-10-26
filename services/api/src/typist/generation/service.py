@@ -137,9 +137,7 @@ def claim_next_job(session: Session, now: datetime | None = None) -> GenerationJ
         AND status = 'pending'
         RETURNING id
         """
-    ).bindparams(
-        sa.bindparam("started_at", claimed_at, type_=sa.DateTime(timezone=True))
-    )
+    ).bindparams(sa.bindparam("started_at", claimed_at, type_=sa.DateTime(timezone=True)))
     row = session.connection().execute(stmt).first()
     if row is None:
         session.rollback()
@@ -264,9 +262,7 @@ class GenerationService:
                 )
             attempt_spec = replace(spec, seed=attempt_seed)
             candidate: DrillCandidate = generator.generate(attempt_spec)
-            result = validate(
-                candidate.text, attempt_spec, validator_config, self._known_words
-            )
+            result = validate(candidate.text, attempt_spec, validator_config, self._known_words)
             reason_tokens = [reason.value for reason in result.reasons]
 
             if result.accepted:
