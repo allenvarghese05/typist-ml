@@ -1,7 +1,9 @@
 """Integration tests for GenerationService, atomic job claiming, and attempt logging (T2.5)."""
 
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Final
 
 import pytest
@@ -29,6 +31,7 @@ from typist.models import (
     GenerationJob,
     Participant,
 )
+from typist.worker import read_heartbeat_age_s, run_worker, run_worker_once
 
 PID: Final = "p-gen-01"
 
@@ -608,3 +611,92 @@ def test_run_job_fails_cleanly_when_generator_raises_unexpected_exception(
         assert job.status == "failed"
         assert job.retries == 1
         assert job.error == "boom"
+
+
+def test_run_worker_once_processes_one_job_and_writes_heartbeat(
+    migrated_engine: Engine, isolated_settings: Path, corpus_index: WordIndex
+) -> None:
+    with Session(migrated_engine) as session:
+        _setup_participant(session)
+        job = GenerationJob(
+            participant_id=PID,
+            arm="control",
+            requested=1,
+            status="pending",
+        )
+        session.add(job)
+        session.commit()
+        job_id = job.id
+
+    claimed = run_worker_once(migrated_engine, isolated_settings, corpus_index)
+    assert claimed == job_id
+
+    with Session(migrated_engine) as session:
+        refreshed_job = session.get(GenerationJob, job_id)
+        assert refreshed_job is not None
+        assert refreshed_job.status == "done"
+
+        drills = session.exec(select(Drill).where(col(Drill.participant_id) == PID)).all()
+        assert len(drills) == 1
+        assert drills[0].status == "ready"
+
+    age = read_heartbeat_age_s(isolated_settings)
+    assert age is not None
+    assert age >= 0.0
+
+
+def test_run_worker_drains_queue_and_stops_on_event(
+    migrated_engine: Engine, isolated_settings: Path, corpus_index: WordIndex
+) -> None:
+    with Session(migrated_engine) as session:
+        _setup_participant(session)
+        job1 = GenerationJob(
+            participant_id=PID,
+            arm="control",
+            requested=1,
+            status="pending",
+        )
+        job2 = GenerationJob(
+            participant_id=PID,
+            arm="control",
+            requested=1,
+            status="pending",
+        )
+        session.add_all([job1, job2])
+        session.commit()
+        job1_id = job1.id
+        job2_id = job2.id
+        validator_config = load_validator_config(session)
+
+    stop_event = threading.Event()
+    real_control = ControlGenerator(corpus_index, validator_config, 5000)
+
+    class _StoppingGenerator:
+        arm = Arm.CONTROL
+        version = "stopping-v1"
+
+        def __init__(self) -> None:
+            self.count = 0
+
+        def generate(self, spec: DrillSpec) -> DrillCandidate:
+            self.count += 1
+            if self.count >= 2:
+                stop_event.set()
+            return real_control.generate(spec)
+
+    processed = run_worker(
+        migrated_engine,
+        isolated_settings,
+        corpus_index,
+        poll_interval_s=0.01,
+        stop_event=stop_event,
+        generators={Arm.CONTROL: _StoppingGenerator()},
+    )
+    assert processed == 2
+
+    with Session(migrated_engine) as session:
+        j1 = session.get(GenerationJob, job1_id)
+        j2 = session.get(GenerationJob, job2_id)
+        assert j1 is not None and j1.status == "done"
+        assert j2 is not None and j2.status == "done"
+
