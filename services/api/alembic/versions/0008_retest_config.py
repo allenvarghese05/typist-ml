@@ -52,7 +52,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Delete only the three retest composer keys."""
     op.execute(
-        _config_table.delete().where(
-            _config_table.c.key.in_(list(RETEST_CONFIG_DEFAULTS.keys()))
-        )
+        _config_table.delete().where(_config_table.c.key.in_(list(RETEST_CONFIG_DEFAULTS.keys())))
     )

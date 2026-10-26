@@ -58,9 +58,7 @@ def _recount(text: str) -> dict[str, int]:
     return dict(counts)
 
 
-def _seed_assigned_participant(
-    session: Session, pid: str, bigrams: tuple[str, ...]
-) -> None:
+def _seed_assigned_participant(session: Session, pid: str, bigrams: tuple[str, ...]) -> None:
     session.add(Participant(id=pid, alias=pid, status="assigned"))
     session.flush()
     sets = ("A", "B", "C", "D")
@@ -170,9 +168,7 @@ def test_compose_retest_cli_covers_assigned_bigrams_at_40_and_avoids_form_a_word
     assert second.exit_code == 0, second.output
     assert "unchanged: 2 retest passages (form B) for p-retest-cli" in second.stdout
 
-    form_a_words = {
-        word for text in _shared_a_texts(migrated_engine) for word in text.split(" ")
-    }
+    form_a_words = {word for text in _shared_a_texts(migrated_engine) for word in text.split(" ")}
     passages = _participant_b_passages(migrated_engine, "p-retest-cli")
     assert len(passages) == 2
 

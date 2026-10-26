@@ -165,10 +165,15 @@ def compose_retest_command(
             typer.echo(f"no participant with id {pid!r}", err=True)
             raise typer.Exit(code=1) from None
         except ParticipantNotAssignedError:
-            typer.echo(f"participant {pid!r} is not assigned; run `typist assign --pid {pid}` first", err=True)
+            typer.echo(
+                f"participant {pid!r} is not assigned; run `typist assign --pid {pid}` first",
+                err=True,
+            )
             raise typer.Exit(code=1) from None
         except BaselinePassagesNotFoundError:
-            typer.echo("form A passages missing; run `typist corpus compose-baseline` first", err=True)
+            typer.echo(
+                "form A passages missing; run `typist corpus compose-baseline` first", err=True
+            )
             raise typer.Exit(code=1) from None
         except RetestTextsDifferError:
             typer.echo(

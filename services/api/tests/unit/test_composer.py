@@ -145,15 +145,9 @@ def test_retest_covers_assigned_bigrams_at_40_and_avoids_form_a_words(
 
 def test_retest_is_deterministic_and_varies_by_participant_seed(index: WordIndex) -> None:
     assigned = index.tracked_bigrams[:12]
-    run_1 = compose_retest(
-        RETEST_CONFIG, index, "p-01", assigned, random.Random("20261019:p-01:B")
-    )
-    run_2 = compose_retest(
-        RETEST_CONFIG, index, "p-01", assigned, random.Random("20261019:p-01:B")
-    )
-    other = compose_retest(
-        RETEST_CONFIG, index, "p-02", assigned, random.Random("20261019:p-02:B")
-    )
+    run_1 = compose_retest(RETEST_CONFIG, index, "p-01", assigned, random.Random("20261019:p-01:B"))
+    run_2 = compose_retest(RETEST_CONFIG, index, "p-01", assigned, random.Random("20261019:p-01:B"))
+    other = compose_retest(RETEST_CONFIG, index, "p-02", assigned, random.Random("20261019:p-02:B"))
     assert [p.text for p in run_1] == [p.text for p in run_2]
     assert [p.text for p in run_1] != [p.text for p in other]
 

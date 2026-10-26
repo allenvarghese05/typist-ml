@@ -92,15 +92,11 @@ def test_persist_retest_creates_unchanged_differs_replaces_and_isolates_particip
 
     with Session(migrated_engine) as session:
         created = persist_retest(session, "p-01", _retest_passages("p-01", "ab cd", "ef gh"))
-        assert created == RetestPersistResult(
-            status="created", parts=2, participant_id="p-01"
-        )
+        assert created == RetestPersistResult(status="created", parts=2, participant_id="p-01")
 
     with Session(migrated_engine) as session:
         unchanged = persist_retest(session, "p-01", _retest_passages("p-01", "ab cd", "ef gh"))
-        assert unchanged == RetestPersistResult(
-            status="unchanged", parts=2, participant_id="p-01"
-        )
+        assert unchanged == RetestPersistResult(status="unchanged", parts=2, participant_id="p-01")
 
     with Session(migrated_engine) as session, pytest.raises(RetestTextsDifferError):
         persist_retest(session, "p-01", _retest_passages("p-01", "xx yy", "zz ww"))
@@ -108,15 +104,11 @@ def test_persist_retest_creates_unchanged_differs_replaces_and_isolates_particip
     # Another participant's form B rows are completely independent.
     with Session(migrated_engine) as session:
         created_p2 = persist_retest(session, "p-02", _retest_passages("p-02", "mm nn", "oo pp"))
-        assert created_p2 == RetestPersistResult(
-            status="created", parts=2, participant_id="p-02"
-        )
+        assert created_p2 == RetestPersistResult(status="created", parts=2, participant_id="p-02")
         replaced_p1 = persist_retest(
             session, "p-01", _retest_passages("p-01", "xx yy", "zz ww"), replace=True
         )
-        assert replaced_p1 == RetestPersistResult(
-            status="replaced", parts=2, participant_id="p-01"
-        )
+        assert replaced_p1 == RetestPersistResult(status="replaced", parts=2, participant_id="p-01")
         assert [p.text for p in _participant_b(session, "p-01")] == ["xx yy", "zz ww"]
         assert [p.text for p in _participant_b(session, "p-02")] == ["mm nn", "oo pp"]
 
@@ -152,9 +144,7 @@ def test_persist_retest_refuses_to_replace_when_referenced_by_session_block(
         session.commit()
 
     with Session(migrated_engine) as session, pytest.raises(RetestPassagesInUseError):
-        persist_retest(
-            session, "p-01", _retest_passages("p-01", "xx yy", "zz ww"), replace=True
-        )
+        persist_retest(session, "p-01", _retest_passages("p-01", "xx yy", "zz ww"), replace=True)
 
     with Session(migrated_engine) as session:
         assert [p.text for p in _participant_b(session, "p-01")] == ["ab cd", "ef gh"]
@@ -193,7 +183,16 @@ def test_compose_and_persist_retest_integrates_with_session_planner_and_delete_p
                     part=0,
                     participant_id=None,
                     text="the and for are",
-                    bigram_counts={"th": 1, "he": 1, "an": 1, "nd": 1, "fo": 1, "or": 1, "ar": 1, "re": 1},
+                    bigram_counts={
+                        "th": 1,
+                        "he": 1,
+                        "an": 1,
+                        "nd": 1,
+                        "fo": 1,
+                        "or": 1,
+                        "ar": 1,
+                        "re": 1,
+                    },
                 ),
                 TextPassage(
                     kind="baseline",
@@ -201,15 +200,22 @@ def test_compose_and_persist_retest_integrates_with_session_planner_and_delete_p
                     part=1,
                     participant_id=None,
                     text="but not you all",
-                    bigram_counts={"bu": 1, "ut": 1, "no": 1, "ot": 1, "yo": 1, "ou": 1, "al": 1, "ll": 1},
+                    bigram_counts={
+                        "bu": 1,
+                        "ut": 1,
+                        "no": 1,
+                        "ot": 1,
+                        "yo": 1,
+                        "ou": 1,
+                        "al": 1,
+                        "ll": 1,
+                    },
                 ),
             ],
         )
 
         result = compose_and_persist_retest(session, "p-retest", index)
-        assert result == RetestPersistResult(
-            status="created", parts=2, participant_id="p-retest"
-        )
+        assert result == RetestPersistResult(status="created", parts=2, participant_id="p-retest")
 
         # session_planner.plan_session for phase='retest' now finds part 0 for this participant.
         planned = plan_session(session, "p-retest", "retest", now=STARTED_AT)
