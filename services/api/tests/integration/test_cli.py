@@ -1,5 +1,6 @@
 """The `typist` command: `typist db migrate`, `typist worker`, and cli tests (T0.3, T2.5)."""
 
+import re
 from pathlib import Path
 
 from sqlmodel import Session, col, select
@@ -36,8 +37,9 @@ def test_help_lists_the_worker_command() -> None:
     assert "worker" in root.output
     worker_help = runner.invoke(app, ["worker", "--help"])
     assert worker_help.exit_code == 0, worker_help.output
-    assert "--once" in worker_help.output
-    assert "--poll-interval" in worker_help.output
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", worker_help.output)
+    assert "--once" in plain
+    assert "--poll-interval" in plain
 
 
 def test_worker_exits_1_when_corpus_is_missing(isolated_settings: Path) -> None:
