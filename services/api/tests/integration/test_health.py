@@ -1,14 +1,17 @@
-"""GET /api/v1/health in-process, on a temporary SQLite file (design doc section 17.2)."""
+"""GET /api/v1/health in-process, on a temporary SQLite file (design doc section 17.2; T2.5)."""
 
+from datetime import timedelta
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 from typist.config import Settings
+from typist.db import utc_now
 from typist.main import create_app
+from typist.worker import heartbeat_path, write_heartbeat
 
-OK = {"status": "ok", "db": "ok"}
-ERROR = {"status": "error", "db": "error"}
+OK = {"status": "ok", "db": "ok", "worker_heartbeat_age_s": None}
+ERROR = {"status": "error", "db": "error", "worker_heartbeat_age_s": None}
 
 
 def client_for(db_path: Path) -> TestClient:
@@ -69,3 +72,31 @@ def test_create_app_without_arguments_uses_the_environment(isolated_settings: Pa
     assert response.json() == OK
     assert app.state.settings.db_path == isolated_settings
     assert isolated_settings.is_file()
+
+
+def test_health_reports_worker_heartbeat_age_when_heartbeat_file_exists(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "data" / "typist.db"
+    write_heartbeat(db_path, now=utc_now() - timedelta(seconds=1.5))
+    with client_for(db_path) as client:
+        response = client.get("/api/v1/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["db"] == "ok"
+    assert body["worker_heartbeat_age_s"] is not None
+    assert 1.0 <= body["worker_heartbeat_age_s"] <= 5.0
+
+
+def test_health_returns_ok_when_heartbeat_is_missing_or_corrupt(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "data" / "typist.db"
+    target = heartbeat_path(db_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("not-a-timestamp", encoding="utf-8")
+    with client_for(db_path) as client:
+        response = client.get("/api/v1/health")
+    assert response.status_code == 200
+    assert response.json() == OK

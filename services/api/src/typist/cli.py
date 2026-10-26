@@ -28,6 +28,7 @@ from typist.services.test_composer import (
     load_baseline_config,
     persist_baseline,
 )
+from typist.worker import DEFAULT_POLL_INTERVAL_S, run_worker
 
 app = typer.Typer(help="Typist-ML admin commands.", no_args_is_help=True, add_completion=False)
 db_app = typer.Typer(help="Database commands.", no_args_is_help=True)
@@ -213,3 +214,39 @@ def assign(
         }
         summary = ", ".join(f"{label}->{mapping[label]}" for label in labels)
         typer.echo(f"assigned {pid}: {len(rows)} bigrams frozen; sets {summary}")
+
+
+@app.command("worker")
+def worker(
+    once: bool = typer.Option(False, "--once", help="Run a single poll/claim cycle and exit."),
+    poll_interval: float = typer.Option(
+        DEFAULT_POLL_INTERVAL_S,
+        "--poll-interval",
+        help="Seconds to sleep between empty queue polls.",
+    ),
+) -> None:
+    """Run the generation worker (design doc sections 6.2, 10.2, 14.1; T2.5).
+
+    Loads the corpus index from TYPIST_CORPUS_DIR, writes the worker heartbeat next to
+    TYPIST_DB_PATH, and polls generation_jobs for pending work. Exits 1 with a clear message if
+    corpus artifacts or required experiment_config keys are missing.
+    """
+    settings = get_settings()
+    try:
+        index = WordIndex.load(settings.corpus_dir)
+    except FileNotFoundError:
+        typer.echo("corpus artifacts missing; run `typist corpus build` first", err=True)
+        raise typer.Exit(code=1) from None
+    engine = create_db_engine(settings.db_path)
+    try:
+        with Session(engine) as session:
+            _config_int(session, "control_word_pool")
+        run_worker(
+            engine,
+            settings.db_path,
+            index,
+            once=once,
+            poll_interval_s=poll_interval,
+        )
+    finally:
+        engine.dispose()
