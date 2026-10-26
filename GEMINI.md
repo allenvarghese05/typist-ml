@@ -43,7 +43,7 @@ one owner, and the owner's model is fixed in its subagent file.
 |---|---|---|---|---|
 | 1 Understand | `/understand T2.5` | `analyst` | Gemini 4 Argon (Medium) | `docs/plans/T2.5-brief.md` |
 | 2 Blueprint | `/blueprint T2.5` | `architect` | Gemini 4 Argon (Medium) | `docs/plans/T2.5-plan.md` |
-| 3 Build | `/build T2.5` | `builder` | Claude Opus 5.5 (Medium) | code, tests, commits |
+| 3 Build | `/build T2.5` | `builder` | Claude Sonnet 4.6 (Medium) | code, tests, commits |
 | 4 Review | `/review T2.5` | `reviewer` (+ `builder` fixes) | Claude Opus 5.5 (Medium) | verdict |
 | 5 Ship | `/ship T2.5` | main session | - | pull request |
 

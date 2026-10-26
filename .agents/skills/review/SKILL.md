@@ -1,6 +1,6 @@
 ---
 name: review
-description: Phase 4 - independent review with fix loop (Claude Opus 5.5 Medium reviewer and builder fixes). Use when running Phase 4 of a Typist-ML task or when /review <task-id> is invoked.
+description: Phase 4 - independent review with fix loop (Claude Opus 5.5 Medium reviewer, Claude Sonnet 4.6 Medium builder fixes). Use when running Phase 4 of a Typist-ML task or when /review <task-id> is invoked.
 ---
 
 # Phase 4: Review (`review`)

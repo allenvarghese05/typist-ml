@@ -9,7 +9,7 @@ Run the full pipeline for `<task-id>` without stopping between phases:
 
 1. `/understand <task-id>` (`analyst` — Gemini 4 Argon, Medium)
 2. `/blueprint <task-id>` (`architect` — Gemini 4 Argon, Medium)
-3. `/build <task-id>` (`builder` — Claude Opus 5.5, Medium)
+3. `/build <task-id>` (`builder` — Claude Sonnet 4.6, Medium)
 4. `/review <task-id>` (`reviewer` — Claude Opus 5.5, Medium)
 5. `/ship <task-id>` (orchestrator)
 
