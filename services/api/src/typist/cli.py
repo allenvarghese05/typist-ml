@@ -1,6 +1,7 @@
 """The `typist` command (design doc section 14.1). T0.3 adds only `typist db migrate`."""
 
 import random
+from contextlib import suppress
 from datetime import UTC, datetime
 
 import typer
@@ -23,10 +24,18 @@ from typist.services.participants import ParticipantNotFoundError
 from typist.services.session_stats import recompute_stats
 from typist.services.test_composer import (
     BaselinePassagesInUseError,
+    BaselinePassagesNotFoundError,
     BaselineTextsDifferError,
+    ParticipantNotAssignedError,
+    RetestPassagesInUseError,
+    RetestTextsDifferError,
+    compose_and_persist_retest,
     compose_baseline,
     load_baseline_config,
     persist_baseline,
+)
+from typist.services.test_composer import (
+    MissingConfigError as ComposerMissingConfigError,
 )
 from typist.worker import DEFAULT_POLL_INTERVAL_S, run_worker
 
@@ -119,6 +128,66 @@ def compose_baseline_command(
             typer.echo("refusing to replace form A: a session block references it", err=True)
             raise typer.Exit(code=1) from None
     typer.echo(f"{result.status}: {result.parts} baseline passages (form A)")
+
+
+@corpus_app.command("compose-retest")
+def compose_retest_command(
+    pid: str = typer.Option(
+        ..., "--pid", help="Participant id whose frozen assignment drives form B."
+    ),
+    replace: bool = typer.Option(
+        False,
+        "--replace",
+        help="Overwrite existing form B texts for this participant (refused if a block uses them).",
+    ),
+) -> None:
+    """Compose one participant's retest (form B) texts after assignment and write to text_passages.
+
+    Requires shared form A passages in text_passages and frozen bigram_assignment rows for --pid.
+    Idempotent: prints 'unchanged' if form B already matches; exits 1 if it differs unless
+    --replace is passed; --replace is refused (exit 1) if any session block references a form B
+    passage for this participant.
+    """
+    settings = get_settings()
+    try:
+        index = WordIndex.load(settings.corpus_dir)
+    except FileNotFoundError:
+        typer.echo("corpus artifacts missing; run `typist corpus build` first", err=True)
+        raise typer.Exit(code=1) from None
+    engine = create_db_engine(settings.db_path)
+    with Session(engine) as session:
+        try:
+            result = compose_and_persist_retest(session, pid, index, replace=replace)
+        except ComposerMissingConfigError as error:
+            typer.echo(f"experiment_config is missing '{error}'; run `typist db migrate`", err=True)
+            raise typer.Exit(code=1) from None
+        except ParticipantNotFoundError:
+            typer.echo(f"no participant with id {pid!r}", err=True)
+            raise typer.Exit(code=1) from None
+        except ParticipantNotAssignedError:
+            typer.echo(
+                f"participant {pid!r} is not assigned; run `typist assign --pid {pid}` first",
+                err=True,
+            )
+            raise typer.Exit(code=1) from None
+        except BaselinePassagesNotFoundError:
+            typer.echo(
+                "form A passages missing; run `typist corpus compose-baseline` first", err=True
+            )
+            raise typer.Exit(code=1) from None
+        except RetestTextsDifferError:
+            typer.echo(
+                f"form B for {pid} already exists and differs; pass --replace to overwrite",
+                err=True,
+            )
+            raise typer.Exit(code=1) from None
+        except RetestPassagesInUseError:
+            typer.echo(
+                f"refusing to replace form B for {pid}: a session block references it",
+                err=True,
+            )
+            raise typer.Exit(code=1) from None
+    typer.echo(f"{result.status}: {result.parts} retest passages (form B) for {pid}")
 
 
 @app.command("overhead")
@@ -214,6 +283,8 @@ def assign(
         }
         summary = ", ".join(f"{label}->{mapping[label]}" for label in labels)
         typer.echo(f"assigned {pid}: {len(rows)} bigrams frozen; sets {summary}")
+        with suppress(BaselinePassagesNotFoundError, ValueError):
+            compose_and_persist_retest(session, pid, index)
 
 
 @app.command("worker")
