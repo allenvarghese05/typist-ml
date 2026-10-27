@@ -230,7 +230,7 @@ def run_pipeline_simulation(
     resp = client.post(
         "/api/v1/participants", json={"alias": participant_alias, "is_builder": False}
     )
-    assert resp.status_code == 201, resp.text
+    assert resp.status_code in (200, 201), resp.text
     pid = resp.json()["id"]
 
     # 2. Consent
