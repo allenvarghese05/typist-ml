@@ -68,9 +68,7 @@ def post_participant(
             keyboard_label=body.keyboard_label,
         )
     except AliasAlreadyExistsError as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(error)
-        ) from error
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
     return ParticipantResponse(
         id=p.id,
         alias=p.alias,
@@ -105,9 +103,7 @@ def post_participant_consent(
             status_code=status.HTTP_404_NOT_FOUND, detail="participant not found"
         ) from error
     except ParticipantStatusConflictError as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(error)
-        ) from error
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
     return ParticipantResponse(
         id=p.id,
         alias=p.alias,
@@ -140,9 +136,7 @@ def post_participant_withdraw(
             status_code=status.HTTP_404_NOT_FOUND, detail="participant not found"
         ) from error
     except ParticipantStatusConflictError as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(error)
-        ) from error
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
     return ParticipantResponse(
         id=p.id,
         alias=p.alias,

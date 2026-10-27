@@ -48,9 +48,7 @@ def post_admin_assign(
     """Rank, split, map and freeze weak bigrams; transitions participant to 'assigned'."""
     participant = session.get(Participant, participant_id)
     if participant is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="participant not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="participant not found")
     if participant.status != "baseline":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -65,9 +63,7 @@ def post_admin_assign(
             status_code=status.HTTP_404_NOT_FOUND, detail="participant not found"
         ) from error
     except AssignmentError as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(error)
-        ) from error
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
 
     form_b_composed = False
     with suppress(BaselinePassagesNotFoundError, ValueError):

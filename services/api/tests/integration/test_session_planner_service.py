@@ -436,4 +436,3 @@ def test_plan_session_transitions_assigned_to_practice_when_drills_ready(
 
         session.refresh(p)
         assert p.status == "practice"
-

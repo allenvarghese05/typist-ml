@@ -173,9 +173,7 @@ def resolve_session_phase(participant_status: str, requested_phase: str | None =
     conflicts with the phase implied by participant_status (owner answer 4, 5).
     """
     if participant_status == "enrolled":
-        raise InvalidSessionPhaseError(
-            "participant must give consent before starting baseline"
-        )
+        raise InvalidSessionPhaseError("participant must give consent before starting baseline")
     implied = _STATUS_TO_PHASE.get(participant_status)
     if implied is None:
         raise InvalidSessionPhaseError(

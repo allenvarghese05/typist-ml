@@ -27,7 +27,9 @@ def _seed_block(
     ended_at: datetime | None = None,
 ) -> str:
     with Session(engine) as session:
-        participant = Participant(alias=f"user_{datetime.now(UTC).timestamp()}", status=participant_status)
+        participant = Participant(
+            alias=f"user_{datetime.now(UTC).timestamp()}", status=participant_status
+        )
         session.add(participant)
         session.flush()
         ts = TypingSession(

@@ -296,4 +296,3 @@ def test_assign_fails_if_status_not_baseline(migrated_engine: Engine) -> None:
                 now=NOW,
                 index=_index(),
             )
-

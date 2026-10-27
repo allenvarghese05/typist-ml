@@ -111,4 +111,3 @@ def test_participant_add_and_delete_cli(migrated_engine: Engine, isolated_settin
     missing_del = runner.invoke(app, ["participant", "delete", "--pid", "missing-pid"])
     assert missing_del.exit_code == 1
     assert "no participant with id 'missing-pid'" in missing_del.output
-

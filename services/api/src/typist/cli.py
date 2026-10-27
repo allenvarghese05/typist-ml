@@ -369,7 +369,4 @@ def participant_delete_command(
         except ParticipantNotFoundError:
             typer.echo(f"no participant with id {pid!r}", err=True)
             raise typer.Exit(code=1) from None
-    typer.echo(
-        f"deleted participant {pid}: {deletion.sessions} sessions, {deletion.drills} drills"
-    )
-
+    typer.echo(f"deleted participant {pid}: {deletion.sessions} sessions, {deletion.drills} drills")

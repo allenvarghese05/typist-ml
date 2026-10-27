@@ -41,9 +41,7 @@ def post_block_start(
             status_code=status.HTTP_404_NOT_FOUND, detail="block not found"
         ) from error
     except (BlockStateConflictError, ParticipantWithdrawnError) as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(error)
-        ) from error
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
     return BlockResponse(
         id=block.id,
         session_id=block.session_id,
@@ -76,9 +74,7 @@ def post_block_complete(
             status_code=status.HTTP_404_NOT_FOUND, detail="block not found"
         ) from error
     except (BlockStateConflictError, ParticipantWithdrawnError) as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(error)
-        ) from error
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
     return BlockResponse(
         id=block.id,
         session_id=block.session_id,

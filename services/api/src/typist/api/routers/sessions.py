@@ -139,9 +139,7 @@ def post_session_complete(
             status_code=status.HTTP_409_CONFLICT, detail="session is not in progress"
         ) from error
     except ParticipantWithdrawnError as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(error)
-        ) from error
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
 
     completed_row = session.get(TypingSession, session_id)
     if completed_row is not None and completed_row.phase == "practice":

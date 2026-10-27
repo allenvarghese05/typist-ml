@@ -300,4 +300,3 @@ def test_session_completion_advances_practice_to_retest_and_retest_to_done(
         assert p is not None and p.status == "done"
 
     assert client.post("/api/v1/participants/p-prog/sessions").status_code == 409
-

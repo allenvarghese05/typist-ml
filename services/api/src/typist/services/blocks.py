@@ -47,9 +47,7 @@ def start_block(session: Session, block_id: str, *, now: datetime | None = None)
     return block
 
 
-def complete_block(
-    session: Session, block_id: str, *, now: datetime | None = None
-) -> SessionBlock:
+def complete_block(session: Session, block_id: str, *, now: datetime | None = None) -> SessionBlock:
     """Set block.ended_at to now.
 
     Raises BlockNotFoundError (404) if block does not exist. Raises BlockStateConflictError (409) if
