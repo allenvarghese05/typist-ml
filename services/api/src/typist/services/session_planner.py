@@ -51,7 +51,6 @@ _PLANNER_INT_KEYS: Final[tuple[str, ...]] = (
 )
 
 _STATUS_TO_PHASE: Final[dict[str, str]] = {
-    "enrolled": "baseline",
     "baseline": "baseline",
     "assigned": "practice",
     "practice": "practice",
@@ -168,11 +167,13 @@ def block_label(position: int) -> str:
 def resolve_session_phase(participant_status: str, requested_phase: str | None = None) -> str:
     """Resolve and validate the session phase from participant.status and optional requested_phase.
 
-    Maps 'enrolled'/'baseline' -> 'baseline', 'assigned'/'practice' -> 'practice', 'retest' ->
-    'retest'. Raises InvalidSessionPhaseError if participant_status is 'done'/'withdrawn' (or
-    unknown), if requested_phase is not in SESSION_PHASES, or if requested_phase conflicts with the
-    phase implied by participant_status (owner answer 4).
+    Maps 'baseline' -> 'baseline', 'assigned'/'practice' -> 'practice', 'retest' -> 'retest'.
+    Raises InvalidSessionPhaseError if participant_status is 'enrolled' (must give consent first),
+    'done'/'withdrawn' (or unknown), if requested_phase is not in SESSION_PHASES, or if requested_phase
+    conflicts with the phase implied by participant_status (owner answer 4, 5).
     """
+    if participant_status == "enrolled":
+        raise InvalidSessionPhaseError("participant must give consent before starting baseline")
     implied = _STATUS_TO_PHASE.get(participant_status)
     if implied is None:
         raise InvalidSessionPhaseError(
@@ -432,6 +433,10 @@ def plan_session(
             drill.used_in_block_id = block.id
             session.add(drill)
         created_blocks.append(block)
+
+    if participant.status == "assigned":
+        participant.status = "practice"
+        session.add(participant)
 
     session.commit()
     session.refresh(typing_session)

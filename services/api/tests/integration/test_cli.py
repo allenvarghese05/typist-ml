@@ -3,6 +3,7 @@
 import re
 from pathlib import Path
 
+from sqlalchemy import Engine
 from sqlmodel import Session, col, select
 from typer.testing import CliRunner
 
@@ -87,3 +88,26 @@ def test_worker_once_claims_job_generates_drills_and_writes_heartbeat(
         assert drills[0].status == "ready"
 
     assert heartbeat_path(isolated_settings).is_file()
+
+
+def test_participant_add_and_delete_cli(migrated_engine: Engine, isolated_settings: Path) -> None:
+    result = runner.invoke(app, ["participant", "add", "--alias", "cli_test_user", "--builder"])
+    assert result.exit_code == 0
+    assert "created participant" in result.output
+    assert "builder=True" in result.output
+
+    dup_result = runner.invoke(app, ["participant", "add", "--alias", "cli_test_user"])
+    assert dup_result.exit_code == 1
+    assert "already exists" in dup_result.output
+
+    with Session(migrated_engine) as session:
+        p = session.exec(select(Participant).where(col(Participant.alias) == "cli_test_user")).one()
+        pid = p.id
+
+    del_result = runner.invoke(app, ["participant", "delete", "--pid", pid])
+    assert del_result.exit_code == 0
+    assert f"deleted participant {pid}" in del_result.output
+
+    missing_del = runner.invoke(app, ["participant", "delete", "--pid", "missing-pid"])
+    assert missing_del.exit_code == 1
+    assert "no participant with id 'missing-pid'" in missing_del.output

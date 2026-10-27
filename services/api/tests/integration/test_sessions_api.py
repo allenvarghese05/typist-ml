@@ -16,6 +16,7 @@ from typist.main import create_app
 from typist.models import (
     BigramAssignment,
     Drill,
+    ExperimentConfig,
     GenerationJob,
     KeystrokeEvent,
     Participant,
@@ -210,3 +211,92 @@ def test_session_endpoints_return_404_and_409_on_errors(migrated_engine: Engine)
     assert client.post("/api/v1/participants/p-empty-pool/sessions").status_code == 409
     # Participant with status 'done' -> 409 Conflict.
     assert client.post("/api/v1/participants/p-done/sessions").status_code == 409
+
+
+def test_enrolled_participant_cannot_start_session_returns_409(migrated_engine: Engine) -> None:
+    with Session(migrated_engine) as session:
+        session.add(Participant(id="p-unconsented", alias="p-unconsented", status="enrolled"))
+        session.commit()
+    client = _client()
+    resp = client.post("/api/v1/participants/p-unconsented/sessions")
+    assert resp.status_code == 409
+    assert "consent" in resp.json()["detail"]
+
+
+def test_withdrawn_participant_cannot_start_or_complete_session_returns_409(
+    migrated_engine: Engine,
+) -> None:
+    session_id = _seed_golden(migrated_engine)
+    client = _client()
+    with Session(migrated_engine) as session:
+        ts = session.get(TypingSession, session_id)
+        assert ts is not None
+        p = session.get(Participant, ts.participant_id)
+        assert p is not None
+        pid = p.id
+        p.status = "withdrawn"
+        session.add(p)
+        session.commit()
+
+    assert client.post(f"/api/v1/participants/{pid}/sessions").status_code == 409
+    comp_resp = client.post(f"/api/v1/sessions/{session_id}/complete")
+    assert comp_resp.status_code == 409
+    assert "withdrawn" in comp_resp.json()["detail"]
+
+
+def test_session_completion_advances_practice_to_retest_and_retest_to_done(
+    migrated_engine: Engine,
+) -> None:
+    with Session(migrated_engine) as session:
+        cfg = session.get(ExperimentConfig, "practice_days")
+        assert cfg is not None
+        cfg.value = 1
+        cfg_r = session.get(ExperimentConfig, "retest_parts")
+        assert cfg_r is not None
+        cfg_r.value = 1
+        session.add(cfg)
+        session.add(cfg_r)
+
+        p = Participant(id="p-prog", alias="p-prog", status="practice")
+        session.add(p)
+        session.flush()
+        s_prac = TypingSession(
+            id="s-prac",
+            participant_id="p-prog",
+            phase="practice",
+            day_index=1,
+            status="in_progress",
+            client_info={},
+            started_at=datetime.now(UTC),
+        )
+        session.add(s_prac)
+        session.commit()
+
+    client = _client()
+    resp_prac = client.post("/api/v1/sessions/s-prac/complete")
+    assert resp_prac.status_code == 200
+
+    with Session(migrated_engine) as session:
+        p = session.get(Participant, "p-prog")
+        assert p is not None and p.status == "retest"
+
+        s_ret = TypingSession(
+            id="s-ret",
+            participant_id="p-prog",
+            phase="retest",
+            day_index=1,
+            status="in_progress",
+            client_info={},
+            started_at=datetime.now(UTC),
+        )
+        session.add(s_ret)
+        session.commit()
+
+    resp_ret = client.post("/api/v1/sessions/s-ret/complete")
+    assert resp_ret.status_code == 200
+
+    with Session(migrated_engine) as session:
+        p = session.get(Participant, "p-prog")
+        assert p is not None and p.status == "done"
+
+    assert client.post("/api/v1/participants/p-prog/sessions").status_code == 409

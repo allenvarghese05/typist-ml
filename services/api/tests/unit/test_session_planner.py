@@ -56,7 +56,8 @@ def test_block_label_returns_one_based_blinded_labels() -> None:
 
 
 def test_resolve_session_phase_maps_valid_statuses_and_rejects_invalid() -> None:
-    assert resolve_session_phase("enrolled") == "baseline"
+    with pytest.raises(InvalidSessionPhaseError, match="consent"):
+        resolve_session_phase("enrolled")
     assert resolve_session_phase("baseline", "baseline") == "baseline"
     assert resolve_session_phase("assigned") == "practice"
     assert resolve_session_phase("practice", "practice") == "practice"

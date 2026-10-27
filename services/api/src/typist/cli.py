@@ -20,7 +20,12 @@ from typist.services.assignment import (
     load_assignment_config,
 )
 from typist.services.overhead import format_report, overhead_report
-from typist.services.participants import ParticipantNotFoundError
+from typist.services.participants import (
+    AliasAlreadyExistsError,
+    ParticipantNotFoundError,
+    create_participant,
+    delete_participant,
+)
 from typist.services.session_stats import recompute_stats
 from typist.services.test_composer import (
     BaselinePassagesInUseError,
@@ -321,3 +326,47 @@ def worker(
         )
     finally:
         engine.dispose()
+
+
+participant_app = typer.Typer(
+    help="Participant administration commands (design doc 14.1).", no_args_is_help=True
+)
+app.add_typer(participant_app, name="participant")
+
+
+@participant_app.callback()
+def participant() -> None:
+    """Participant administration commands (design doc section 14.1)."""
+
+
+@participant_app.command("add")
+def participant_add_command(
+    alias: str = typer.Option(..., "--alias", help="Unique participant alias."),
+    builder: bool = typer.Option(False, "--builder", help="Flag participant as unblinded builder."),
+) -> None:
+    """Create a new participant in 'enrolled' status."""
+    settings = get_settings()
+    engine = create_db_engine(settings.db_path)
+    with Session(engine) as session:
+        try:
+            p = create_participant(session, alias=alias, is_builder=builder)
+        except AliasAlreadyExistsError:
+            typer.echo(f"participant with alias {alias!r} already exists", err=True)
+            raise typer.Exit(code=1) from None
+    typer.echo(f"created participant {p.id} (alias={p.alias}, builder={p.is_builder})")
+
+
+@participant_app.command("delete")
+def participant_delete_command(
+    pid: str = typer.Option(..., "--pid", help="Participant id to delete."),
+) -> None:
+    """Delete a participant and all child records."""
+    settings = get_settings()
+    engine = create_db_engine(settings.db_path)
+    with Session(engine) as session:
+        try:
+            deletion = delete_participant(session, pid)
+        except ParticipantNotFoundError:
+            typer.echo(f"no participant with id {pid!r}", err=True)
+            raise typer.Exit(code=1) from None
+    typer.echo(f"deleted participant {pid}: {deletion.sessions} sessions, {deletion.drills} drills")

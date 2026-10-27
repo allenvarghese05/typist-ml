@@ -54,6 +54,10 @@ class AssignmentError(RuntimeError):
     """Base class for an assignment that cannot proceed (T2.8's endpoint maps these to 404/409)."""
 
 
+class InvalidParticipantStatusError(AssignmentError):
+    """The participant is not in 'baseline' status; cannot assign (409)."""
+
+
 class BaselineIncompleteError(AssignmentError):
     """The participant does not have exactly baseline_parts completed baseline sessions (409)."""
 
@@ -338,15 +342,9 @@ def assign_participant(
     immutable. rng must be the caller's random.Random(f"{seed}:{participant_id}") (owner answer 5).
     Returns the inserted rows in rank order.
     """
-    if session.get(Participant, participant_id) is None:
+    participant = session.get(Participant, participant_id)
+    if participant is None:
         raise ParticipantNotFoundError(participant_id)
-    config = load_assignment_config(session)
-    session_ids = _completed_baseline_session_ids(session, participant_id)
-    if len(session_ids) != config.baseline_parts:
-        raise BaselineIncompleteError(
-            f"{participant_id}: {len(session_ids)} completed baseline sessions, "
-            f"need {config.baseline_parts}"
-        )
     existing = session.exec(
         select(BigramAssignment.bigram).where(
             col(BigramAssignment.participant_id) == participant_id
@@ -354,6 +352,17 @@ def assign_participant(
     ).first()
     if existing is not None:
         raise AlreadyAssignedError(participant_id)
+    if participant.status != "baseline":
+        raise InvalidParticipantStatusError(
+            f"participant {participant_id!r} has status {participant.status!r}, must be 'baseline'"
+        )
+    config = load_assignment_config(session)
+    session_ids = _completed_baseline_session_ids(session, participant_id)
+    if len(session_ids) != config.baseline_parts:
+        raise BaselineIncompleteError(
+            f"{participant_id}: {len(session_ids)} completed baseline sessions, "
+            f"need {config.baseline_parts}"
+        )
     baseline = load_baseline(session, participant_id, config)
     if sum(b.attempts for b in baseline.bigrams) == 0:
         raise NoBaselineDataError(participant_id)
@@ -391,6 +400,8 @@ def assign_participant(
         )
         for item, set_index in snake_deal(ranked, sets)
     ]
+    participant.status = "assigned"
+    session.add(participant)
     session.add_all(rows)
     session.commit()
     return tuple(rows)

@@ -275,7 +275,7 @@ def test_plan_baseline_and_retest_sessions_select_one_part_per_sitting(
     migrated_engine: Engine,
 ) -> None:
     with Session(migrated_engine) as session:
-        session.add(Participant(id="p-test", alias="p-test", status="enrolled"))
+        session.add(Participant(id="p-test", alias="p-test", status="baseline"))
         p_a0 = TextPassage(
             kind="baseline",
             form="A",
@@ -418,3 +418,21 @@ def test_get_session_plan_and_delete_participant_with_used_drills(
         assert deletion.drills == 8
         assert deletion.session_blocks == 4
         assert deletion.sessions == 1
+
+
+def test_plan_session_transitions_assigned_to_practice_when_drills_ready(
+    migrated_engine: Engine,
+) -> None:
+    with Session(migrated_engine) as session:
+        _seed_practice_participant(session, "p-trans", drills_per_arm=4)
+        p = session.get(Participant, "p-trans")
+        assert p is not None
+        p.status = "assigned"
+        session.add(p)
+        session.commit()
+
+        planned = plan_session(session, "p-trans", now=T0)
+        assert planned.phase == "practice"
+
+        session.refresh(p)
+        assert p.status == "practice"
