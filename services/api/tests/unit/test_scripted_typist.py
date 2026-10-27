@@ -27,7 +27,7 @@ def test_script_keystrokes_clean_typing_invariants() -> None:
             assert ev.t_down_ms > events[idx - 1].t_down_ms
 
         # Invariant check via pydantic
-        ev._check_invariants()
+        KeystrokeEventIn.model_validate(ev)
 
 
 def test_script_keystrokes_with_errors_invariants() -> None:
@@ -40,7 +40,7 @@ def test_script_keystrokes_with_errors_invariants() -> None:
     # Check sequence monotonicity and no gaps
     for idx, ev in enumerate(events):
         assert ev.seq == idx
-        ev._check_invariants()
+        KeystrokeEventIn.model_validate(ev)
 
     # Verify backspace events and corrected events
     for i in range(len(text)):

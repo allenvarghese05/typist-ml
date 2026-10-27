@@ -73,7 +73,9 @@ def script_keystrokes(
 
     for i, expected in enumerate(target_text):
         should_error = (
-            error_rate > 0.0 and expected in _PRINTABLE_SUBSTITUTES and effective_rng.random() < error_rate
+            error_rate > 0.0
+            and expected in _PRINTABLE_SUBSTITUTES
+            and effective_rng.random() < error_rate
         )
         if should_error:
             # 1. Error keystroke
