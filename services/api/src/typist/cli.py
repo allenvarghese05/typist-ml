@@ -5,20 +5,22 @@ from contextlib import suppress
 from datetime import UTC, datetime
 
 import typer
-from sqlmodel import Session
+from sqlmodel import Session, col, select
 
 from typist.config import get_settings
 from typist.corpus.build import build_corpus
 from typist.corpus.word_index import WordIndex
 from typist.db import create_db_engine
 from typist.migrations import upgrade_to_head
-from typist.models import ExperimentConfig
+from typist.models import ExperimentConfig, Participant
+from typist.schemas.admin import ChecksResponse
 from typist.services.assignment import (
     AssignmentError,
     MissingConfigError,
     assign_participant,
     load_assignment_config,
 )
+from typist.services.checks import run_participant_checks
 from typist.services.overhead import format_report, overhead_report
 from typist.services.participants import (
     AliasAlreadyExistsError,
@@ -370,3 +372,107 @@ def participant_delete_command(
             typer.echo(f"no participant with id {pid!r}", err=True)
             raise typer.Exit(code=1) from None
     typer.echo(f"deleted participant {pid}: {deletion.sessions} sessions, {deletion.drills} drills")
+
+
+def format_checks_report(report: ChecksResponse) -> str:
+    """Format one participant's data-quality checks and session trend table for terminal display."""
+    lines: list[str] = []
+    lines.append(f"Participant: {report.alias} ({report.participant_id}) - Status: {report.status}")
+    overall = "PASSED" if report.passed else "FAILED"
+    lines.append(f"Data Quality Checks: [{overall}]")
+
+    def _mark(passed: bool) -> str:
+        return "PASS" if passed else "FAIL"
+
+    c = report.checks
+    lines.append(f"  [{_mark(c.seq_gaps.passed)}] Sequence Gaps: {c.seq_gaps.count} gap(s)")
+    for detail in c.seq_gaps.details:
+        lines.append(f"      - {detail}")
+
+    lines.append(
+        f"  [{_mark(c.dwell_anomalies.passed)}] Dwell Anomalies: "
+        f"{c.dwell_anomalies.negative_count} negative, {c.dwell_anomalies.over_1000ms_count} > 1000ms"
+    )
+    for detail in c.dwell_anomalies.details:
+        lines.append(f"      - {detail}")
+
+    lines.append(
+        f"  [{_mark(c.short_blocks.passed)}] Short Blocks: {c.short_blocks.count} short block(s)"
+    )
+    for detail in c.short_blocks.details:
+        lines.append(f"      - {detail}")
+
+    lines.append(
+        f"  [{_mark(c.missing_keyups.passed)}] Missing Keyups: "
+        f"{c.missing_keyups.missing_count}/{c.missing_keyups.total_events} "
+        f"({c.missing_keyups.missing_share * 100:.2f}%)"
+    )
+    for detail in c.missing_keyups.details:
+        lines.append(f"      - {detail}")
+
+    lines.append(
+        f"  [{_mark(c.in_progress_sessions.passed)}] In-Progress Sessions: "
+        f"{c.in_progress_sessions.count} lingering"
+    )
+    for detail in c.in_progress_sessions.details:
+        lines.append(f"      - {detail}")
+
+    if report.trend:
+        lines.append("\nSession Trends:")
+        first_sets = list(report.trend[0].per_set_error_rate.keys())
+        header = f"{'Day':<5} {'Phase':<10} {'WPM':<7} {'Accuracy':<10}"
+        for s in first_sets:
+            header += f" {'Set ' + s:<12}"
+        lines.append(header)
+        lines.append("-" * len(header))
+        for row in report.trend:
+            wpm_str = f"{row.wpm:.1f}" if row.wpm is not None else "-"
+            acc_str = f"{row.accuracy * 100:.1f}%" if row.accuracy is not None else "-"
+            line = f"{row.day_index:<5} {row.phase:<10} {wpm_str:<7} {acc_str:<10}"
+            for s in first_sets:
+                rate = row.per_set_error_rate.get(s)
+                rate_str = f"{rate * 100:.1f}%" if rate is not None else "-"
+                line += f" {rate_str:<12}"
+            lines.append(line)
+    else:
+        lines.append("\nSession Trends: No completed sessions yet.")
+
+    return "\n".join(lines)
+
+
+@app.command("check")
+def check_command(
+    pid: str | None = typer.Option(
+        None, "--pid", help="Participant id to check (default: all active participants)."
+    ),
+) -> None:
+    """Run daily data-quality checks and print session trend table (design doc 12.6, 14.1; T2.9)."""
+    settings = get_settings()
+    engine = create_db_engine(settings.db_path)
+    with Session(engine) as session:
+        if pid is not None:
+            try:
+                reports = [run_participant_checks(session, pid)]
+            except ParticipantNotFoundError:
+                typer.echo(f"no participant with id {pid!r}", err=True)
+                raise typer.Exit(code=1) from None
+        else:
+            participants = session.exec(
+                select(Participant)
+                .where(col(Participant.status) != "withdrawn")
+                .order_by(col(Participant.alias))
+            ).all()
+            if not participants:
+                typer.echo("no active participants found")
+                return
+            reports = [run_participant_checks(session, p.id) for p in participants]
+
+    all_passed = True
+    for report in reports:
+        typer.echo(format_checks_report(report))
+        typer.echo("")
+        if not report.passed:
+            all_passed = False
+
+    if not all_passed:
+        raise typer.Exit(code=1)

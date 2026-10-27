@@ -15,6 +15,14 @@ describe("parseHash", () => {
     expect(parseHash("#/matrix/a%2Fb")).toEqual({ name: "matrix", sessionId: "a/b" });
   });
 
+  it("parses #/admin and query params to admin route", () => {
+    expect(parseHash("#/admin")).toEqual({ name: "admin", participantId: undefined });
+    expect(parseHash("#/admin?participant=p-42")).toEqual({
+      name: "admin",
+      participantId: "p-42",
+    });
+  });
+
   it("parses everything else to the demo route", () => {
     expect(parseHash("")).toEqual({ name: "demo" });
     expect(parseHash("#")).toEqual({ name: "demo" });
@@ -25,11 +33,13 @@ describe("parseHash", () => {
 
 function RouteProbe(): React.JSX.Element {
   const route = useHashRoute();
-  return (
-    <span data-testid="route">
-      {route.name === "matrix" ? `matrix:${route.sessionId}` : "demo"}
-    </span>
-  );
+  let label = "demo";
+  if (route.name === "matrix") {
+    label = `matrix:${route.sessionId}`;
+  } else if (route.name === "admin") {
+    label = `admin:${route.participantId ?? "none"}`;
+  }
+  return <span data-testid="route">{label}</span>;
 }
 
 describe("useHashRoute", () => {
@@ -41,5 +51,10 @@ describe("useHashRoute", () => {
       window.dispatchEvent(new HashChangeEvent("hashchange"));
     });
     expect(screen.getByTestId("route")).toHaveTextContent("matrix:s9");
+    act(() => {
+      window.location.hash = "#/admin?participant=p-1";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(screen.getByTestId("route")).toHaveTextContent("admin:p-1");
   });
 });
