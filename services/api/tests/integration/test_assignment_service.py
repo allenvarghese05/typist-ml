@@ -15,6 +15,7 @@ from typist.models import Session as TypingSession
 from typist.services.assignment import (
     AlreadyAssignedError,
     BaselineIncompleteError,
+    InvalidParticipantStatusError,
     assign_participant,
 )
 from typist.services.participants import delete_participant
@@ -98,7 +99,7 @@ def _fabricate_block_rows(block_id: str, session_index: int) -> tuple[str, list[
 
 def _seed_baseline(session: Session, participant_id: str, *, parts: int = 2) -> None:
     """Create a participant and `parts` completed baseline sessions with derived bigram_stats."""
-    session.add(Participant(id=participant_id, alias=participant_id))
+    session.add(Participant(id=participant_id, alias=participant_id, status="baseline"))
     session.flush()
     for part in range(parts):
         typing_session = TypingSession(
@@ -152,6 +153,8 @@ def test_assign_produces_sixteen_frozen_rows_with_the_seeded_arm_map(
     assert len(result) == 16
     with Session(migrated_engine) as session:
         rows = _rows(session, PID)
+        p = session.get(Participant, PID)
+        assert p is not None and p.status == "assigned"
     assert len(rows) == 16
     assert all(row.frozen_at is not None for row in rows)
     assert {row.set_label for row in rows} == {"A", "B", "C", "D"}
@@ -274,3 +277,23 @@ def test_delete_participant_removes_frozen_assignment_rows(migrated_engine: Engi
     assert deletion.bigram_assignment == 16
     with Session(migrated_engine) as session:
         assert _rows(session, PID) == []
+
+
+def test_assign_fails_if_status_not_baseline(migrated_engine: Engine) -> None:
+    with Session(migrated_engine) as session:
+        _seed_baseline(session, "p-enrolled")
+        p = session.get(Participant, "p-enrolled")
+        assert p is not None
+        p.status = "enrolled"
+        session.add(p)
+        session.commit()
+
+        with pytest.raises(InvalidParticipantStatusError, match="must be 'baseline'"):
+            assign_participant(
+                session,
+                "p-enrolled",
+                rng=random.Random(f"{SEED_A}:p-enrolled"),
+                now=NOW,
+                index=_index(),
+            )
+
