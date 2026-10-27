@@ -11,7 +11,13 @@ from sqlmodel import Session
 
 from typist.config import get_settings
 from typist.main import create_app
-from typist.models import KeystrokeEvent, Participant, SessionBlock
+from typist.models import (
+    BigramAssignment,
+    BigramStat,
+    KeystrokeEvent,
+    Participant,
+    SessionBlock,
+)
 from typist.models import Session as TypingSession
 from typist.services.session_stats import complete_session
 
@@ -106,3 +112,152 @@ def test_matrix_completed_golden_session_returns_200(migrated_engine: Engine) ->
             assert cell["iki_median_ms"] is None
     # Cells are ordered by bigram.
     assert list(cells) == sorted(cells)
+
+
+def test_participant_results_404_when_missing(migrated_engine: Engine) -> None:
+    response = _client().get("/api/v1/analysis/participants/does-not-exist")
+    assert response.status_code == 404
+    assert response.json() == {"detail": "participant not found"}
+
+
+def test_participant_results_409_when_not_done(
+    migrated_engine: Engine, seeded_ids: dict[str, str]
+) -> None:
+    pid = seeded_ids["participant_id"]
+    response = _client().get(f"/api/v1/analysis/participants/{pid}")
+    assert response.status_code == 409
+
+
+def test_participant_results_200_when_done(migrated_engine: Engine) -> None:
+    with Session(migrated_engine) as session:
+        participant = Participant(alias="done-user", status="done")
+        session.add(participant)
+        session.flush()
+        pid = participant.id
+
+        # Add assignments for Set A (control) and Set B (heuristic)
+        session.add_all(
+            [
+                BigramAssignment(
+                    participant_id=pid,
+                    set_label="A",
+                    arm="control",
+                    bigram="th",
+                    baseline_rank=1,
+                    weakness_score=0.5,
+                    baseline_attempts=10,
+                    baseline_errors=2,
+                    frozen_at=NOW,
+                ),
+                BigramAssignment(
+                    participant_id=pid,
+                    set_label="B",
+                    arm="heuristic",
+                    bigram="er",
+                    baseline_rank=2,
+                    weakness_score=0.4,
+                    baseline_attempts=20,
+                    baseline_errors=4,
+                    frozen_at=NOW,
+                ),
+            ]
+        )
+        session.flush()
+
+        # Add completed baseline session
+        s_base = TypingSession(
+            participant_id=pid,
+            phase="baseline",
+            day_index=1,
+            status="completed",
+            wpm=30.0,
+            client_info={},
+            started_at=NOW,
+            ended_at=NOW,
+        )
+        session.add(s_base)
+        session.flush()
+
+        # Add completed retest session
+        s_retest = TypingSession(
+            participant_id=pid,
+            phase="retest",
+            day_index=1,
+            status="completed",
+            wpm=40.0,
+            client_info={},
+            started_at=NOW,
+            ended_at=NOW,
+        )
+        session.add(s_retest)
+        session.flush()
+
+        # Add BigramStat rows
+        session.add_all(
+            [
+                BigramStat(
+                    participant_id=pid,
+                    session_id=s_base.id,
+                    bigram="th",
+                    attempts=10,
+                    errors=2,
+                    iki_n=0,
+                ),
+                BigramStat(
+                    participant_id=pid,
+                    session_id=s_base.id,
+                    bigram="er",
+                    attempts=20,
+                    errors=4,
+                    iki_n=0,
+                ),
+                BigramStat(
+                    participant_id=pid,
+                    session_id=s_retest.id,
+                    bigram="th",
+                    attempts=10,
+                    errors=1,
+                    iki_n=0,
+                ),
+                BigramStat(
+                    participant_id=pid,
+                    session_id=s_retest.id,
+                    bigram="er",
+                    attempts=20,
+                    errors=2,
+                    iki_n=0,
+                ),
+            ]
+        )
+        session.commit()
+
+    response = _client().get(f"/api/v1/analysis/participants/{pid}")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["participant_id"] == pid
+    assert body["alias"] == "done-user"
+    assert body["status"] == "done"
+    assert body["baseline_wpm"] == 30.0
+    assert body["retest_wpm"] == 40.0
+    assert len(body["sets"]) == 2
+
+    sets_by_label = {s["set_label"]: s for s in body["sets"]}
+    assert "A" in sets_by_label
+    assert sets_by_label["A"]["arm"] == "control"
+    assert sets_by_label["A"]["bigrams"] == ["th"]
+    assert sets_by_label["A"]["baseline_attempts"] == 10
+    assert sets_by_label["A"]["baseline_errors"] == 2
+    assert sets_by_label["A"]["baseline_error_rate"] == 0.2
+    assert sets_by_label["A"]["retest_attempts"] == 10
+    assert sets_by_label["A"]["retest_errors"] == 1
+    assert sets_by_label["A"]["retest_error_rate"] == 0.1
+
+    assert "B" in sets_by_label
+    assert sets_by_label["B"]["arm"] == "heuristic"
+    assert sets_by_label["B"]["bigrams"] == ["er"]
+    assert sets_by_label["B"]["baseline_attempts"] == 20
+    assert sets_by_label["B"]["baseline_errors"] == 4
+    assert sets_by_label["B"]["baseline_error_rate"] == 0.2
+    assert sets_by_label["B"]["retest_attempts"] == 20
+    assert sets_by_label["B"]["retest_errors"] == 2
+    assert sets_by_label["B"]["retest_error_rate"] == 0.1
