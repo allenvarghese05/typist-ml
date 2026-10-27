@@ -1,19 +1,22 @@
 import { useSyncExternalStore } from "react";
 
-/** Which view the hash selects: the TypingSurface demo, or the matrix page for one session. */
 export type Route =
   | { readonly name: "demo" }
-  | { readonly name: "matrix"; readonly sessionId: string };
+  | { readonly name: "matrix"; readonly sessionId: string }
+  | { readonly name: "admin"; readonly participantId?: string };
 
-/**
- * Parse a location hash into a Route. "#/matrix/<id>" -> matrix(<id>) (id URL-decoded); anything
- * else (including "", "#", "#/") -> demo. Pure; no window access.
- */
 export function parseHash(hash: string): Route {
-  const match = /^#\/matrix\/(.+)$/.exec(hash);
-  const encoded = match?.[1];
-  if (encoded !== undefined) {
-    return { name: "matrix", sessionId: decodeURIComponent(encoded) };
+  const matrixMatch = /^#\/matrix\/(.+)$/.exec(hash);
+  const matrixEncoded = matrixMatch?.[1];
+  if (matrixEncoded !== undefined) {
+    return { name: "matrix", sessionId: decodeURIComponent(matrixEncoded) };
+  }
+  const adminMatch = /^#\/admin(?:\?(.*))?$/.exec(hash);
+  if (adminMatch) {
+    const search = adminMatch[1];
+    const params = new URLSearchParams(search ?? "");
+    const participantId = params.get("participant") ?? undefined;
+    return { name: "admin", participantId };
   }
   return { name: "demo" };
 }
@@ -33,7 +36,6 @@ function getServerSnapshot(): string {
   return "";
 }
 
-/** The current Route, re-rendering on every hashchange (useSyncExternalStore over window.location.hash). */
 export function useHashRoute(): Route {
   const hash = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   return parseHash(hash);
