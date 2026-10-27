@@ -185,3 +185,15 @@ def test_invalid_row_rejects_the_whole_batch(
         response = client.post(f"/api/v1/blocks/{block}/events", json={"events": [event(20), bad]})
     assert response.status_code == 422
     assert _block_count(isolated_settings, block) == 1  # the valid row in the batch is not inserted
+
+
+def test_large_event_batch_chunked_safely(
+    isolated_settings: Path, migrated_engine: Engine, seeded_ids: dict[str, str]
+) -> None:
+    block = seeded_ids["block_id"]
+    batch = {"events": [event(10 + i) for i in range(2500)]}
+    with client_for(isolated_settings) as client:
+        response = client.post(f"/api/v1/blocks/{block}/events", json=batch)
+    assert response.status_code == 200
+    assert response.json() == {"accepted": 2500, "duplicates": 0}
+    assert _block_count(isolated_settings, block) == 2501  # seeded seq 0 + 2500 new rows
