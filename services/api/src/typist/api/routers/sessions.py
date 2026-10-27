@@ -15,7 +15,7 @@ from typist.schemas.sessions import (
     SessionStartRequest,
     SessionSummary,
 )
-from typist.services.participants import ParticipantNotFoundError
+from typist.services.participants import ParticipantNotFoundError, ParticipantWithdrawnError
 from typist.services.session_planner import (
     PlannedSession,
     SessionPlannerError,
@@ -137,6 +137,10 @@ def post_session_complete(
     except SessionNotInProgressError as error:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="session is not in progress"
+        ) from error
+    except ParticipantWithdrawnError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(error)
         ) from error
 
     completed_row = session.get(TypingSession, session_id)

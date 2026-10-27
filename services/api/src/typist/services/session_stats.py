@@ -16,9 +16,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from statistics import median
 
+import sqlalchemy as sa
 from sqlmodel import Session, col, delete, select
 
-from typist.models import BigramStat, KeystrokeEvent, SessionBlock
+from typist.models import BigramStat, ExperimentConfig, KeystrokeEvent, Participant, SessionBlock
 from typist.models import Session as TypingSession
 from typist.services.attribution import (
     BigramSamples,
@@ -27,6 +28,7 @@ from typist.services.attribution import (
 from typist.services.attribution import (
     BigramStat as ComputedBigramStat,
 )
+from typist.services.participants import ParticipantWithdrawnError
 
 CHARS_PER_WORD = 5.0
 """Design doc 12.3 / D26 word length for WPM. A design constant, not an experiment_config knob."""
@@ -227,23 +229,52 @@ def write_session_stats(session: Session, session_id: str, stats: SessionStats) 
 
 
 def complete_session(session: Session, session_id: str, now: datetime) -> SessionStats:
-    """Complete an in-progress session: compute stats, mark it completed, write everything atomically.
+    """Complete an in-progress session: compute stats, update participant status, write atomically.
 
-    Raises SessionNotFoundError (404) if the session does not exist, SessionNotInProgressError
-    (409) if its status is not 'in_progress'. Otherwise computes stats, stages status='completed'
-    and ended_at=now on the session row, then write_session_stats commits status, ended_at, wpm,
-    accuracy and the fresh bigram_stats in one transaction. Returns the SessionStats (the router
-    builds SessionSummary). Block started_at/ended_at are not touched (block endpoints are later).
+    Raises SessionNotFoundError (404) if session does not exist, SessionNotInProgressError (409) if
+    not in_progress, or ParticipantWithdrawnError (409) if participant has withdrawn.
+    Advances participant status from 'practice' -> 'retest' at practice_days, and 'retest' -> 'done'
+    at retest_parts (owner answer 7).
     """
     row = session.get(TypingSession, session_id)
     if row is None:
         raise SessionNotFoundError(session_id)
     if row.status != "in_progress":
         raise SessionNotInProgressError(session_id)
+    participant = session.get(Participant, row.participant_id)
+    if participant is not None and participant.status == "withdrawn":
+        raise ParticipantWithdrawnError(f"participant {row.participant_id} is withdrawn")
     stats = compute_session_stats(session, session_id)
     row.status = "completed"
     row.ended_at = now
     session.add(row)
+    session.flush()
+
+    if participant is not None:
+        completed_count = int(
+            session.exec(
+                select(sa.func.count())
+                .select_from(TypingSession)
+                .where(
+                    col(TypingSession.participant_id) == row.participant_id,
+                    col(TypingSession.phase) == row.phase,
+                    col(TypingSession.status) == "completed",
+                )
+            ).one()
+        )
+        if row.phase == "practice":
+            practice_days_row = session.get(ExperimentConfig, "practice_days")
+            practice_days = int(practice_days_row.value) if practice_days_row is not None else 10
+            if completed_count >= practice_days and participant.status == "practice":
+                participant.status = "retest"
+                session.add(participant)
+        elif row.phase == "retest":
+            retest_parts_row = session.get(ExperimentConfig, "retest_parts")
+            retest_parts = int(retest_parts_row.value) if retest_parts_row is not None else 2
+            if completed_count >= retest_parts and participant.status == "retest":
+                participant.status = "done"
+                session.add(participant)
+
     write_session_stats(session, session_id, stats)
     return stats
 
