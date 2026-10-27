@@ -64,8 +64,8 @@ def test_full_pipeline_end_to_end_in_2_set_mode(
             select(BigramAssignment).where(col(BigramAssignment.participant_id) == p.id)
         ).all()
         assert len(assignments) > 0
-        assert set(a.set_label for a in assignments) == {"A", "B"}
-        assert set(a.arm for a in assignments) == {"control", "heuristic"}
+        assert {a.set_label for a in assignments} == {"A", "B"}
+        assert {a.arm for a in assignments} == {"control", "heuristic"}
         for a in assignments:
             assert a.frozen_at is not None
 
