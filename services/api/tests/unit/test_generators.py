@@ -5,10 +5,12 @@ built once per module (build_corpus, offline, ~0.2 s)."""
 import pytest
 
 from typist.corpus.build import build_corpus
+from typist.corpus.ngram import CharNGramModel
 from typist.corpus.word_index import WordIndex
 from typist.generation.base import Arm, DrillGenerator, DrillSpec
 from typist.generation.control import ControlGenerator
 from typist.generation.heuristic import HeuristicGenerator
+from typist.generation.markov import MarkovGenerator
 from typist.generation.validator import ValidatorConfig, validate
 
 _POOL_SIZE = 5000
@@ -41,12 +43,21 @@ def heuristic(index: WordIndex) -> HeuristicGenerator:
     return HeuristicGenerator(index, _DEFAULT_CONFIG, _POOL_SIZE)
 
 
+@pytest.fixture(scope="module")
+def markov(index: WordIndex) -> MarkovGenerator:
+    return MarkovGenerator(index, _DEFAULT_CONFIG, beta=10.0)
+
+
 def _control_spec(seed: int) -> DrillSpec:
     return DrillSpec(participant_id="p1", arm=Arm.CONTROL, target_bigrams=(), seed=seed)
 
 
 def _heuristic_spec(targets: tuple[str, ...], seed: int) -> DrillSpec:
     return DrillSpec(participant_id="p1", arm=Arm.HEURISTIC, target_bigrams=targets, seed=seed)
+
+
+def _markov_spec(targets: tuple[str, ...], seed: int) -> DrillSpec:
+    return DrillSpec(participant_id="p1", arm=Arm.MARKOV, target_bigrams=targets, seed=seed)
 
 
 def _common(index: WordIndex) -> tuple[str, ...]:
@@ -62,14 +73,17 @@ def _three(index: WordIndex) -> tuple[str, ...]:
 
 
 def test_generators_satisfy_the_protocol(
-    control: ControlGenerator, heuristic: HeuristicGenerator
+    control: ControlGenerator, heuristic: HeuristicGenerator, markov: MarkovGenerator
 ) -> None:
     assert isinstance(control, DrillGenerator)
     assert isinstance(heuristic, DrillGenerator)
+    assert isinstance(markov, DrillGenerator)
     assert control.arm is Arm.CONTROL
     assert heuristic.arm is Arm.HEURISTIC
+    assert markov.arm is Arm.MARKOV
     assert control.version == "control-v1"
     assert heuristic.version == "heuristic-v1"
+    assert markov.version == "markov-v1"
 
 
 def test_control_fifty_seeds_each_pass_the_validator(
@@ -146,13 +160,18 @@ def test_heuristic_is_deterministic_by_seed(
 
 
 def test_candidate_fields_are_set_for_non_llm_arms(
-    index: WordIndex, control: ControlGenerator, heuristic: HeuristicGenerator
+    index: WordIndex,
+    control: ControlGenerator,
+    heuristic: HeuristicGenerator,
+    markov: MarkovGenerator,
 ) -> None:
     control_candidate = control.generate(_control_spec(3))
     heuristic_candidate = heuristic.generate(_heuristic_spec(_common(index), 3))
+    markov_candidate = markov.generate(_markov_spec(_common(index), 3))
     for candidate, version, seed in (
         (control_candidate, "control-v1", 3),
         (heuristic_candidate, "heuristic-v1", 3),
+        (markov_candidate, "markov-v1", 3),
     ):
         assert candidate.text == candidate.raw_output
         assert candidate.generator_version == version
@@ -164,11 +183,16 @@ def test_candidate_fields_are_set_for_non_llm_arms(
 
 @pytest.mark.parametrize("which", ["common", "rare", "three"])
 def test_text_charset_and_spacing(
-    index: WordIndex, control: ControlGenerator, heuristic: HeuristicGenerator, which: str
+    index: WordIndex,
+    control: ControlGenerator,
+    heuristic: HeuristicGenerator,
+    markov: MarkovGenerator,
+    which: str,
 ) -> None:
     targets = {"common": _common, "rare": _rare, "three": _three}[which](index)
     texts = [control.generate(_control_spec(seed)).text for seed in range(3)]
     texts += [heuristic.generate(_heuristic_spec(targets, seed)).text for seed in range(3)]
+    texts += [markov.generate(_markov_spec(targets, seed)).text for seed in range(3)]
     for text in texts:
         assert text != ""
         assert text == text.strip()
@@ -178,12 +202,56 @@ def test_text_charset_and_spacing(
 
 @pytest.mark.parametrize("which", ["common", "rare", "three"])
 def test_no_word_is_used_more_than_twice(
-    index: WordIndex, control: ControlGenerator, heuristic: HeuristicGenerator, which: str
+    index: WordIndex,
+    control: ControlGenerator,
+    heuristic: HeuristicGenerator,
+    markov: MarkovGenerator,
+    which: str,
 ) -> None:
     from collections import Counter
 
     targets = {"common": _common, "rare": _rare, "three": _three}[which](index)
     texts = [control.generate(_control_spec(seed)).text for seed in range(3)]
     texts += [heuristic.generate(_heuristic_spec(targets, seed)).text for seed in range(3)]
+    texts += [markov.generate(_markov_spec(targets, seed)).text for seed in range(3)]
     for text in texts:
         assert all(count <= 2 for count in Counter(text.split(" ")).values())
+
+
+def test_markov_is_deterministic_by_seed(
+    index: WordIndex, markov: MarkovGenerator
+) -> None:
+    targets = _common(index)
+    first = markov.generate(_markov_spec(targets, 7))
+    second = markov.generate(_markov_spec(targets, 7))
+    other = markov.generate(_markov_spec(targets, 8))
+    assert first.text == second.text
+    assert first.text != other.text
+
+
+def test_markov_word_length_bounds(
+    index: WordIndex, markov: MarkovGenerator
+) -> None:
+    targets = _common(index)
+    for seed in range(10):
+        candidate = markov.generate(_markov_spec(targets, seed))
+        words = candidate.text.split(" ")
+        assert all(3 <= len(w) <= 10 for w in words)
+        assert 270 <= len(candidate.text) <= 300
+
+
+@pytest.mark.parametrize("which", ["common", "three"])
+def test_markov_beta_tuning_median_density_in_shared_range(
+    index: WordIndex, markov: MarkovGenerator, which: str
+) -> None:
+    targets = {"common": _common, "three": _three}[which](index)
+    densities: list[float] = []
+    for seed in _SEEDS:
+        spec = _markov_spec(targets, seed)
+        candidate = markov.generate(spec)
+        result = validate(candidate.text, spec, _DEFAULT_CONFIG, frozenset(index.words))
+        densities.append(result.metrics.target_density)
+    densities.sort()
+    median_density = densities[len(densities) // 2]
+    # Acceptance criteria (design doc 16): Median density inside the shared range [0.15, 0.40]
+    assert 0.15 <= median_density <= 0.40, (which, median_density)
