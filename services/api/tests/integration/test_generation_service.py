@@ -724,7 +724,7 @@ def test_run_worker_once_processes_markov_job(
                     baseline_rank=idx + 1,
                     baseline_attempts=20,
                     baseline_errors=4,
-                    smoothed_error_rate=0.2,
+                    weakness_score=0.2,
                     frozen_at=datetime.now(UTC),
                 )
             )
