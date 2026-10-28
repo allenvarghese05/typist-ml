@@ -1,5 +1,21 @@
-"""LLM drill generator package for Arm.LLM (design doc 13.5; T3.2)."""
+"""LLM drill generator package for Arm.LLM (design doc 13.5, 13.6; T3.2, T3.3)."""
 
+from typist.generation.llm.bakeoff import (
+    CHALLENGER_MODEL_ID,
+    CHALLENGER_MODEL_REVISION,
+    DEFAULT_DRILLS_PER_SET,
+    DEFAULT_MAX_ATTEMPTS,
+    REFERENCE_LLAMA_SUMMARY,
+    REFERENCE_QWEN_SUMMARY,
+    SYNTHETIC_TARGET_SETS,
+    TPS_THRESHOLD,
+    BakeoffAttemptRecord,
+    DrillEvaluation,
+    ModelBakeoffSummary,
+    compute_bakeoff_summary,
+    evaluate_bakeoff,
+    select_bakeoff_winner,
+)
 from typist.generation.llm.generator import LLMGenerator
 from typist.generation.llm.postprocess import clean_llm_output
 from typist.generation.llm.prompt import (
@@ -23,21 +39,35 @@ from typist.generation.llm.runtime import (
 )
 
 __all__ = [
+    "CHALLENGER_MODEL_ID",
+    "CHALLENGER_MODEL_REVISION",
+    "DEFAULT_DRILLS_PER_SET",
+    "DEFAULT_MAX_ATTEMPTS",
     "DEFAULT_MODEL_ID",
     "DEFAULT_MODEL_REVISION",
     "PROMPT_VERSION_V1",
+    "REFERENCE_LLAMA_SUMMARY",
+    "REFERENCE_QWEN_SUMMARY",
+    "SYNTHETIC_TARGET_SETS",
+    "TPS_THRESHOLD",
+    "BakeoffAttemptRecord",
+    "DrillEvaluation",
     "FakeLLMRuntime",
     "LLMGenerator",
     "LLMOutput",
     "LLMRuntimeProtocol",
     "MLXRuntime",
+    "ModelBakeoffSummary",
     "ModelNotDownloadedError",
     "build_prompt_v1_messages",
     "clean_llm_output",
+    "compute_bakeoff_summary",
     "configure_hub_env",
+    "evaluate_bakeoff",
     "format_target_bigrams",
     "gb_to_mb",
     "is_apple_silicon",
     "is_model_cached",
     "resolve_model_snapshot",
+    "select_bakeoff_winner",
 ]
