@@ -1,5 +1,6 @@
 """Unit tests for the Arm.LLM model bake-off (design doc 13.6; D10, D29; T3.3)."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -465,4 +466,41 @@ def test_adr_d29_consistency() -> None:
     assert f"{REFERENCE_QWEN_SUMMARY.mean_density:.3f} ± {REFERENCE_QWEN_SUMMARY.density_std:.3f}" in content
     assert f"{REFERENCE_QWEN_SUMMARY.mean_tokens_per_sec:.1f} tokens/s" in content
     assert f"{REFERENCE_QWEN_SUMMARY.peak_memory_mb:.1f} MB" in content
+
+
+def test_notebook_structure_and_json_validity() -> None:
+    nb_path = (
+        Path(__file__).resolve().parents[4]
+        / "notebooks"
+        / "02_model_bakeoff.ipynb"
+    )
+    assert nb_path.exists(), f"Notebook missing at {nb_path}"
+
+    content = nb_path.read_text(encoding="utf-8")
+    data = json.loads(content)
+
+    assert data.get("nbformat") == 4
+    cells = data.get("cells", [])
+    assert len(cells) >= 8
+
+    cell_types = {cell["cell_type"] for cell in cells}
+    assert "markdown" in cell_types
+    assert "code" in cell_types
+
+    # Markdown key phrases
+    md_sources = [
+        "".join(cell["source"])
+        for cell in cells
+        if cell["cell_type"] == "markdown"
+    ]
+    all_md = "\n".join(md_sources)
+
+    assert "# Typist-ML: Model Bake-Off" in all_md
+    assert "SYNTHETIC_TARGET_SETS" in all_md
+    assert "D29-model-bakeoff-choice.md" in all_md
+
+    # Embedded results text parity
+    assert f"{REFERENCE_LLAMA_SUMMARY.acceptance_rate * 100:.1f}%" in all_md
+    assert f"{REFERENCE_LLAMA_SUMMARY.mean_tokens_per_sec:.1f}" in all_md
+
 
