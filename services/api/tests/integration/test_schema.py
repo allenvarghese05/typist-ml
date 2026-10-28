@@ -169,6 +169,13 @@ EXPECTED_CONFIG: dict[str, object] = {
     "retest_part_chars": 2700,
     # 0009_markov_config key (T3.1)
     "markov_beta": 10.0,
+    # 0010_llm_config keys (T3.2)
+    "llm_model_id": "mlx-community/Llama-3.2-1B-Instruct-4bit",
+    "llm_model_revision": "08231374eeacb049a0eade7922910865b8fce912",
+    "llm_prompt_version": "v1",
+    "llm_temperature": 0.8,
+    "llm_top_p": 0.9,
+    "llm_max_tokens": 160,
 }
 
 # Assumption C: CURRENT_TIMESTAMP writes whole seconds, Python writes microseconds.

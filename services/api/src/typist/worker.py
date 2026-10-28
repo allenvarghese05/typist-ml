@@ -14,10 +14,11 @@ import os
 import signal
 import threading
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from types import FrameType
-from typing import Final
+from typing import Any, Final
 
 from sqlalchemy import Engine
 from sqlmodel import Session
@@ -27,6 +28,14 @@ from typist.db import utc_now
 from typist.generation.base import Arm, DrillGenerator
 from typist.generation.control import ControlGenerator
 from typist.generation.heuristic import HeuristicGenerator
+from typist.generation.llm import (
+    LLMGenerator,
+    LLMRuntimeProtocol,
+    MLXRuntime,
+    ModelNotDownloadedError,
+    is_apple_silicon,
+    is_model_cached,
+)
 from typist.generation.markov import MarkovGenerator
 from typist.generation.service import GenerationService, claim_next_job
 from typist.generation.validator import MissingConfigError, ValidatorConfig, load_validator_config
@@ -76,13 +85,52 @@ def read_heartbeat_age_s(db_path: Path, now: datetime | None = None) -> float | 
     return max(0.0, round(age, 3))
 
 
-def build_default_generators(
-    session: Session, index: WordIndex
-) -> tuple[dict[Arm, DrillGenerator], ValidatorConfig]:
-    """Build the default generators (CONTROL, HEURISTIC, and MARKOV) from experiment_config and index.
+@dataclass(frozen=True)
+class LLMConfig:
+    model_id: str
+    model_revision: str
+    prompt_version: str
+    temperature: float
+    top_p: float
+    max_tokens: int
 
-    Reads validator_config via load_validator_config(session), control_word_pool and markov_beta
-    from experiment_config (raising MissingConfigError if absent). Returns (generators, validator_config).
+
+def load_llm_config(session: Session) -> LLMConfig:
+    """Read the 6 LLM configuration keys from experiment_config; raise MissingConfigError if absent."""
+    keys = (
+        "llm_model_id",
+        "llm_model_revision",
+        "llm_prompt_version",
+        "llm_temperature",
+        "llm_top_p",
+        "llm_max_tokens",
+    )
+    values: dict[str, Any] = {}
+    for key in keys:
+        row = session.get(ExperimentConfig, key)
+        if row is None:
+            raise MissingConfigError(key)
+        values[key] = row.value
+    return LLMConfig(
+        model_id=str(values["llm_model_id"]),
+        model_revision=str(values["llm_model_revision"]),
+        prompt_version=str(values["llm_prompt_version"]),
+        temperature=float(values["llm_temperature"]),
+        top_p=float(values["llm_top_p"]),
+        max_tokens=int(values["llm_max_tokens"]),
+    )
+
+
+def build_default_generators(
+    session: Session,
+    index: WordIndex,
+    *,
+    runtime: LLMRuntimeProtocol | None = None,
+) -> tuple[dict[Arm, DrillGenerator], ValidatorConfig]:
+    """Build the default generators (CONTROL, HEURISTIC, MARKOV, and optionally LLM).
+
+    If runtime is provided, Arm.LLM is registered using that runtime. If omitted,
+    registers Arm.LLM only when running on Apple Silicon and the model snapshot is cached.
     """
     validator_config = load_validator_config(session)
     pool_row = session.get(ExperimentConfig, "control_word_pool")
@@ -93,11 +141,42 @@ def build_default_generators(
     if beta_row is None:
         raise MissingConfigError("markov_beta")
     markov_beta = float(beta_row.value)
+
     generators: dict[Arm, DrillGenerator] = {
         Arm.CONTROL: ControlGenerator(index, validator_config, pool_size),
         Arm.HEURISTIC: HeuristicGenerator(index, validator_config, pool_size),
         Arm.MARKOV: MarkovGenerator(index, validator_config, markov_beta),
     }
+
+    llm_config_row = session.get(ExperimentConfig, "llm_model_id")
+    if llm_config_row is not None:
+        llm_config = load_llm_config(session)
+        llm_runtime: LLMRuntimeProtocol | None = runtime
+        if (
+            llm_runtime is None
+            and is_apple_silicon()
+            and is_model_cached(llm_config.model_id, llm_config.model_revision)
+        ):
+            try:
+                llm_runtime = MLXRuntime(
+                    model_id=llm_config.model_id,
+                    revision=llm_config.model_revision,
+                )
+            except (ModelNotDownloadedError, RuntimeError, OSError) as exc:
+                logger.warning("Could not load MLXRuntime: %s", exc)
+
+        if llm_runtime is not None:
+            generators[Arm.LLM] = LLMGenerator(
+                index=index,
+                config=validator_config,
+                runtime=llm_runtime,
+                model_id=llm_config.model_id,
+                prompt_version=llm_config.prompt_version,
+                temperature=llm_config.temperature,
+                top_p=llm_config.top_p,
+                max_tokens=llm_config.max_tokens,
+            )
+
     return generators, validator_config
 
 
@@ -108,6 +187,7 @@ def run_worker_once(
     *,
     generators: Mapping[Arm, DrillGenerator] | None = None,
     known_words: frozenset[str] | None = None,
+    runtime: LLMRuntimeProtocol | None = None,
 ) -> str | None:
     """Write a heartbeat, claim at most one pending job, run it if found, and write a heartbeat.
 
@@ -124,7 +204,9 @@ def run_worker_once(
             arm_generators: Mapping[Arm, DrillGenerator] = generators
             validator_config: ValidatorConfig | None = None
         else:
-            arm_generators, validator_config = build_default_generators(session, index)
+            arm_generators, validator_config = build_default_generators(
+                session, index, runtime=runtime
+            )
         service = GenerationService(
             session,
             arm_generators,
@@ -145,6 +227,7 @@ def run_worker(
     poll_interval_s: float = DEFAULT_POLL_INTERVAL_S,
     stop_event: threading.Event | None = None,
     generators: Mapping[Arm, DrillGenerator] | None = None,
+    runtime: LLMRuntimeProtocol | None = None,
 ) -> int:
     """Run the generation worker loop until stopped (or for a single cycle when once=True).
 
@@ -179,6 +262,7 @@ def run_worker(
                 index,
                 generators=generators,
                 known_words=known_words,
+                runtime=runtime,
             )
             return 1 if claimed is not None else 0
 
@@ -189,6 +273,7 @@ def run_worker(
                 index,
                 generators=generators,
                 known_words=known_words,
+                runtime=runtime,
             )
             if claimed is not None:
                 processed += 1
