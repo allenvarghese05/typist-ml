@@ -1,5 +1,7 @@
 """Unit tests for the Arm.LLM model bake-off (design doc 13.6; D10, D29; T3.3)."""
 
+from pathlib import Path
+
 import pytest
 
 from typist.corpus.build import build_corpus
@@ -8,6 +10,8 @@ from typist.generation.base import DrillCandidate
 from typist.generation.llm.bakeoff import (
     CHALLENGER_MODEL_ID,
     CHALLENGER_MODEL_REVISION,
+    REFERENCE_LLAMA_SUMMARY,
+    REFERENCE_QWEN_SUMMARY,
     SYNTHETIC_TARGET_SETS,
     BakeoffAttemptRecord,
     DrillEvaluation,
@@ -426,3 +430,39 @@ def test_evaluate_bakeoff_with_fake_runtime(
     assert summary.meets_tps_threshold is True
     for e in evals:
         assert len(e.attempts) >= 1
+
+
+def test_adr_d29_consistency() -> None:
+    adr_path = (
+        Path(__file__).resolve().parents[4]
+        / "docs"
+        / "decisions"
+        / "D29-model-bakeoff-choice.md"
+    )
+    assert adr_path.exists(), f"ADR file missing at {adr_path}"
+
+    content = adr_path.read_text(encoding="utf-8")
+
+    # Status & metadata
+    assert "- Status: accepted" in content
+    assert f"`{REFERENCE_LLAMA_SUMMARY.model_id}`" in content
+    assert f"`{REFERENCE_LLAMA_SUMMARY.revision}`" in content
+    assert f"`{REFERENCE_QWEN_SUMMARY.model_id}`" in content
+    assert f"`{REFERENCE_QWEN_SUMMARY.revision}`" in content
+
+    # Llama reference metrics
+    assert f"**{REFERENCE_LLAMA_SUMMARY.acceptance_rate * 100:.1f}%**" in content
+    assert f"**{REFERENCE_LLAMA_SUMMARY.first_attempt_acceptance_rate * 100:.1f}%**" in content
+    assert f"**{REFERENCE_LLAMA_SUMMARY.attempts_per_accepted_drill:.2f}**" in content
+    assert f"{REFERENCE_LLAMA_SUMMARY.mean_density:.3f} ± {REFERENCE_LLAMA_SUMMARY.density_std:.3f}" in content
+    assert f"**{REFERENCE_LLAMA_SUMMARY.mean_tokens_per_sec:.1f} tokens/s**" in content
+    assert f"**{REFERENCE_LLAMA_SUMMARY.peak_memory_mb:.1f} MB**" in content
+
+    # Qwen reference metrics
+    assert f"{REFERENCE_QWEN_SUMMARY.acceptance_rate * 100:.1f}%" in content
+    assert f"{REFERENCE_QWEN_SUMMARY.first_attempt_acceptance_rate * 100:.1f}%" in content
+    assert f"{REFERENCE_QWEN_SUMMARY.attempts_per_accepted_drill:.2f}" in content
+    assert f"{REFERENCE_QWEN_SUMMARY.mean_density:.3f} ± {REFERENCE_QWEN_SUMMARY.density_std:.3f}" in content
+    assert f"{REFERENCE_QWEN_SUMMARY.mean_tokens_per_sec:.1f} tokens/s" in content
+    assert f"{REFERENCE_QWEN_SUMMARY.peak_memory_mb:.1f} MB" in content
+
