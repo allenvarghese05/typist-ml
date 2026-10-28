@@ -32,3 +32,28 @@ class BigramMatrix(BaseModel):
     wpm: float | None
     accuracy: float | None
     cells: list[MatrixCell]
+
+
+class SetOutcome(BaseModel):
+    """Outcome for one experimental set (e.g. Set A, mapped to arm 'control')."""
+
+    set_label: str
+    arm: str
+    bigrams: list[str]
+    baseline_attempts: int
+    baseline_errors: int
+    baseline_error_rate: float | None
+    retest_attempts: int
+    retest_errors: int
+    retest_error_rate: float | None
+
+
+class ParticipantResults(BaseModel):
+    """Participant study-level outcomes across sets (design doc 14; T2.10, T4.1)."""
+
+    participant_id: str
+    alias: str
+    status: str
+    baseline_wpm: float | None
+    retest_wpm: float | None
+    sets: list[SetOutcome]

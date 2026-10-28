@@ -38,12 +38,16 @@ def store_events(
     if not events:
         return EventIngestResult(accepted=0, duplicates=0)
     values = [{"block_id": block_id, **event.model_dump()} for event in events]
-    statement = (
-        sqlite_insert(KeystrokeEvent)
-        .values(values)
-        .on_conflict_do_nothing(index_elements=["block_id", "seq"])
-    )
-    result = session.exec(statement)
-    accepted = result.rowcount
+    chunk_size = 500
+    accepted = 0
+    for i in range(0, len(values), chunk_size):
+        chunk = values[i : i + chunk_size]
+        statement = (
+            sqlite_insert(KeystrokeEvent)
+            .values(chunk)
+            .on_conflict_do_nothing(index_elements=["block_id", "seq"])
+        )
+        result = session.exec(statement)
+        accepted += result.rowcount
     session.commit()
     return EventIngestResult(accepted=accepted, duplicates=len(events) - accepted)

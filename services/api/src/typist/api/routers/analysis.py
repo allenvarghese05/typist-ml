@@ -10,9 +10,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
 from typist.db import get_session
-from typist.schemas.analysis import BigramMatrix
-from typist.services.analysis import SessionNotCompletedError, session_matrix
+from typist.schemas.analysis import BigramMatrix, ParticipantResults
+from typist.services.analysis import (
+    ParticipantNotDoneError,
+    SessionNotCompletedError,
+    participant_results,
+    session_matrix,
+)
+from typist.services.participants import ParticipantNotFoundError
 from typist.services.session_stats import SessionNotFoundError
+from typist.services.test_composer import ParticipantNotAssignedError
 
 router = APIRouter(tags=["analysis"])
 
@@ -43,3 +50,26 @@ def get_session_matrix(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="session is not completed"
         ) from error
+
+
+@router.get(
+    "/analysis/participants/{participant_id}",
+    response_model=ParticipantResults,
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "participant not found"},
+        status.HTTP_409_CONFLICT: {"description": "participant not done or not assigned"},
+    },
+)
+def get_participant_analysis(
+    participant_id: str,
+    session: Annotated[Session, Depends(get_session)],
+) -> ParticipantResults:
+    """Return study-level per-set outcome analysis for a participant whose status is 'done'."""
+    try:
+        return participant_results(session, participant_id)
+    except ParticipantNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="participant not found"
+        ) from error
+    except (ParticipantNotDoneError, ParticipantNotAssignedError) as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error

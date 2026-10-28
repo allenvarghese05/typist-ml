@@ -5,12 +5,15 @@ from contextlib import suppress
 from datetime import UTC, datetime
 
 import typer
+from fastapi.testclient import TestClient
 from sqlmodel import Session, col, select
 
+from typist.api.routers.admin import get_word_index
 from typist.config import get_settings
 from typist.corpus.build import build_corpus
 from typist.corpus.word_index import WordIndex
 from typist.db import create_db_engine
+from typist.main import create_app
 from typist.migrations import upgrade_to_head
 from typist.models import ExperimentConfig, Participant
 from typist.schemas.admin import ChecksResponse
@@ -28,6 +31,7 @@ from typist.services.participants import (
     create_participant,
     delete_participant,
 )
+from typist.services.pipeline_sim import run_pipeline_simulation
 from typist.services.session_stats import recompute_stats
 from typist.services.test_composer import (
     BaselinePassagesInUseError,
@@ -476,3 +480,60 @@ def check_command(
 
     if not all_passed:
         raise typer.Exit(code=1)
+
+
+dev_app = typer.Typer(help="Developer simulation and diagnostic commands.", no_args_is_help=True)
+app.add_typer(dev_app, name="dev")
+
+
+@dev_app.command("test-pipeline")
+@app.command("test-pipeline", hidden=True)
+def test_pipeline_command(
+    alias: str = typer.Option("dev-sim", "--alias", help="Participant alias"),
+    error_rate: float = typer.Option(0.05, "--error-rate", help="Error rate (0.0 to 1.0)"),
+    seed: int = typer.Option(42, "--seed", help="Random seed"),
+    practice_days: int = typer.Option(
+        2, "--practice-days", help="Number of practice days to simulate"
+    ),
+) -> None:
+    """Run an end-to-end experiment pipeline simulation with scripted keystrokes."""
+    settings = get_settings()
+    engine = create_db_engine(settings.db_path)
+    typer.echo(f"Running pipeline test against database: {settings.db_path}")
+
+    # Build or load corpus index
+    corpus_dir = settings.corpus_dir
+    if not (corpus_dir / "words.json").exists():
+        typer.echo("Building temporary corpus artifacts...")
+        build_corpus(corpus_dir, word_count=5000, tracked_count=50)
+    index = WordIndex.load(corpus_dir)
+
+    fastapi_app = create_app(settings)
+    fastapi_app.dependency_overrides[get_word_index] = lambda: index
+    client = TestClient(fastapi_app)
+
+    try:
+        result = run_pipeline_simulation(
+            client,
+            engine,
+            settings.db_path,
+            index,
+            participant_alias=alias,
+            practice_days=practice_days,
+            error_rate=error_rate,
+            seed=seed,
+            log_fn=typer.echo,
+        )
+        typer.echo(
+            f"\nSUCCESS: Participant '{result.alias}' ({result.participant_id}) reached status '{result.status}'."
+        )
+        typer.echo(
+            f"Simulated {result.total_keystrokes} keystrokes across "
+            f"{result.baseline_sessions} baseline, {result.practice_sessions} practice, and {result.retest_sessions} retest sessions."
+        )
+        typer.echo(
+            f"Quality checks passed: {result.checks_passed}. Recomputed sessions: {result.recomputed_sessions}."
+        )
+    except Exception as exc:
+        typer.echo(f"\nFAILURE: Pipeline simulation failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
