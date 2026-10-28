@@ -27,6 +27,7 @@ from typist.db import utc_now
 from typist.generation.base import Arm, DrillGenerator
 from typist.generation.control import ControlGenerator
 from typist.generation.heuristic import HeuristicGenerator
+from typist.generation.markov import MarkovGenerator
 from typist.generation.service import GenerationService, claim_next_job
 from typist.generation.validator import MissingConfigError, ValidatorConfig, load_validator_config
 from typist.models import ExperimentConfig
@@ -78,19 +79,24 @@ def read_heartbeat_age_s(db_path: Path, now: datetime | None = None) -> float | 
 def build_default_generators(
     session: Session, index: WordIndex
 ) -> tuple[dict[Arm, DrillGenerator], ValidatorConfig]:
-    """Build the M2 default generators (CONTROL and HEURISTIC) from experiment_config and index.
+    """Build the default generators (CONTROL, HEURISTIC, and MARKOV) from experiment_config and index.
 
-    Reads validator_config via load_validator_config(session) and control_word_pool from
-    experiment_config (raising MissingConfigError if absent). Returns (generators, validator_config).
+    Reads validator_config via load_validator_config(session), control_word_pool and markov_beta
+    from experiment_config (raising MissingConfigError if absent). Returns (generators, validator_config).
     """
     validator_config = load_validator_config(session)
     pool_row = session.get(ExperimentConfig, "control_word_pool")
     if pool_row is None:
         raise MissingConfigError("control_word_pool")
     pool_size = int(pool_row.value)
+    beta_row = session.get(ExperimentConfig, "markov_beta")
+    if beta_row is None:
+        raise MissingConfigError("markov_beta")
+    markov_beta = float(beta_row.value)
     generators: dict[Arm, DrillGenerator] = {
         Arm.CONTROL: ControlGenerator(index, validator_config, pool_size),
         Arm.HEURISTIC: HeuristicGenerator(index, validator_config, pool_size),
+        Arm.MARKOV: MarkovGenerator(index, validator_config, markov_beta),
     }
     return generators, validator_config
 

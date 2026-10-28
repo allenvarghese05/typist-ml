@@ -31,7 +31,12 @@ from typist.models import (
     GenerationJob,
     Participant,
 )
-from typist.worker import read_heartbeat_age_s, run_worker, run_worker_once
+from typist.worker import (
+    build_default_generators,
+    read_heartbeat_age_s,
+    run_worker,
+    run_worker_once,
+)
 
 PID: Final = "p-gen-01"
 
@@ -691,3 +696,59 @@ def test_run_worker_drains_queue_and_stops_on_event(
         j2 = session.get(GenerationJob, job2_id)
         assert j1 is not None and j1.status == "done"
         assert j2 is not None and j2.status == "done"
+
+
+def test_build_default_generators_includes_markov(
+    migrated_engine: Engine, corpus_index: WordIndex
+) -> None:
+    with Session(migrated_engine) as session:
+        generators, config = build_default_generators(session, corpus_index)
+        assert Arm.MARKOV in generators
+        assert generators[Arm.MARKOV].arm is Arm.MARKOV
+        assert generators[Arm.MARKOV].version == "markov-v1"
+
+
+def test_run_worker_once_processes_markov_job(
+    migrated_engine: Engine, isolated_settings: Path, corpus_index: WordIndex
+) -> None:
+    with Session(migrated_engine) as session:
+        _setup_participant(session)
+        # Seed bigram assignments for PID and MARKOV
+        for idx, bg in enumerate(corpus_index.tracked_bigrams[:4]):
+            session.add(
+                BigramAssignment(
+                    participant_id=PID,
+                    arm="markov",
+                    set_label="A",
+                    bigram=bg,
+                    baseline_rank=idx + 1,
+                    baseline_attempts=20,
+                    baseline_errors=4,
+                    smoothed_error_rate=0.2,
+                    frozen_at=datetime.now(UTC),
+                )
+            )
+        job = GenerationJob(
+            participant_id=PID,
+            arm="markov",
+            requested=1,
+            status="pending",
+        )
+        session.add(job)
+        session.commit()
+        job_id = job.id
+
+    claimed = run_worker_once(migrated_engine, isolated_settings, corpus_index)
+    assert claimed == job_id
+
+    with Session(migrated_engine) as session:
+        refreshed_job = session.get(GenerationJob, job_id)
+        assert refreshed_job is not None
+        assert refreshed_job.status == "done"
+
+        drills = session.exec(
+            select(Drill).where(col(Drill.participant_id) == PID, col(Drill.arm) == "markov")
+        ).all()
+        assert len(drills) == 1
+        assert drills[0].status == "ready"
+        assert drills[0].generator_version == "markov-v1"
