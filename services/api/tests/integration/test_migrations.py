@@ -21,7 +21,7 @@ from typist.db import create_db_engine
 from typist.migrations import alembic_config, upgrade_to_head
 from typist.models import Participant
 
-HEAD = "0008_retest_config"
+HEAD = "0009_markov_config"
 APP_TABLES = frozenset(
     {
         "participants",
@@ -52,7 +52,7 @@ COUNT_QUERIES: dict[str, str] = {
     "generation_attempts": "SELECT count(*) FROM generation_attempts",
 }
 SEEDED_CONFIG_ROWS = (
-    26  # 5 from 0001 + 6 from 0002 + 5 from 0005 + 6 from 0006 + 1 from 0007 + 3 from 0008
+    27  # 5 from 0001 + 6 from 0002 + 5 from 0005 + 6 from 0006 + 1 from 0007 + 3 from 0008 + 1 from 0009
 )
 
 

@@ -167,6 +167,8 @@ EXPECTED_CONFIG: dict[str, object] = {
     "retest_min_occurrences": 40,
     "retest_parts": 2,
     "retest_part_chars": 2700,
+    # 0009_markov_config key (T3.1)
+    "markov_beta": 10.0,
 }
 
 # Assumption C: CURRENT_TIMESTAMP writes whole seconds, Python writes microseconds.
