@@ -1,5 +1,6 @@
 """Unit tests for the Arm.LLM model bake-off (design doc 13.6; D10, D29; T3.3)."""
 
+import importlib.util
 import json
 from pathlib import Path
 
@@ -125,9 +126,7 @@ def test_compute_bakeoff_summary_all_accepted() -> None:
                 ),
             ),
             accepted_candidate=_make_candidate(tps=45.0, mem=850.0),
-            accepted_metrics=_make_val_result(
-                accepted=True, density=0.20 + i * 0.02
-            ).metrics,
+            accepted_metrics=_make_val_result(accepted=True, density=0.20 + i * 0.02).metrics,
         )
         for i in range(5)
     ]
@@ -207,9 +206,7 @@ def test_compute_bakeoff_summary_mixed_retries() -> None:
             accepted=False,
             reasons=(RejectReason.REAL_WORD_RATIO.value,),
             candidate=_make_candidate(tps=39.0, mem=805.0),
-            validation=_make_val_result(
-                accepted=False, reasons=[RejectReason.REAL_WORD_RATIO]
-            ),
+            validation=_make_val_result(accepted=False, reasons=[RejectReason.REAL_WORD_RATIO]),
         )
         for att in range(1, 6)
     )
@@ -435,10 +432,7 @@ def test_evaluate_bakeoff_with_fake_runtime(
 
 def test_adr_d29_consistency() -> None:
     adr_path = (
-        Path(__file__).resolve().parents[4]
-        / "docs"
-        / "decisions"
-        / "D29-model-bakeoff-choice.md"
+        Path(__file__).resolve().parents[4] / "docs" / "decisions" / "D29-model-bakeoff-choice.md"
     )
     assert adr_path.exists(), f"ADR file missing at {adr_path}"
 
@@ -455,7 +449,10 @@ def test_adr_d29_consistency() -> None:
     assert f"**{REFERENCE_LLAMA_SUMMARY.acceptance_rate * 100:.1f}%**" in content
     assert f"**{REFERENCE_LLAMA_SUMMARY.first_attempt_acceptance_rate * 100:.1f}%**" in content
     assert f"**{REFERENCE_LLAMA_SUMMARY.attempts_per_accepted_drill:.2f}**" in content
-    assert f"{REFERENCE_LLAMA_SUMMARY.mean_density:.3f} ± {REFERENCE_LLAMA_SUMMARY.density_std:.3f}" in content
+    assert (
+        f"{REFERENCE_LLAMA_SUMMARY.mean_density:.3f} ± {REFERENCE_LLAMA_SUMMARY.density_std:.3f}"
+        in content
+    )
     assert f"**{REFERENCE_LLAMA_SUMMARY.mean_tokens_per_sec:.1f} tokens/s**" in content
     assert f"**{REFERENCE_LLAMA_SUMMARY.peak_memory_mb:.1f} MB**" in content
 
@@ -463,17 +460,16 @@ def test_adr_d29_consistency() -> None:
     assert f"{REFERENCE_QWEN_SUMMARY.acceptance_rate * 100:.1f}%" in content
     assert f"{REFERENCE_QWEN_SUMMARY.first_attempt_acceptance_rate * 100:.1f}%" in content
     assert f"{REFERENCE_QWEN_SUMMARY.attempts_per_accepted_drill:.2f}" in content
-    assert f"{REFERENCE_QWEN_SUMMARY.mean_density:.3f} ± {REFERENCE_QWEN_SUMMARY.density_std:.3f}" in content
+    assert (
+        f"{REFERENCE_QWEN_SUMMARY.mean_density:.3f} ± {REFERENCE_QWEN_SUMMARY.density_std:.3f}"
+        in content
+    )
     assert f"{REFERENCE_QWEN_SUMMARY.mean_tokens_per_sec:.1f} tokens/s" in content
     assert f"{REFERENCE_QWEN_SUMMARY.peak_memory_mb:.1f} MB" in content
 
 
 def test_notebook_structure_and_json_validity() -> None:
-    nb_path = (
-        Path(__file__).resolve().parents[4]
-        / "notebooks"
-        / "02_model_bakeoff.ipynb"
-    )
+    nb_path = Path(__file__).resolve().parents[4] / "notebooks" / "02_model_bakeoff.ipynb"
     assert nb_path.exists(), f"Notebook missing at {nb_path}"
 
     content = nb_path.read_text(encoding="utf-8")
@@ -488,11 +484,7 @@ def test_notebook_structure_and_json_validity() -> None:
     assert "code" in cell_types
 
     # Markdown key phrases
-    md_sources = [
-        "".join(cell["source"])
-        for cell in cells
-        if cell["cell_type"] == "markdown"
-    ]
+    md_sources = ["".join(cell["source"]) for cell in cells if cell["cell_type"] == "markdown"]
     all_md = "\n".join(md_sources)
 
     assert "# Typist-ML: Model Bake-Off" in all_md
@@ -504,3 +496,14 @@ def test_notebook_structure_and_json_validity() -> None:
     assert f"{REFERENCE_LLAMA_SUMMARY.mean_tokens_per_sec:.1f}" in all_md
 
 
+def test_run_bakeoff_script_cli() -> None:
+    script_path = Path(__file__).resolve().parents[2] / "scripts" / "run_bakeoff.py"
+    assert script_path.exists(), f"Script missing at {script_path}"
+
+    spec = importlib.util.spec_from_file_location("run_bakeoff", script_path)
+    assert spec is not None and spec.loader is not None
+    run_bakeoff = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(run_bakeoff)
+
+    exit_code = run_bakeoff.main(["--fake", "--drills-per-set", "1", "--max-attempts", "2"])
+    assert exit_code == 0

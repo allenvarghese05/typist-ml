@@ -127,9 +127,7 @@ def compute_bakeoff_summary(
         attempts_per_accepted = None
 
     densities = [
-        e.accepted_metrics.target_density
-        for e in accepted_evals
-        if e.accepted_metrics is not None
+        e.accepted_metrics.target_density for e in accepted_evals if e.accepted_metrics is not None
     ]
     if densities:
         mean_density = round(sum(densities) / len(densities), 3)
@@ -143,9 +141,7 @@ def compute_bakeoff_summary(
         density_std = None
 
     ratios = [
-        e.accepted_metrics.real_word_ratio
-        for e in accepted_evals
-        if e.accepted_metrics is not None
+        e.accepted_metrics.real_word_ratio for e in accepted_evals if e.accepted_metrics is not None
     ]
     mean_real_word_ratio = round(sum(ratios) / len(ratios), 3) if ratios else None
 
