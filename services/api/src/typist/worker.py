@@ -32,6 +32,7 @@ from typist.generation.llm import (
     LLMGenerator,
     LLMRuntimeProtocol,
     MLXRuntime,
+    ModelNotDownloadedError,
     is_apple_silicon,
     is_model_cached,
 )
@@ -151,15 +152,18 @@ def build_default_generators(
     if llm_config_row is not None:
         llm_config = load_llm_config(session)
         llm_runtime: LLMRuntimeProtocol | None = runtime
-        if llm_runtime is None and is_apple_silicon():
-            if is_model_cached(llm_config.model_id, llm_config.model_revision):
-                try:
-                    llm_runtime = MLXRuntime(
-                        model_id=llm_config.model_id,
-                        revision=llm_config.model_revision,
-                    )
-                except Exception as exc:
-                    logger.warning("Could not load MLXRuntime: %s", exc)
+        if (
+            llm_runtime is None
+            and is_apple_silicon()
+            and is_model_cached(llm_config.model_id, llm_config.model_revision)
+        ):
+            try:
+                llm_runtime = MLXRuntime(
+                    model_id=llm_config.model_id,
+                    revision=llm_config.model_revision,
+                )
+            except (ModelNotDownloadedError, RuntimeError, OSError) as exc:
+                logger.warning("Could not load MLXRuntime: %s", exc)
 
         if llm_runtime is not None:
             generators[Arm.LLM] = LLMGenerator(

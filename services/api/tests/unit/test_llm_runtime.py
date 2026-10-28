@@ -44,7 +44,9 @@ def test_fake_runtime_implements_protocol() -> None:
 
 def test_fake_runtime_canned_queue() -> None:
     out1 = LLMOutput(text="first", tokens=1, tokens_per_sec=40.0, peak_memory_mb=800.0, gen_ms=30.0)
-    out2 = LLMOutput(text="second", tokens=1, tokens_per_sec=42.0, peak_memory_mb=810.0, gen_ms=32.0)
+    out2 = LLMOutput(
+        text="second", tokens=1, tokens_per_sec=42.0, peak_memory_mb=810.0, gen_ms=32.0
+    )
     fake = FakeLLMRuntime(canned_outputs=[out1, out2])
 
     assert fake.complete([], seed=1).text == "first"
@@ -62,9 +64,11 @@ def test_mlx_runtime_missing_snapshot_raises_model_not_downloaded_error(
 ) -> None:
     monkeypatch.setattr(sys, "platform", "darwin")
     monkeypatch.setattr("platform.machine", lambda: "arm64")
-    with patch(
-        "typist.generation.llm.runtime.resolve_model_snapshot",
-        side_effect=ModelNotDownloadedError("not found"),
+    with (
+        patch(
+            "typist.generation.llm.runtime.resolve_model_snapshot",
+            side_effect=ModelNotDownloadedError("not found"),
+        ),
+        pytest.raises(ModelNotDownloadedError),
     ):
-        with pytest.raises(ModelNotDownloadedError):
-            MLXRuntime()
+        MLXRuntime()

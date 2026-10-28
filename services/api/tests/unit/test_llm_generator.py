@@ -27,7 +27,9 @@ def validator_config() -> ValidatorConfig:
     )
 
 
-def test_llm_generator_implements_protocol(index: WordIndex, validator_config: ValidatorConfig) -> None:
+def test_llm_generator_implements_protocol(
+    index: WordIndex, validator_config: ValidatorConfig
+) -> None:
     generator = LLMGenerator(index, validator_config, FakeLLMRuntime())
     assert isinstance(generator, DrillGenerator)
     assert generator.arm is Arm.LLM
@@ -73,13 +75,52 @@ def test_valid_llm_candidate_passes_validator(
     # Build text between 270 and 300 chars with coverage >= 3 for ("th", "ea", "in", "st"),
     # real words, repeating words <= 3 times each, bigram run <= 3
     words = [
-        "the", "weather", "in", "east", "is", "great", "this", "morning",
-        "everyone", "staying", "there", "their", "seats", "eating",
-        "steak", "instead", "thinking", "about", "next", "step",
-        "early", "spring", "season", "with", "fresh", "air", "blowing",
-        "past", "station", "where", "trains", "start", "each", "day", "clean",
-        "water", "path", "stone", "stream", "reach", "into", "deep", "earth",
-        "under", "warm", "sunlight",
+        "the",
+        "weather",
+        "in",
+        "east",
+        "is",
+        "great",
+        "this",
+        "morning",
+        "everyone",
+        "staying",
+        "there",
+        "their",
+        "seats",
+        "eating",
+        "steak",
+        "instead",
+        "thinking",
+        "about",
+        "next",
+        "step",
+        "early",
+        "spring",
+        "season",
+        "with",
+        "fresh",
+        "air",
+        "blowing",
+        "past",
+        "station",
+        "where",
+        "trains",
+        "start",
+        "each",
+        "day",
+        "clean",
+        "water",
+        "path",
+        "stone",
+        "stream",
+        "reach",
+        "into",
+        "deep",
+        "earth",
+        "under",
+        "warm",
+        "sunlight",
     ]
     text = " ".join(words)
     assert 270 <= len(text) <= 300

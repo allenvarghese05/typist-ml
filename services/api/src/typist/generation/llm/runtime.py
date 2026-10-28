@@ -190,16 +190,20 @@ class FakeLLMRuntime:
         top_p: float = 0.9,
         seed: int = 0,
     ) -> LLMOutput:
-        self.calls.append({
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "temp": temp,
-            "top_p": top_p,
-            "seed": seed,
-        })
+        self.calls.append(
+            {
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temp": temp,
+                "top_p": top_p,
+                "seed": seed,
+            }
+        )
         if self._canned_outputs:
             return self._canned_outputs.pop(0)
-        text = self._canned_text if self._canned_text is not None else f"fake output for seed {seed}"
+        text = (
+            self._canned_text if self._canned_text is not None else f"fake output for seed {seed}"
+        )
         tokens = min(max_tokens, len(text.split()))
         return LLMOutput(
             text=text,

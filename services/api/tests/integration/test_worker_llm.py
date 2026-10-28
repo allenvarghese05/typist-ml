@@ -1,5 +1,7 @@
 """Integration tests for worker LLM generator wiring and attempt metrics logging (T3.2)."""
 
+from collections.abc import Sequence
+
 from sqlalchemy import Engine
 from sqlmodel import Session, col, select
 
@@ -8,13 +10,13 @@ from typist.corpus.word_index import WordIndex
 from typist.generation.base import Arm
 from typist.generation.llm import FakeLLMRuntime, LLMOutput
 from typist.generation.service import GenerationService
-from typist.models import BigramAssignment, Drill, GenerationAttempt, GenerationJob, Participant
+from typist.models import BigramAssignment, GenerationAttempt, GenerationJob, Participant
 from typist.worker import build_default_generators
 
 PID = "p-llm-01"
 
 
-def _setup_participant_and_assignments(session: Session, words: list[str]) -> None:
+def _setup_participant_and_assignments(session: Session, words: Sequence[str]) -> None:
     session.add(Participant(id=PID, alias=PID))
     session.flush()
     targets = ("th", "ea", "in", "st")

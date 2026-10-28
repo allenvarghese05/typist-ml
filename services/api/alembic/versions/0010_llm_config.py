@@ -50,7 +50,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Delete only the 6 LLM configuration keys."""
     op.execute(
-        _config_table.delete().where(
-            _config_table.c.key.in_(list(LLM_CONFIG_DEFAULTS.keys()))
-        )
+        _config_table.delete().where(_config_table.c.key.in_(list(LLM_CONFIG_DEFAULTS.keys())))
     )
