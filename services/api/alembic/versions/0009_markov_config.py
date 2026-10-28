@@ -10,11 +10,11 @@ T3.1 owner answer 6). Section 13.4 default is 4.0; M3 beta tuning on representat
 json.dumps text. Downgrade deletes only this key.
 """
 
-from collections.abc import Sequence
 import json
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision: str = "0009_markov_config"
 down_revision: str | Sequence[str] | None = "0008_retest_config"
@@ -47,7 +47,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Delete only the markov_beta key."""
     op.execute(
-        _config_table.delete().where(
-            _config_table.c.key.in_(list(MARKOV_CONFIG_DEFAULTS.keys()))
-        )
+        _config_table.delete().where(_config_table.c.key.in_(list(MARKOV_CONFIG_DEFAULTS.keys())))
     )

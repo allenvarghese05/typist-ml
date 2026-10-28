@@ -5,7 +5,6 @@ built once per module (build_corpus, offline, ~0.2 s)."""
 import pytest
 
 from typist.corpus.build import build_corpus
-from typist.corpus.ngram import CharNGramModel
 from typist.corpus.word_index import WordIndex
 from typist.generation.base import Arm, DrillGenerator, DrillSpec
 from typist.generation.control import ControlGenerator
@@ -218,9 +217,7 @@ def test_no_word_is_used_more_than_twice(
         assert all(count <= 2 for count in Counter(text.split(" ")).values())
 
 
-def test_markov_is_deterministic_by_seed(
-    index: WordIndex, markov: MarkovGenerator
-) -> None:
+def test_markov_is_deterministic_by_seed(index: WordIndex, markov: MarkovGenerator) -> None:
     targets = _common(index)
     first = markov.generate(_markov_spec(targets, 7))
     second = markov.generate(_markov_spec(targets, 7))
@@ -229,9 +226,7 @@ def test_markov_is_deterministic_by_seed(
     assert first.text != other.text
 
 
-def test_markov_word_length_bounds(
-    index: WordIndex, markov: MarkovGenerator
-) -> None:
+def test_markov_word_length_bounds(index: WordIndex, markov: MarkovGenerator) -> None:
     targets = _common(index)
     for seed in range(10):
         candidate = markov.generate(_markov_spec(targets, seed))

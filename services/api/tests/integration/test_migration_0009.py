@@ -21,9 +21,7 @@ def _config(db_path: Path) -> dict[str, object]:
     return {key: json.loads(value) for key, value in rows}
 
 
-def test_0009_seeds_the_markov_config_key(
-    isolated_settings: Path, migrated_engine: Engine
-) -> None:
+def test_0009_seeds_the_markov_config_key(isolated_settings: Path, migrated_engine: Engine) -> None:
     config = _config(isolated_settings)
     for key, value in NEW_KEYS.items():
         assert config[key] == value

@@ -14,11 +14,11 @@ generators (owner answer 8). The generator stops when the next word would exceed
 Randomness is strictly random.Random(spec.seed). Pure: returns one DrillCandidate per call.
 """
 
-from collections import defaultdict
 import random
+from collections import defaultdict
 from typing import Final
 
-from typist.corpus.ngram import CharNGramModel, END_CHAR, START_CHAR, START_CONTEXT
+from typist.corpus.ngram import END_CHAR, START_CHAR, CharNGramModel
 from typist.corpus.word_index import WordIndex
 from typist.generation.base import Arm, DrillCandidate, DrillSpec
 from typist.generation.sampling import weighted_choice
@@ -50,9 +50,7 @@ class MarkovGenerator:
         self._beta = beta
         self._model = model if model is not None else CharNGramModel.from_word_index(index)
 
-    def _sample_word(
-        self, rng: random.Random, target_map: dict[str, set[str]]
-    ) -> str:
+    def _sample_word(self, rng: random.Random, target_map: dict[str, set[str]]) -> str:
         """Sample one pseudo-word of 3 to 10 characters using the seeded RNG.
 
         Discard and retry if a dead end is reached before valid completion (owner answer 5).

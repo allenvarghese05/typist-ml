@@ -13,10 +13,10 @@ Each word's transitions are weighted by sqrt(frequency) (13.4 step 1). Training 
 20,000 words. Pure Python 3.12: no external model files, no mlx-lm, runs identically on Linux CI.
 """
 
+import math
 from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
-import math
 from typing import Final
 
 from typist.corpus.word_index import WordIndex

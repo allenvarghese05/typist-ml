@@ -1,10 +1,9 @@
 """Unit tests for CharNGramModel (T3.1, design doc 13.4 step 1)."""
 
-from pathlib import Path
 import pytest
 
 from typist.corpus.build import build_corpus
-from typist.corpus.ngram import END_CHAR, START_CHAR, START_CONTEXT, CharNGramModel
+from typist.corpus.ngram import END_CHAR, START_CONTEXT, CharNGramModel
 from typist.corpus.word_index import WordIndex
 
 
@@ -40,5 +39,5 @@ def test_ngram_weights_are_positive(index: WordIndex) -> None:
     model = CharNGramModel.from_word_index(index)
     for ctx, next_map in model.transitions.items():
         assert len(ctx) == 2
-        for char, weight in next_map.items():
+        for weight in next_map.values():
             assert weight > 0.0

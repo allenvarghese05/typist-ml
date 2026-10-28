@@ -702,7 +702,7 @@ def test_build_default_generators_includes_markov(
     migrated_engine: Engine, corpus_index: WordIndex
 ) -> None:
     with Session(migrated_engine) as session:
-        generators, config = build_default_generators(session, corpus_index)
+        generators, _config = build_default_generators(session, corpus_index)
         assert Arm.MARKOV in generators
         assert generators[Arm.MARKOV].arm is Arm.MARKOV
         assert generators[Arm.MARKOV].version == "markov-v1"
