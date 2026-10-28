@@ -173,7 +173,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "0002probe"
-down_revision = "0008_retest_config"
+down_revision = "0009_markov_config"
 branch_labels = None
 depends_on = None
 
