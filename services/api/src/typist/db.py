@@ -99,6 +99,7 @@ def unfreeze_config_for_testing(target: Engine | Session) -> None:
             for sql in statements:
                 connection.execute(text(sql))
     else:
+        conn = target.connection()
         for sql in statements:
-            target.execute(text(sql))
+            conn.execute(text(sql))
         target.commit()
