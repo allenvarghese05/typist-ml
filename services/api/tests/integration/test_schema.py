@@ -138,7 +138,7 @@ EXPECTED_CHECKS: dict[str, str] = {
 EXPECTED_CONFIG: dict[str, object] = {
     "practice_days": 10,
     "block_chars": 600,
-    "d_min": 0.15,
+    "d_min": 0.10,
     "d_max": 0.40,
     "arms_enabled": ["control", "heuristic", "markov", "llm"],
     # 0002_baseline_config keys (T1.8)

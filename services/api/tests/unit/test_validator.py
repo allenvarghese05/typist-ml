@@ -34,7 +34,7 @@ def _config(**overrides: object) -> ValidatorConfig:
 
 
 def _spec(
-    arm: Arm, targets: tuple[str, ...], *, min_density: float = 0.15, max_density: float = 0.40
+    arm: Arm, targets: tuple[str, ...], *, min_density: float = 0.10, max_density: float = 0.40
 ) -> DrillSpec:
     return DrillSpec(
         participant_id="p1",
@@ -65,12 +65,12 @@ def test_bad_charset(text: str) -> None:
 
 
 def test_density_low() -> None:
-    # "math"x3 (th:3) + a 22-letter non-th filler: th=3 over total=30 -> 0.10 < 0.15; coverage ok.
-    text = "math math math abcdefghijklmnopqrstuv"
+    # "math"x3 (th:3) + 32-letter non-th filler: th=3 over total=40 -> 0.075 < 0.10; coverage ok.
+    text = "math math math abcdefghijklmnopqrstuvwxyzabcdef"
     spec = _spec(Arm.HEURISTIC, ("th",))
     result = validate(text, spec, _config(min_length_chars=1), frozenset())
     assert result.reasons == (RejectReason.DENSITY_LOW,)
-    assert result.metrics.target_density == pytest.approx(0.10)
+    assert result.metrics.target_density == pytest.approx(0.075)
     assert result.metrics.coverage == {"th": 3}
 
 
@@ -205,18 +205,18 @@ def test_bigram_run_examples() -> None:
 
 
 def test_density_boundaries_are_inclusive() -> None:
-    # Exactly d_min (0.15) accepted and exactly d_max (0.40) accepted.
+    # Exactly d_min (0.10) accepted and exactly d_max (0.40) accepted.
     at_min = validate(
-        "math math math abcdefghijkl",
-        _spec(Arm.HEURISTIC, ("th",), min_density=0.15, max_density=0.40),
+        "math math math abcdefghijklmnopqrstuv",
+        _spec(Arm.HEURISTIC, ("th",), min_density=0.10, max_density=0.40),
         _config(min_length_chars=1),
         frozenset({"math"}),
     )
-    assert at_min.metrics.target_density == pytest.approx(0.15)
+    assert at_min.metrics.target_density == pytest.approx(0.10)
     assert RejectReason.DENSITY_LOW not in at_min.reasons
     at_max = validate(
         "tha thb thc thd the thf thg thh abcde",
-        _spec(Arm.HEURISTIC, ("th",), min_density=0.15, max_density=0.40),
+        _spec(Arm.HEURISTIC, ("th",), min_density=0.10, max_density=0.40),
         _config(min_length_chars=1),
         frozenset(),
     )
