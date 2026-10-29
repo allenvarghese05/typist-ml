@@ -115,6 +115,7 @@ def test_llm_arm_meets_acceptance_criterion_reference() -> None:
     # The reference summary was evaluated under [0.15, 0.40].
     # Under [0.10, 0.40], acceptance is monotonically non-decreasing because
     # [0.15, 0.40] is a strict subset of [0.10, 0.40] and 0 drills exceeded 0.40.
+    assert REFERENCE_LLAMA_SUMMARY.mean_density is not None
     assert CALIBRATED_D_MIN <= REFERENCE_LLAMA_SUMMARY.mean_density <= CALIBRATED_D_MAX
 
 
