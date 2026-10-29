@@ -36,7 +36,7 @@ def test_0010_seeds_the_llm_config_keys(isolated_settings: Path, migrated_engine
                 "SELECT frozen_at FROM experiment_config WHERE key = ?", (key,)
             ).fetchone()
             assert row is not None
-            assert row[0] is None
+            assert row[0] == "2026-10-29 00:00:00"
 
 
 def test_downgrade_0010_removes_only_the_llm_config_keys(
