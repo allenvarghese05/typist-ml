@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import Engine
 from sqlmodel import Session, col, select
 
+from typist.db import unfreeze_config_for_testing
 from typist.models import (
     BigramAssignment,
     Drill,
@@ -249,6 +250,7 @@ def test_plan_session_returns_open_session_under_30_minutes_and_abandons_stale_s
 
 
 def test_plan_session_supports_two_arm_cut_line_mode(migrated_engine: Engine) -> None:
+    unfreeze_config_for_testing(migrated_engine)
     with Session(migrated_engine) as session:
         arms_cfg = session.get(ExperimentConfig, "arms_enabled")
         assert arms_cfg is not None

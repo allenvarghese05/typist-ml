@@ -12,6 +12,7 @@ from sqlalchemy import Engine
 from sqlmodel import Session, col, select
 
 from typist.config import get_settings
+from typist.db import unfreeze_config_for_testing
 from typist.main import create_app
 from typist.models import (
     BigramAssignment,
@@ -247,6 +248,7 @@ def test_withdrawn_participant_cannot_start_or_complete_session_returns_409(
 def test_session_completion_advances_practice_to_retest_and_retest_to_done(
     migrated_engine: Engine,
 ) -> None:
+    unfreeze_config_for_testing(migrated_engine)
     with Session(migrated_engine) as session:
         cfg = session.get(ExperimentConfig, "practice_days")
         assert cfg is not None
