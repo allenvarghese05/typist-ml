@@ -42,9 +42,7 @@ def upgrade() -> None:
     """Update d_min to 0.10 and d_max to 0.40 (unfrozen)."""
     for key, value in CALIBRATED_DENSITY_BOUNDS.items():
         op.execute(
-            _config_table.update()
-            .where(_config_table.c.key == key)
-            .values(value=json.dumps(value))
+            _config_table.update().where(_config_table.c.key == key).values(value=json.dumps(value))
         )
 
 
@@ -52,7 +50,5 @@ def downgrade() -> None:
     """Revert d_min to 0.15 and d_max to 0.40."""
     for key, value in INITIAL_DENSITY_BOUNDS.items():
         op.execute(
-            _config_table.update()
-            .where(_config_table.c.key == key)
-            .values(value=json.dumps(value))
+            _config_table.update().where(_config_table.c.key == key).values(value=json.dumps(value))
         )

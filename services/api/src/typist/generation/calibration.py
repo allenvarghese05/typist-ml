@@ -29,10 +29,10 @@ CALIBRATION_TARGET_SETS: Final[tuple[tuple[str, ...], ...]] = (
     ("er", "to", "en", "ar"),  # Set 3: 4-target upper-mid snake set (ranks 5, 12, 13, 20)
     ("nd", "is", "es", "ed"),  # Set 4: 4-target mid snake set (ranks 9, 16, 17, 24)
     ("te", "me", "se", "co"),  # Set 5: 4-target lower-mid snake set (ranks 18, 23, 26, 31)
-    ("th", "at", "nd"),        # Set 6: 3-target common fallback set 1
-    ("he", "on", "or"),        # Set 7: 3-target common fallback set 2
-    ("er", "to", "en"),        # Set 8: 3-target upper-mid fallback set
-    ("nd", "is", "es"),        # Set 9: 3-target mid fallback set
+    ("th", "at", "nd"),  # Set 6: 3-target common fallback set 1
+    ("he", "on", "or"),  # Set 7: 3-target common fallback set 2
+    ("er", "to", "en"),  # Set 8: 3-target upper-mid fallback set
+    ("nd", "is", "es"),  # Set 9: 3-target mid fallback set
 )
 
 CALIBRATED_D_MIN: Final[float] = 0.10
@@ -200,9 +200,7 @@ def run_arm_calibration(
         total_attempts_for_accepted / accepted_drills if accepted_drills > 0 else float("inf")
     )
 
-    accepted_densities = [
-        d.final_attempt.result.metrics.target_density for d in accepted_records
-    ]
+    accepted_densities = [d.final_attempt.result.metrics.target_density for d in accepted_records]
     if accepted_densities:
         mean_density = sum(accepted_densities) / len(accepted_densities)
         var_density = sum((x - mean_density) ** 2 for x in accepted_densities) / len(
