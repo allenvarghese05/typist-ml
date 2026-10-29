@@ -37,7 +37,7 @@ class DrillSpec:
     arm: Arm
     target_bigrams: tuple[str, ...]  # empty for CONTROL
     length_chars: int = 300
-    min_density: float = 0.15
+    min_density: float = 0.10
     max_density: float = 0.40
     seed: int = 0
 
