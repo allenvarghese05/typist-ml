@@ -24,14 +24,10 @@ def _triggers(db_path: Path) -> set[str]:
     return {row[0] for row in rows}
 
 
-def test_0012_freezes_all_seeded_keys(
-    isolated_settings: Path, migrated_engine: Engine
-) -> None:
+def test_0012_freezes_all_seeded_keys(isolated_settings: Path, migrated_engine: Engine) -> None:
     """All 33 seeded keys have frozen_at set to '2026-10-29 00:00:00' and both triggers exist."""
     with closing(sqlite3.connect(isolated_settings)) as connection:
-        rows = connection.execute(
-            "SELECT key, frozen_at FROM experiment_config"
-        ).fetchall()
+        rows = connection.execute("SELECT key, frozen_at FROM experiment_config").fetchall()
     assert len(rows) == EXPECTED_SEEDED_KEYS_COUNT
     for key, frozen_at in rows:
         assert frozen_at == EXPECTED_FROZEN_AT, f"key {key} was not frozen"
@@ -60,9 +56,7 @@ def test_0012_blocks_update_of_a_frozen_key(
 
         # Also verify d_min cannot be updated
         with pytest.raises(sqlite3.IntegrityError, match="experiment_config keys are frozen"):
-            connection.execute(
-                "UPDATE experiment_config SET value = '0.25' WHERE key = 'd_min'"
-            )
+            connection.execute("UPDATE experiment_config SET value = '0.25' WHERE key = 'd_min'")
         row_dmin = connection.execute(
             "SELECT value FROM experiment_config WHERE key = 'd_min'"
         ).fetchone()
@@ -77,9 +71,7 @@ def test_0012_blocks_delete_of_a_frozen_key(
     migrated_engine.dispose()
     with closing(sqlite3.connect(isolated_settings)) as connection:
         with pytest.raises(sqlite3.IntegrityError, match="experiment_config keys are frozen"):
-            connection.execute(
-                "DELETE FROM experiment_config WHERE key = 'assignment_seed'"
-            )
+            connection.execute("DELETE FROM experiment_config WHERE key = 'assignment_seed'")
         row = connection.execute(
             "SELECT value, frozen_at FROM experiment_config WHERE key = 'assignment_seed'"
         ).fetchone()
@@ -139,9 +131,7 @@ def test_0012_allows_insert_and_update_of_unfrozen_key(
 
         # And delete aborts
         with pytest.raises(sqlite3.IntegrityError, match="experiment_config keys are frozen"):
-            connection.execute(
-                "DELETE FROM experiment_config WHERE key = 'probe_key'"
-            )
+            connection.execute("DELETE FROM experiment_config WHERE key = 'probe_key'")
 
 
 def test_downgrade_0012_drops_triggers_and_resets_frozen_at(
@@ -155,16 +145,12 @@ def test_downgrade_0012_drops_triggers_and_resets_frozen_at(
     assert DELETE_TRIGGER not in triggers
 
     with closing(sqlite3.connect(isolated_settings)) as connection:
-        rows = connection.execute(
-            "SELECT key, frozen_at FROM experiment_config"
-        ).fetchall()
+        rows = connection.execute("SELECT key, frozen_at FROM experiment_config").fetchall()
         assert len(rows) == EXPECTED_SEEDED_KEYS_COUNT
         assert all(frozen_at is None for _, frozen_at in rows)
 
         # Updates succeed when unfrozen post-downgrade
-        connection.execute(
-            "UPDATE experiment_config SET value = '99' WHERE key = 'practice_days'"
-        )
+        connection.execute("UPDATE experiment_config SET value = '99' WHERE key = 'practice_days'")
         connection.commit()
         val = connection.execute(
             "SELECT value FROM experiment_config WHERE key = 'practice_days'"

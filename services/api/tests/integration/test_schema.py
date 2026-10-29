@@ -361,9 +361,7 @@ def test_experiment_config_holds_the_seeded_defaults(
     with closing(sqlite3.connect(isolated_settings)) as connection:
         rows = connection.execute("SELECT key, value, frozen_at FROM experiment_config").fetchall()
     assert {key: json.loads(value) for key, value, _ in rows} == EXPECTED_CONFIG
-    assert [frozen_at for _, _, frozen_at in rows] == ["2026-10-29 00:00:00"] * len(
-        EXPECTED_CONFIG
-    )
+    assert [frozen_at for _, _, frozen_at in rows] == ["2026-10-29 00:00:00"] * len(EXPECTED_CONFIG)
     with Session(migrated_engine) as session:
         arms = session.get(ExperimentConfig, "arms_enabled")
         assert arms is not None
