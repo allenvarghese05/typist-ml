@@ -224,6 +224,20 @@ mlx-smoke *args:
     cd services/api
     uv run --locked --extra mlx python scripts/mlx_smoke.py {{args}}
 
+# Run the model bake-off benchmark (T3.3, §13.6; Apple Silicon arm64; use --fake off-Mac).
+bakeoff *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{justfile_directory()}}"
+    if [ "$(uname -s)" != "Darwin" ] || [ "$(uname -m)" != "arm64" ]; then
+        case " {{args}} " in
+            *" --fake "*) ;;
+            *) echo "just bakeoff requires macOS on Apple Silicon (mlx-lm), or pass --fake; exiting 0"; exit 0 ;;
+        esac
+    fi
+    cd services/api
+    uv run --locked --extra mlx python scripts/run_bakeoff.py {{args}}
+
 # Generate apps/web/src/api/schema.d.ts from the API's OpenAPI schema (not ready yet).
 gen-types:
     @echo "gen-types not yet implemented (needs services/api and apps/web), skipping"
