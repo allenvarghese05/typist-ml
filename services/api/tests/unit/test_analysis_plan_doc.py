@@ -19,9 +19,7 @@ DESIGN_LINK = (
     "Design: [docs/design/Typist-ML_Technical_Design.pdf]"
     "(docs/design/Typist-ML_Technical_Design.pdf)"
 )
-PLAN_LINK = (
-    "Analysis plan (pre-registered): [docs/analysis-plan.md](docs/analysis-plan.md)"
-)
+PLAN_LINK = "Analysis plan (pre-registered): [docs/analysis-plan.md](docs/analysis-plan.md)"
 # One heading per section 15.1 bullet, in 15.1 order (T0.6 owner answer 1).
 SECTION_15_1_HEADINGS = (
     "## Primary Outcome",
@@ -101,7 +99,10 @@ def test_analysis_plan_contains_pre_registered_m3_values() -> None:
     text = PLAN.read_text(encoding="utf-8")
     assert "practice_days = 10" in text or "N = 10" in text
     assert "Primary N = 1 (builder only, unblinded)" in text
-    assert "['control', 'heuristic', 'markov', 'llm']" in text or '["control", "heuristic", "markov", "llm"]' in text
+    assert (
+        "['control', 'heuristic', 'markov', 'llm']" in text
+        or '["control", "heuristic", "markov", "llm"]' in text
+    )
     assert "[0.10, 0.40]" in text
     assert "08231374eeacb049a0eade7922910865b8fce912" in text
     assert "100,000" in text
