@@ -17,6 +17,7 @@ from sqlalchemy import Engine
 from sqlmodel import Session
 
 from typist.corpus.word_index import WordIndex
+from typist.db import unfreeze_config_for_testing
 from typist.models import (
     ExperimentConfig,
 )
@@ -274,6 +275,7 @@ def run_pipeline_simulation(
 
     # 5. Configure 2-set mode and assign
     _log("5. Configuring 2-set mode and assigning participant...")
+    unfreeze_config_for_testing(engine)
     with Session(engine) as s:
         row_arms = s.get(ExperimentConfig, "arms_enabled")
         if row_arms:

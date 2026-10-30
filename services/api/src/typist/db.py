@@ -85,3 +85,21 @@ def get_session(
     """FastAPI dependency: one SQLModel session per request, closed when the request ends."""
     with Session(engine) as session:
         yield session
+
+
+def unfreeze_config_for_testing(target: Engine | Session) -> None:
+    """Drop freeze triggers and unfreeze all experiment_config keys for test and simulation scenarios."""
+    statements = (
+        "DROP TRIGGER IF EXISTS trg_experiment_config_frozen_update",
+        "DROP TRIGGER IF EXISTS trg_experiment_config_frozen_delete",
+        "UPDATE experiment_config SET frozen_at = NULL",
+    )
+    if isinstance(target, Engine):
+        with target.begin() as connection:
+            for sql in statements:
+                connection.execute(text(sql))
+    else:
+        conn = target.connection()
+        for sql in statements:
+            conn.execute(text(sql))
+        target.commit()

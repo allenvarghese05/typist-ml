@@ -21,7 +21,7 @@ from typist.db import create_db_engine
 from typist.migrations import alembic_config, upgrade_to_head
 from typist.models import Participant
 
-HEAD = "0011_calibrate_density"
+HEAD = "0012_freeze_config"
 APP_TABLES = frozenset(
     {
         "participants",
@@ -171,7 +171,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "0002probe"
-down_revision = "0011_calibrate_density"
+down_revision = "0012_freeze_config"
 branch_labels = None
 depends_on = None
 

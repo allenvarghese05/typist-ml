@@ -18,7 +18,7 @@ def _config(db_path: Path) -> dict[str, object]:
 
 
 def test_0011_calibrates_density_bounds(isolated_settings: Path, migrated_engine: Engine) -> None:
-    """At HEAD (0011), d_min is 0.10 and d_max is 0.40 (unfrozen)."""
+    """At HEAD, d_min is 0.10 and d_max is 0.40; both are frozen by 0012."""
     config = _config(isolated_settings)
     assert config["d_min"] == 0.10
     assert config["d_max"] == 0.40
@@ -28,7 +28,7 @@ def test_0011_calibrates_density_bounds(isolated_settings: Path, migrated_engine
                 "SELECT frozen_at FROM experiment_config WHERE key = ?", (key,)
             ).fetchone()
             assert row is not None
-            assert row[0] is None
+            assert row[0] == "2026-10-29 00:00:00"
 
 
 def test_downgrade_0011_reverts_density_bounds(

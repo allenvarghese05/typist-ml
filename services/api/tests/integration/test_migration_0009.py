@@ -30,7 +30,7 @@ def test_0009_seeds_the_markov_config_key(isolated_settings: Path, migrated_engi
             "SELECT frozen_at FROM experiment_config WHERE key = 'markov_beta'"
         ).fetchone()
         assert row is not None
-        assert row[0] is None
+        assert row[0] == "2026-10-29 00:00:00"
 
 
 def test_downgrade_0009_removes_only_the_markov_config_key(
