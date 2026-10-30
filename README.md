@@ -10,7 +10,7 @@ Status: milestone 0. No results yet.
 
 Design: [docs/design/Typist-ML_Technical_Design.pdf](docs/design/Typist-ML_Technical_Design.pdf)
 
-Analysis plan (draft, not yet pre-registered): [docs/analysis-plan.md](docs/analysis-plan.md)
+Analysis plan (pre-registered): [docs/analysis-plan.md](docs/analysis-plan.md)
 
 ## Setup (macOS, Apple Silicon)
 

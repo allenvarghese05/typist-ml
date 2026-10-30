@@ -20,7 +20,7 @@ DESIGN_LINK = (
     "(docs/design/Typist-ML_Technical_Design.pdf)"
 )
 PLAN_LINK = (
-    "Analysis plan (draft, not yet pre-registered): [docs/analysis-plan.md](docs/analysis-plan.md)"
+    "Analysis plan (pre-registered): [docs/analysis-plan.md](docs/analysis-plan.md)"
 )
 # One heading per section 15.1 bullet, in 15.1 order (T0.6 owner answer 1).
 SECTION_15_1_HEADINGS = (
