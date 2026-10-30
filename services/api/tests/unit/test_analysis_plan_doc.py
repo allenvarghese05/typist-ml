@@ -1,9 +1,8 @@
-"""docs/analysis-plan.md, its definitions ADR and the README link (T0.6).
+"""docs/analysis-plan.md, its definitions ADR and the README link (T0.6, T3.6).
 
 Design doc section 15.1 lists what the analysis plan covers, and D20 pre-registers it before the
-first practice session. T0.6 creates the plan as an undated draft (owner answers 1, 3 to 5 and 7).
-T3.6 dates and pre-registers it, and updates STATUS_LINE and test_analysis_plan_is_not_dated_yet
-in the same pull request.
+first practice session. T0.6 created the plan as an undated draft skeleton. T3.6 dates and
+pre-registers it on 2026-10-30, freezing all M3 parameters before practice sessions commence.
 """
 
 from pathlib import Path
@@ -15,17 +14,12 @@ from typist.config import REPO_ROOT
 PLAN = REPO_ROOT / "docs" / "analysis-plan.md"
 ADR = REPO_ROOT / "docs" / "decisions" / "D23-analysis-plan-definitions.md"
 README = REPO_ROOT / "README.md"
-STATUS_LINE = (
-    "Status: draft skeleton — not pre-registered."
-    " Pre-registration (dated, per D20) happens in T3.6."
-)
+STATUS_LINE = "Status: pre-registered on 2026-10-30 (per D20)."
 DESIGN_LINK = (
     "Design: [docs/design/Typist-ML_Technical_Design.pdf]"
     "(docs/design/Typist-ML_Technical_Design.pdf)"
 )
-PLAN_LINK = (
-    "Analysis plan (draft, not yet pre-registered): [docs/analysis-plan.md](docs/analysis-plan.md)"
-)
+PLAN_LINK = "Analysis plan (pre-registered): [docs/analysis-plan.md](docs/analysis-plan.md)"
 # One heading per section 15.1 bullet, in 15.1 order (T0.6 owner answer 1).
 SECTION_15_1_HEADINGS = (
     "## Primary Outcome",
@@ -93,9 +87,28 @@ def test_analysis_plan_title_and_status_line() -> None:
     assert lines.count(STATUS_LINE) == 1
 
 
-def test_analysis_plan_is_not_dated_yet() -> None:
-    # Owner answer 4: no frozen date in T0.6; T3.6 writes the pre-registration date.
-    assert not any(line.startswith(("Date:", "- Date:")) for line in read_lines(PLAN))
+def test_analysis_plan_is_dated() -> None:
+    """T3.6 pre-registers and dates the analysis plan (D20, owner answers 1-2)."""
+    lines = read_lines(PLAN)
+    assert any(line == "Date: 2026-10-30" or line.startswith("Date: 2026-10-30") for line in lines)
+    assert lines[2] == STATUS_LINE
+
+
+def test_analysis_plan_contains_pre_registered_m3_values() -> None:
+    """T3.6 freezes all 9 M3 values in the analysis plan (owner answers 4-9)."""
+    text = PLAN.read_text(encoding="utf-8")
+    assert "practice_days = 10" in text or "N = 10" in text
+    assert "Primary N = 1 (builder only, unblinded)" in text
+    assert (
+        "['control', 'heuristic', 'markov', 'llm']" in text
+        or '["control", "heuristic", "markov", "llm"]' in text
+    )
+    assert "[0.10, 0.40]" in text
+    assert "08231374eeacb049a0eade7922910865b8fce912" in text
+    assert "100,000" in text
+    assert "20261030" in text
+    assert "10,000 bootstrap resamples" in text
+    assert "6 per set" in text
 
 
 def test_readme_links_the_analysis_plan_next_to_the_design_doc() -> None:
