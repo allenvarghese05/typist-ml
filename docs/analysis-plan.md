@@ -1,6 +1,6 @@
 # Typist-ML Analysis Plan
 
-Status: draft skeleton — not pre-registered. Pre-registration (dated, per D20) happens in T3.6.
+Status: pre-registered on 2026-10-30 (per D20).
 
 This is the analysis plan that design doc section 15.1 asks for and that D20 pre-registers:
 "Commit docs/analysis-plan.md with the date before the first practice session". It was drafted in
@@ -8,7 +8,7 @@ T0.6 from the design doc, v1.0 ([PDF](design/Typist-ML_Technical_Design.pdf)). S
 refer to that document; D01 to D20 are in its section 2, and later decisions are in
 [decisions/](decisions/). The exclusion rules below are settled in
 [D23 (analysis plan definitions)](decisions/D23-analysis-plan-definitions.md). Values that the
-design leaves to milestone M3 are marked "to be fixed in T3.6" and listed under Pre-registration.
+design leaves to milestone M3 were fixed in T3.6 and are listed under Pre-registration.
 
 The plan states no expected results and holds no participant data. The honesty rule of section 1
 applies to everything reported under it: "No WASM claim, no improvement claim until real numbers
@@ -28,9 +28,9 @@ control does as well as the LLM, that is the finding."
   set). They are split into sets by rank, snake split and a seeded shuffle, and frozen before
   practice (D04). This ranking prior only chooses bigrams; outcomes use the Jeffreys prior below.
 - **Schedule (section 3.2).** Baseline: two sessions on form A (day 0 and 1). Sets are assigned
-  and frozen at the end of day 1. Practice: N sessions from day 2 (design default N = 10, days 2
-  to 11; to be fixed in T3.6). Retest: two sessions on form B (day 12 and 13 with the default N),
-  with "at least 40 attempts per tracked bigram". Then the debrief.
+  and frozen at the end of day 1. Practice: N sessions from day 2 (N = 10 practice sessions, days 2
+  to 11, frozen in `experiment_config` and pre-registered here). Retest: two sessions on form B (days
+  12 and 13), with "at least 40 attempts per tracked bigram". Then the debrief.
 - **Phases.** Baseline means both form A sessions and retest means both form B sessions. Every
   outcome pools the two sessions of a phase.
 - **Tracked bigrams (D13, section 12.3).** Letter-letter bigrams only. A bigram across a space is
@@ -69,8 +69,8 @@ Method (section 3.5):
   posterior's 2.5th to its 97.5th percentile (the equal-tailed Jeffreys interval).
 - For the targeting effect, "draw samples from the four posteriors" (set `s` and the control set,
   each at baseline and retest), compute `E(s)` for each draw, and "report the median effect and
-  the share of samples below zero". The number of draws and the seed are to be fixed in T3.6. The
-  draws come from a seeded generator passed in by the caller, and the seed is reported.
+  the share of samples below zero". As pre-registered in T3.6, 100,000 draws per posterior are
+  evaluated using random seed `20261030` passed in by the caller, and the seed is reported.
 - Sign convention: a fall in error rate is negative. `E(s) < 0` means set `s` improved more (or
   worsened less) than the control set, so the share of samples below zero is the share of draws
   in which the targeted set did better than the control set.
@@ -93,8 +93,11 @@ counts" (D05).
 - Same sign convention: `F(s) < 0` means set `s` got faster, relative to its baseline, than the
   control set did.
 - For each set and phase, report `m(s, t)` and the number of IKI samples.
-- The design gives no interval method for IKI. How its uncertainty is described is to be fixed in
-  T3.6.
+- The design gives no interval method for IKI. As pre-registered in T3.6, uncertainty is described
+  by an empirical non-parametric bootstrap 95% confidence interval (equal-tailed 2.5th to 97.5th
+  percentiles of difference-in-differences `F(s)` over 10,000 bootstrap resamples of bigram IKI
+  samples within set and phase), using seeded generator `20261030`. In addition, each set and phase
+  reports sample count (`n`) and interquartile range (IQR, 25th–75th percentiles).
 
 ## Secondary Measures from Section 3.5
 
@@ -111,8 +114,8 @@ and states its section 3.5 role.
 
 - The README reports overhead p95 and LLM tokens per second as measured values, and a table of
   arm, drills, mean density, real-word ratio and acceptance rate (section 15.3).
-- The drill density range (design default 0.15 to 0.40, "Calibrated at M3") is to be fixed in
-  T3.6.
+- The drill density range is calibrated and frozen at `[0.10, 0.40]` (`d_min = 0.10`, `d_max = 0.40`,
+  D30, migration 0011/0012, and pre-registered here).
 
 ## Exclusions
 
@@ -124,7 +127,13 @@ not silently dropped)". The rules below are settled in D23 (analysis plan defini
    toward N, and their keystrokes are kept but excluded from outcome analysis" (section 9.3). The
    same rule applies to baseline and retest sessions: their keystrokes are kept but excluded from
    outcome analysis. Whether an abandoned baseline or retest session is run again, and which
-   sessions then count, is to be fixed in T3.6.
+   sessions then count: As pre-registered in T3.6, an abandoned baseline or retest session is
+   excluded from outcome analysis, and the participant re-runs the session so that 2 completed
+   sessions exist per phase. The 2 most recent completed sessions immediately preceding the phase
+   transition (or practice) count for outcome analysis, and all abandoned sessions are documented in
+   the exclusions table. Under D26, keystrokes from blocks abandoned due to the 10-second idle limit
+   are excluded from outcome analysis; only keystrokes from completed blocks count toward session and
+   outcome statistics.
 2. **Pauses, IKI only.** A pause is "IKI over 2000 ms, or first key after a blur", and it is
    "Excluded from IKI statistics, still counted for errors" (section 12.2). A keystroke after a
    pause still counts as an attempt, and as an error if it is one, but gives no IKI sample.
@@ -168,9 +177,10 @@ Each exploratory result carries the word "exploratory" wherever it appears: the 
   4 and never names the arm (D18).
 - Every result is reported per participant. Section 18: "Flag builder data; show the second
   participant separately."
-- Whether there is a second participant is to be fixed in T3.6 (design default "Builder only",
-  decided "Before baseline", section 20.1). With the builder only, all data is unblinded, and the
-  write-up says so.
+- Participant enrollment: As pre-registered in T3.6, primary planned enrollment is N = 1 (builder
+  only, unblinded). If an eligible peer participant enrolls before baseline on the same laptop, the
+  study runs with N = 2 (builder unblinded, peer blinded), with both participants reported separately
+  as descriptive within-person cases.
 - If the second participant drops out, the builder's data is "Still a valid within-person result
   for one person; say so" (section 18).
 
@@ -185,15 +195,18 @@ which the config supports with `arms_enabled`." In two-set mode:
   silently;
 - every definition and exclusion above applies unchanged.
 
-Which mode the pilot runs is to be fixed in T3.6 (`arms_enabled` in `experiment_config`).
+Which mode the pilot runs: Four-arm mode (control, heuristic, markov, llm) is frozen in
+`experiment_config` (`arms_enabled = ["control", "heuristic", "markov", "llm"]`, T3.5) and
+pre-registered here.
 
 ## Twelve-Bigram Fallback
 
 Section 3.4: "Take the top 16 (4 per set). If fewer than 16 qualify, take 12 (3 per set) and log
 it." Outcomes pool over a set's bigrams, so every definition above holds with 3 bigrams per set;
 each set then has fewer attempts, and its intervals are wider. The write-up states the number of
-bigrams per set for each participant. How the fallback applies in two-set mode is not stated in the
-design and is to be fixed in T3.6.
+bigrams per set for each participant. How the fallback applies in two-set mode: If two-set
+contingency mode were active and fewer than 16 qualifying bigrams were observed, the fallback
+selects 12 bigrams total (6 per set).
 
 ## Missed Days and the Three-Day Baseline Rule
 
@@ -204,7 +217,10 @@ sessions, not N calendar days."
 - Only completed practice sessions count toward N; abandoned ones do not (section 9.3).
 - The write-up reports, per participant, the missed practice days and the number of days between
   the end of baseline and the first practice session.
-- If the baseline has to be redone, which baseline sessions count is to be fixed in T3.6.
+- If the baseline has to be redone (e.g. baseline finished > 3 days before practice starts), the
+  participant completes two new baseline sessions. The 2 most recent completed baseline sessions
+  immediately preceding practice count for baseline outcome analysis and assignment, while previous
+  sessions are logged as exclusions.
 
 ## Known Weaknesses and Limitations
 
@@ -221,33 +237,69 @@ not results.
 
 ## Pre-registration
 
+Date: 2026-10-30
+
 Section 15.1: "Commit this plan with a date before the first practice session (D20)." D20 exists
 because pre-registration "Stops outcome-shopping after seeing data".
 
-This draft is not the pre-registration. Task T3.6 ("Commit the dated analysis plan", done when the
-"Commit exists before the first practice session") turns it into one:
+This document is the pre-registered analysis plan for Typist-ML, committed per D20 before the first
+practice session. Milestone M3 is complete: all four arms produce valid drills, and both
+`experiment_config` (frozen in migration 0012, T3.5) and this analysis plan are frozen.
 
-1. fill in every value listed below;
-2. replace the status line with a dated one, and write the pre-registration date in this file;
-3. commit before the first practice session, so that the date in the file and the commit date
-   match (D20's "with the date" means both, T0.6 owner answer 4).
-
-Milestone M3 is done when "All four arms produce valid drills; config and analysis plan frozen".
-After the pre-registration commit this plan changes only through the Amendments section.
+After this pre-registration commit, this plan changes only through the Amendments section.
 
 ### Values to Be Fixed in T3.6
 
-| Item | Design default or rule | Source |
+The parameters below were left by the technical design to milestone M3. They are frozen in
+`experiment_config` (T3.5) or pre-registered in this document (T3.6) before practice session 1:
+
+| Item | Pre-registered Value | Source / Enforcement |
 |---|---|---|
-| Practice sessions N | 10, "Freeze at M3" | Sections 3.2, 20.1 |
-| Second participant | "Builder only", decided "Before baseline" | Section 20.1 |
-| Arms enabled (four sets or two-set mode) | Four sets; two-set mode "If M3 slips" | Section 16, `arms_enabled` |
-| Drill density range | 0.15 to 0.40, "Calibrated at M3" | Section 20.1 |
-| Final model | Llama-3.2-1B-Instruct-4bit, "Bake-off at M3" | Section 20.1 |
-| Number of posterior draws and their seed | Not set in the design | Section 3.5, CLAUDE.md |
-| Uncertainty description for the IKI effect | Not set in the design | Section 3.5 |
-| Re-running an abandoned baseline or retest session; which sessions count after a redone baseline | Not set in the design | Sections 3.2, 9.3 |
-| Twelve-bigram fallback in two-set mode | Not set in the design | Sections 3.4, 16 |
+| Practice sessions N | 10 practice sessions (days 2 to 11) | `practice_days = 10` frozen in `experiment_config` (T3.5, §3.2, §20.1) |
+| Participant enrollment | Primary N = 1 (builder only, unblinded); N = 2 if peer enrolls before baseline (reported separately) | Design doc §18, §20.1; T3.6 owner answer 4 |
+| Arms enabled | Four sets (`control`, `heuristic`, `markov`, `llm`) | `arms_enabled` frozen in `experiment_config` (T3.5, §16) |
+| Drill density range | `[0.10, 0.40]` (`d_min = 0.10`, `d_max = 0.40`) | ADR D30; frozen in `experiment_config` (T3.5, §20.1) |
+| Final LLM model | `mlx-community/Llama-3.2-1B-Instruct-4bit` (revision `08231374eeacb049a0eade7922910865b8fce912`) | ADR D29; frozen in `experiment_config` (T3.5, §20.1) |
+| Posterior draws and seed (Primary outcome) | 100,000 draws per Beta posterior; random seed `20261030` | Design doc §3.5; T3.6 owner answer 5; CLAUDE.md |
+| Uncertainty description (Key secondary outcome IKI) | Empirical bootstrap 95% CI (10,000 resamples, seed `20261030`) for `F(s)`; sample count `n` and IQR per set and phase | Design doc §3.5; T3.6 owner answer 6 |
+| Session & block re-run policy | Abandoned sessions re-run (2 most recent completed sessions per phase count; abandoned excluded); 10s idle block keystrokes excluded | Design doc §9.3; ADR D23, D26; T3.6 owner answer 7 |
+| Twelve-bigram fallback in two-set mode | 12 bigrams total (6 per set) | Design doc §3.4, §16; T3.6 owner answer 9 |
+
+Specifications for analysis implementation (Milestone M4):
+
+1. **Practice sessions ($N=10$):** Exactly 10 completed practice sessions (sessions 2 through 11)
+   are conducted between baseline and retest.
+2. **Participant enrollment ($N=1$ primary):** Analysis and dashboard report the builder's results
+   as unblinded within-person case data (`is_builder = True`, `is_blinded = False`). If a peer
+   participant completes the protocol, their results are reported in parallel as a separate blinded
+   within-person case (`is_builder = False`, `is_blinded = True`), never pooled across participants.
+3. **Four-arm mode:** Analysis computes three primary targeting effects $E(\text{heuristic})$,
+   $E(\text{markov})$, and $E(\text{llm})$, each compared against the held-out control bigram set.
+4. **Drill density:** Targeted drill validation requires bigram density within $[0.10, 0.40]$ across
+   all targeted arms (ADR D30).
+5. **Model revision:** LLM drills are generated by `mlx-community/Llama-3.2-1B-Instruct-4bit` at git
+   commit `08231374eeacb049a0eade7922910865b8fce912` (ADR D29).
+6. **Primary outcome posterior draws:** For each set $s \in \{\text{control}, \text{heuristic},
+   \text{markov}, \text{llm}\}$ and phase $t \in \{\text{baseline}, \text{retest}\}$, draw 100,000
+   samples from $\text{Beta}(\text{errors} + 1/2, \text{attempts} - \text{errors} + 1/2)$ using
+   a pseudorandom number generator seeded with `20261030`. The targeting effect is
+   $E(s) = (p(s, \text{retest}) - p(s, \text{baseline})) - (p(\text{control}, \text{retest}) - p(\text{control}, \text{baseline}))$.
+   Report the posterior median and the share of draws where $E(s) < 0$.
+7. **Key secondary outcome IKI uncertainty:** For each targeted arm $s$, the targeting effect on
+   median IKI is $F(s) = (m(s, \text{retest}) - m(s, \text{baseline})) - (m(\text{control}, \text{retest}) - m(\text{control}, \text{baseline}))$.
+   To estimate uncertainty without distributional assumptions, generate 10,000 bootstrap resamples
+   of the observed clean IKI samples (resampling with replacement within each set and phase using
+   pseudorandom seed `20261030`), calculate the median difference-in-differences for each resample,
+   and take the equal-tailed 2.5th and 97.5th percentiles as the 95% bootstrap confidence interval.
+   Report the sample median, bootstrap 95% CI, sample count $n$, and IQR (25th to 75th percentiles)
+   for each set and phase.
+8. **Session and block re-run policy:** If a baseline or retest session is abandoned, it is
+   excluded from outcome analysis and re-run until 2 completed sessions exist for the phase. The 2
+   most recent completed sessions immediately preceding the phase transition count for analysis.
+   Keystrokes from blocks abandoned due to the 10-second idle limit (D26) are excluded from outcome
+   analysis; only completed blocks count toward session and outcome statistics.
+9. **Two-set fallback rule:** In the event of two-set contingency mode, if fewer than 16 qualifying
+   bigrams are observed at baseline, the top 12 bigrams are assigned (6 per set).
 
 ## Deviations Log
 
