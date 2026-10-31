@@ -15,9 +15,15 @@ import numpy as np
 import scipy.stats as sp_stats
 from sqlmodel import Session, col, select
 
-from typist.models import BigramAssignment, BigramStat, Participant
+from typist.models import BigramAssignment, BigramStat, KeystrokeEvent, Participant, SessionBlock
 from typist.models import Session as TypingSession
-from typist.schemas.analysis import BigramMatrix, MatrixCell, ParticipantResults, SetOutcome
+from typist.schemas.analysis import (
+    BigramMatrix,
+    ExcludedSession,
+    MatrixCell,
+    ParticipantResults,
+    SetOutcome,
+)
 from typist.services.participants import ParticipantNotFoundError
 from typist.services.session_stats import SessionNotFoundError
 from typist.services.test_composer import ParticipantNotAssignedError
@@ -173,6 +179,130 @@ def bootstrap_iki_effect(
         ci_lower=round(ci_low, 2),
         ci_upper=round(ci_high, 2),
     )
+
+
+@dataclass(frozen=True)
+class SessionSelection:
+    analyzed_sessions: list[TypingSession]
+    excluded_sessions: list[ExcludedSession]
+
+
+def select_phase_sessions(
+    sessions: Sequence[TypingSession], phase: str
+) -> SessionSelection:
+    """Select the 2 most recent completed sessions for phase; log superseded and abandoned sessions.
+
+    Sessions are ordered chronologically by (day_index, started_at).
+    Completed sessions before the final 2 are superseded.
+    """
+    phase_sessions = [s for s in sessions if s.phase == phase]
+    ordered = sorted(phase_sessions, key=lambda s: (s.day_index, s.started_at))
+
+    completed = [s for s in ordered if s.status == "completed"]
+    abandoned = [s for s in ordered if s.status == "abandoned"]
+
+    excluded: list[ExcludedSession] = [
+        ExcludedSession(
+            session_id=s.id,
+            phase=s.phase,
+            day_index=s.day_index,
+            reason="abandoned",
+        )
+        for s in abandoned
+    ]
+
+    if len(completed) > 2:
+        superseded = completed[:-2]
+        analyzed = completed[-2:]
+        for s in superseded:
+            excluded.append(
+                ExcludedSession(
+                    session_id=s.id,
+                    phase=s.phase,
+                    day_index=s.day_index,
+                    reason="superseded",
+                )
+            )
+    else:
+        analyzed = completed
+
+    return SessionSelection(analyzed_sessions=analyzed, excluded_sessions=excluded)
+
+
+def extract_clean_iki_and_pauses(
+    session: Session,
+    session_ids: Sequence[str],
+    target_bigrams: set[str],
+) -> tuple[dict[str, list[float]], dict[str, int]]:
+    """Extract raw clean IKI samples and pause counts for target_bigrams across completed blocks.
+
+    Queries SessionBlock where session_id in session_ids and ended_at is not None (completed blocks, D26).
+    Follows D14/D15/D24:
+    - Bigram pair (a, b) at target_text[j-1:j+1] where target chars are lowercase letters.
+    - First-attempt for both, a.outcome == 'correct', no intervening backspace.
+    - If b.outcome == 'correct' and b.seq == a.seq + 1:
+        gap = b.t_down_ms - a.t_down_ms
+        if b.after_pause or gap > 2000.0 (PAUSE_GAP_MS):
+            pause_counts[bigram] += 1
+        else:
+            iki_samples[bigram].append(gap)
+    Returns (iki_samples_by_bigram, pause_counts_by_bigram).
+    """
+    if not session_ids or not target_bigrams:
+        return ({b: [] for b in target_bigrams}, {b: 0 for b in target_bigrams})
+
+    blocks = session.exec(
+        select(SessionBlock)
+        .where(
+            col(SessionBlock.session_id).in_(session_ids),
+            col(SessionBlock.ended_at).is_not(None),
+        )
+        .order_by(col(SessionBlock.session_id), col(SessionBlock.block_index))
+    ).all()
+
+    samples: dict[str, list[float]] = {b: [] for b in target_bigrams}
+    pauses: dict[str, int] = {b: 0 for b in target_bigrams}
+
+    for block in blocks:
+        rows = session.exec(
+            select(KeystrokeEvent).where(col(KeystrokeEvent.block_id) == block.id)
+        ).all()
+        ordered_rows = sorted(rows, key=lambda r: r.seq)
+
+        backspace_seqs: list[int] = []
+        first_attempt_at: dict[int, KeystrokeEvent] = {}
+        for r in ordered_rows:
+            if r.outcome == "backspace":
+                backspace_seqs.append(r.seq)
+            elif r.first_attempt:
+                first_attempt_at[r.target_index] = r
+
+        text = block.target_text
+        for j in range(1, len(text)):
+            c1, c2 = text[j - 1], text[j]
+            if not ("a" <= c1 <= "z" and "a" <= c2 <= "z"):
+                continue
+            bg = c1 + c2
+            if bg not in target_bigrams:
+                continue
+
+            a = first_attempt_at.get(j - 1)
+            b = first_attempt_at.get(j)
+            if a is None or b is None:
+                continue
+            if a.outcome != "correct":
+                continue
+            if any(a.seq < s < b.seq for s in backspace_seqs):
+                continue
+
+            if b.outcome == "correct" and b.seq == a.seq + 1:
+                gap = b.t_down_ms - a.t_down_ms
+                if b.after_pause or gap > 2000.0:
+                    pauses[bg] += 1
+                else:
+                    samples[bg].append(gap)
+
+    return samples, pauses
 
 
 class SessionNotCompletedError(RuntimeError):
