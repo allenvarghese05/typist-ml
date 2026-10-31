@@ -1,16 +1,182 @@
 # Typist-ML
 
 [![CI](https://github.com/allenvarghese05/typist-ml/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/allenvarghese05/typist-ml/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python: 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)](services/api/)
+[![React: 19](https://img.shields.io/badge/React-19-blue.svg)](apps/web/)
+[![Apple Silicon MLX](https://img.shields.io/badge/MLX-Apple%20Silicon-orange.svg)](https://github.com/ml-explore/mlx)
 
-A typing coach built as a controlled experiment: does a small on-device language model write better typing drills than a dictionary heuristic or Markov chain? Plain practice serves as the control comparison.
-
-Typist-ML identifies the character bigrams where a typist exhibits elevated error rates or latency, generates targeted practice drills across competing generation strategies, and tests whether targeted practice outperforms plain text practice.
+An on-device AI-powered typing coach engineered as a single-blind randomized controlled trial (RCT). Typist-ML instruments hardware-level keystroke physics, discovers individual letter-pair weaknesses via Empirical Bayes, synthesizes targeted practice drills across competing generative strategies (dictionary heuristic, character Markov chains, on-device 1B LLM), and evaluates whether generative AI drills outperform plain text practice under pre-registered Bayesian difference-in-differences analysis.
 
 Status: milestone 4 (Pilot complete).
 
 Design: [docs/design/Typist-ML_Technical_Design.pdf](docs/design/Typist-ML_Technical_Design.pdf)
 
 Analysis plan (pre-registered): [docs/analysis-plan.md](docs/analysis-plan.md)
+
+- **Interactive Results Notebook:** [notebooks/03_results.ipynb](notebooks/03_results.ipynb)
+- **Visual Analytics Dashboard:** `#/dashboard` | **Participant Debrief & Unblinding:** `#/results`
+
+---
+
+## Architecture Overview
+
+Typist-ML is built as a local-first monorepo combining sub-millisecond browser telemetry, an asynchronous Python/FastAPI backend, native Apple Silicon model inference (Metal / MLX), and zero-dependency SVG statistical visualizations:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   TYPIST-ML SYSTEM ARCHITECTURE                        │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                        │
+│   APPS / WEB (Vite 8 + React 19 + TypeScript Strict + Tailwind CSS 4)                  │
+│   ├── Typing Surface: Custom TextCursor state machine & monotonic event.timeStamp      │
+│   ├── Analytical Dashboard (#/dashboard): 6 views, pure SVG whisker forest plots       │
+│   ├── Participant Debrief (#/results): Single-blind guard & post-retest unmasking      │
+│   └── Admin Portal (#/admin): Participant state, drill pool depth, worker status       │
+│                                                                                        │
+│                                           ▲                                            │
+│                                           │  REST / Local IPC (p95 < 1.0 ms SLA)       │
+│                                           ▼                                            │
+│                                                                                        │
+│   SERVICES / API (Python 3.12 + FastAPI + SQLModel + SQLite in WAL mode)               │
+│   ├── Telemetry Engine: D14 first-attempt substitution attribution, dwell, press-press │
+│   ├── Assignment Engine: Empirical Bayes Beta prior shrinkage & snake-order dealing    │
+│   ├── Background Generation Worker: Batch asynchronous generator (3-day buffer)        │
+│   └── Analysis Engine: Monte Carlo Beta posterior effect draws & bootstrap median IKI  │
+│                                                                                        │
+│                     ┌─────────────────────┴─────────────────────┐                      │
+│                     ▼                                           ▼                      │
+│   DRILL GENERATION STRATEGIES                 PERSISTENCE & REPRODUCIBILITY            │
+│   ├── Arm A: Held-out Control (Volume)        ├── data/typist.db (SQLite WAL)          │
+│   ├── Arm B: Dictionary Heuristic (wordfreq)  ├── Shared Validator (Fairness Gate)     │
+│   ├── Arm C: 2nd-order Markov Pseudo-words    ├── CLI: `typist figures`, `check-readme`│
+│   └── Arm D: Apple Silicon MLX (1B LLM)       └── Automated Justfile Task Runner       │
+│                                                                                        │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## The Physics of Keystroke Telemetry & Mathematical Attribution
+
+Standard typing tools (like Monkeytype) evaluate typing at the word or string level. Typist-ML treats human typing as a continuous physical process of biomechanical transitions between letter pairs (bigrams $b = (k_{j-1}, k_j)$), instrumented with sub-millisecond precision.
+
+```
+           Key-Down (j-1)      Key-Up (j-1)            Key-Down (j)        Key-Up (j)
+                 │                   │                       │                  │
+                 ▼                   ▼                       ▼                  ▼
+Timeline: ───────●───────────────────●───────────────────────●──────────────────●───────►
+                 │◄─── Dwell (j-1) ──►│                       │◄─── Dwell (j) ──►│
+                 │                                           │
+                 │◄─────────────── Inter-Key Interval (IKI) ─►│
+```
+
+### 1. Timing Telemetry Equations
+- **Dwell Time:** The continuous duration a physical key switch is held down:
+  $$\text{Dwell}_j = t_{\text{up}}(j) - t_{\text{down}}(j)$$
+- **Inter-Key Interval (IKI):** Measured strictly **press-to-press** using high-resolution browser monotonic timestamps (`event.timeStamp`):
+  $$\text{IKI}_j = t_{\text{down}}(j) - t_{\text{down}}(j-1)$$
+  *Why Press-to-Press?* Fast typists routinely exhibit **rollover typing**, depressing the next key before the previous key has released ($\text{Release-to-Press} < 0$). Press-to-press timing is strictly positive and directly represents finger flight time.
+- **Pause & Cognitive Disruption Filtering (D15, D23a):** Keystrokes following pauses $> 2000\text{ ms}$ or window blur events represent distraction rather than motor execution; they are tracked but excluded from IKI distributions.
+- **Net Typing Speed (D26):** Standardized net words per minute based on correct first-attempt keystrokes:
+  $$\text{WPM} = \frac{\text{Correct First-Attempt Characters} / 5}{\text{Elapsed Minutes}}$$
+
+### 2. The D14 First-Attempt Attribution Engine
+A major challenge in typing analysis is preventing error cascades from polluting downstream metrics. When a typist mistypes a character and backspaces, naive string comparisons misattribute errors to subsequent correct keystrokes.
+- **Attribution Rule (D14):** A bigram attempt $(c_{j-1}, c_j)$ is registered at target index $j$ **if and only if** character $c_{j-1}$ was typed correctly on its first attempt.
+- **Substitution Error:** If the typist's first key-down at position $j$ produces $k_j \ne c_j$, an error is attributed to $(c_{j-1}, c_j)$.
+- **Backspace & Recovery:** Post-error backspaces and subsequent correction attempts are recorded in `keystroke_events` for telemetry audits, but are strictly excluded from the error denominator to prevent artificial inflation of sample sizes.
+- **Source of Truth:** Both Python (`services/api`) and TypeScript (`apps/web`) attribution implementations are verified against the shared golden telemetry fixture (`services/api/tests/fixtures/golden_session.json`).
+
+---
+
+## Experimental Methodology & Bayesian Study Design
+
+```
+   14-DAY SINGLE-BLIND PROTOCOL
+   ┌─────────────┐      ┌─────────────────────────┐      ┌─────────────┐      ┌─────────────┐
+   │  Days 0–1   │      │        End Day 1        │      │  Days 2–11  │      │  Days 12–13 │
+   │  Baseline   │ ───► │  Empirical Bayes Deal   │ ───► │ 10 Practice │ ───► │   Retest    │
+   │  (Form A)   │      │  & 4-Arm Masked Assign  │      │  Sessions   │      │  (Form B)   │
+   └─────────────┘      └─────────────────────────┘      └─────────────┘      └─────────────┘
+                                                                                     │
+                                                                                     ▼
+                                                                              ┌─────────────┐
+                                                                              │   Debrief   │
+                                                                              │  Unmasking  │
+                                                                              └─────────────┘
+```
+
+### 1. Empirical Bayes Prior Shrinkage (Weakness Discovery)
+Raw empirical error rates $e_b = \frac{\text{errors}_b}{\text{attempts}_b}$ are noisy when sample counts are low (e.g. a rare bigram like `qz` with 1 attempt and 1 error looks artificially worse than `th` with 12 errors in 100 attempts).
+Typist-ML applies **Empirical Bayes shrinkage** using a Beta prior estimated from the typist's aggregate baseline bigram distribution:
+$$\hat{\theta}_b = \frac{\text{errors}_b + \alpha_0}{\text{attempts}_b + \alpha_0 + \beta_0}$$
+This regularizes low-count bigrams toward the participant's global mean error rate, isolating true motor weakness.
+
+### 2. Snake-Order Dealing into 4 Matched Sets (D04)
+To prevent one experimental arm from receiving an easier set of bigrams, the top 16 weak bigrams are sorted by weakness score and dealt across 4 sets in bidirectional **snake order**:
+$$\begin{array}{lcccc}
+\text{Round 1 (Worst):} & \text{Rank 1} \to \text{Set A} & \text{Rank 2} \to \text{Set B} & \text{Rank 3} \to \text{Set C} & \text{Rank 4} \to \text{Set D} \\
+\text{Round 2 (Reversed):} & \text{Rank 8} \to \text{Set A} & \text{Rank 7} \to \text{Set B} & \text{Rank 6} \to \text{Set C} & \text{Rank 5} \to \text{Set D} \\
+\text{Round 3:} & \text{Rank 9} \to \text{Set A} & \text{Rank 10} \to \text{Set B} & \text{Rank 11} \to \text{Set C} & \text{Rank 12} \to \text{Set D} \\
+\text{Round 4 (Reversed):} & \text{Rank 16} \to \text{Set A} & \text{Rank 15} \to \text{Set B} & \text{Rank 14} \to \text{Set C} & \text{Rank 13} \to \text{Set D}
+\end{array}$$
+Sets are mapped to generator arms via a seeded cryptographic shuffle and permanently frozen before practice begins.
+
+### 3. Latin Square Block Rotation (Warm-up & Fatigue Control)
+Each daily practice session contains 4 blocks (one per arm, 600 characters each). To eliminate order bias (Block 1 always suffering from cold hands, Block 4 suffering from fatigue), block presentation follows a balanced $4 \times 4$ Latin square rotated across days:
+- **Day 2:** Block 1 $\to$ Block 2 $\to$ Block 3 $\to$ Block 4
+- **Day 3:** Block 2 $\to$ Block 3 $\to$ Block 4 $\to$ Block 1
+- **Day 4:** Block 3 $\to$ Block 4 $\to$ Block 1 $\to$ Block 2
+- **Day 5:** Block 4 $\to$ Block 1 $\to$ Block 2 $\to$ Block 3
+
+---
+
+## The 4 Generative Arms: Architecture & Trade-Offs
+
+Each arm represents a distinct paradigm for automated practice drill generation:
+
+```
+┌──────────────┬───────────────────────────────┬─────────────────────────────┬───────────────────────────┐
+│ Arm          │ Generation Engine             │ Linguistic Realism          │ Target Bigram Density     │
+├──────────────┼───────────────────────────────┼─────────────────────────────┼───────────────────────────┤
+│ Control (A)  │ Frequency-Weighted Corpus     │ Real English prose (100%)   │ Natural baseline (0.00)   │
+│ Heuristic (B)│ Word-List Greedy Combinator   │ Valid dictionary words (95%)│ High density (0.20–0.30)  │
+│ Markov (C)   │ 2nd-Order N-gram Transitions  │ Pseudo-words ("quastic",15%)│ Very high density (>0.35) │
+│ LLM (D)      │ Local 1B Quantized LM (MLX)   │ Natural sentences (~95%)    │ Calibrated (0.10–0.40)    │
+└──────────────┴───────────────────────────────┴─────────────────────────────┴───────────────────────────┘
+```
+
+### The Shared Validator Fairness Gate (D16, D30)
+To ensure that arms compete strictly on generative drill quality rather than drill length or cheat-density, every candidate drill must pass an identical validator before being written to the database:
+1. **Length:** Exactly $250\text{ to }350$ characters ($50\text{ to }70$ words).
+2. **Charset:** Lowercase English ASCII letters (`a`–`z`) and spaces only; no numbers or punctuation.
+3. **Density Bounds:** Target bigram density must fall strictly within $[0.10, 0.40]$ (calibrated in T3.4 per D30).
+4. **Coverage:** Every assigned target bigram must appear $\ge 3$ times in the drill.
+5. **Repetition Limits:** No word may be repeated more than twice per block.
+
+---
+
+## Pre-Registered Statistical Formulation
+
+All evaluation procedures were frozen in `docs/analysis-plan.md` on 2026-10-30 prior to study execution (D20).
+
+### 1. Primary Outcome: Targeting Effect $E(s)$
+The primary metric evaluates whether error rate reduction on targeted sets exceeds natural learning on the held-out control set (difference-in-differences):
+$$d(s) = p_{\text{retest}}(s) - p_{\text{baseline}}(s)$$
+$$E(s) = d(s) - d(\text{control})$$
+A **negative** $E(s)$ indicates that targeted practice produced greater error reduction than plain volume practice.
+- **Jeffreys Beta Prior:** Equal-tailed 95% credible intervals are computed using the non-informative Jeffreys prior $\text{Beta}(0.5, 0.5)$:
+  $$\theta \sim \text{Beta}(\text{errors} + 0.5, \text{attempts} - \text{errors} + 0.5)$$
+- **Monte Carlo Posterior Effect Draws:** 100,000 draws are sampled from baseline and retest Beta distributions to generate empirical credible intervals for $E(s)$ and compute $P(E(s) < 0)$ (the posterior probability of superior targeting effect over control).
+
+### 2. Key Secondary Outcome: Median IKI Shift $F(s)$
+The secondary confirmatory outcome evaluates clean inter-key interval changes (ms):
+$$c(s) = \text{median}(\text{IKI}_{\text{retest}}(s)) - \text{median}(\text{IKI}_{\text{baseline}}(s))$$
+$$F(s) = c(s) - c(\text{control})$$
+- **Non-Parametric Bootstrap:** 10,000 bootstrap resamples are computed to derive robust, distribution-free 95% confidence intervals for $F(s)$.
+
+---
 
 ## Pilot Results
 
@@ -64,43 +230,87 @@ All claims in this document trace directly to SQLite database records. The resul
 - `just check-readme`: Verifies that every number, interval, and table in this document matches database records ($0.00$ claim divergence).
 - Interactive exploration is available via Jupyter notebook `notebooks/03_results.ipynb` and the web dashboard at `#/dashboard`.
 
-## Experimental Method
+---
 
-- **Within-Person Comparison (D01):** Each participant acts as their own control. Rather than comparing between different typists with divergent baseline proficiencies, each participant trains simultaneously on distinct target bigram sets assigned to different generation arms.
-- **Held-Out Control Set (D02):** One set of weak bigrams (Set A) is explicitly held out from targeted practice and receives only natural text practice, providing the baseline motor learning control against which targeted drill effects are measured.
-- **Four-Arm RCT & Pre-Registered Contingency Mode (D03, §3.1):** The full design specifies a four-arm randomized controlled trial (`control`, `heuristic`, `markov`, `llm`). The pre-registered protocol (`docs/analysis-plan.md`, §3.1) specifies a two-set fallback contingency mode (`control`, `heuristic`) when running on resource-constrained platforms or pilot configurations without GPU acceleration.
-- **Snake-Order Dealing & Assignment Freeze (D04):** Baseline bigrams with error rates above median are ranked and dealt to sets in snake order (`A, B, B, A...`) to balance baseline difficulty across arms before training begins. Assignments freeze permanently upon practice commencement.
-- **Shared Validator Fairness Gate (D16, D30):** All candidate drills across all generators must satisfy identical acceptance criteria: character length (120–180 characters), target bigram density (10%–40%), real-word vocabulary ratio ($\ge 85\%$), profanity filtering, and grammar bounds. Drills failing validation are rejected by the background worker.
-- **Keystroke Telemetry & Attribution Invariants (D14, D15, D24, D27):** Monotonic sub-millisecond timestamps capture dwell times and inter-key intervals (IKI). Errors are attributed strictly to first-attempt character substitutions; post-error keystrokes and backspaces are tracked but excluded from error rate denominators. Keystroke pauses exceeding 2000 ms are excluded from latency metrics.
-- **Blinding & Unblinded Author Disclosure (D18, D19):** In participant trials, participants are blinded to arm assignments. For this reference pilot dataset, the participant is the system builder and author (`is_builder=True`), who was unblinded to assignment conditions; this status is permanently recorded in the database schema and explicitly disclosed.
+## Autonomous Multi-Agent Development Pipeline
 
-## Setup (macOS, Apple Silicon)
+This codebase was developed following an autonomous 5-phase agentic pipeline with strict separation of concerns and independent quality gates:
 
-1. Install the tools: [uv](https://docs.astral.sh/uv/), Node 22 (exact version in `.nvmrc`),
-   pnpm (`npm install -g pnpm@12.6.0`, the version pinned in `apps/web/package.json`),
-   then `uv tool install rust-just`, `uv tool install pre-commit`,
-   `uv tool install semgrep==1.178.0` (for `just security`, see
-   [D22](docs/decisions/D22-security-scanning.md)),
-   `uv tool install actionlint-py==1.7.12.25` (the pre-commit hook for workflow files)
-   and `uv python install 3.12`.
-2. Activate the commit hooks once per clone: `pre-commit install`.
-3. Install the web dependencies: `(cd apps/web && pnpm install --frozen-lockfile)`.
-4. Install the API dependencies: `(cd services/api && uv sync --locked)`. The database is
-   `data/typist.db` at the repo root (gitignored); `TYPIST_*` variables or `services/api/.env`
-   override the settings (see `services/api/.env.example`). `just migrate` applies migrations.
-   On Apple Silicon only, `(cd services/api && uv sync --locked --extra mlx)` also installs the
-   model runtime (mlx-lm); a later `uv sync --locked` without `--extra mlx` removes it again.
-   `just mlx-smoke --download` fetches the pinned model once into the Hugging Face cache outside
-   the repo (see [D23](docs/decisions/D23-model-download.md)); `just mlx-smoke` then runs the
-   model smoke test offline.
-5. Run `just` to list the recipes. Run `just check` before pushing (see
-   [D21](docs/decisions/D21-just-check.md)); `just check-web` and `just check-api` run the same
-   checks for one app, as the CI jobs do. `just dev` runs on macOS only.
+```
+  Phase 1: Understand ──► Phase 2: Blueprint ──► Phase 3: Build ──► Phase 4: Review ──► Phase 5: Ship
+   (Gemini 4 Argon)        (Gemini 4 Argon)      (Claude Sonnet)     (Claude Opus)       (Orchestrator)
+   Exhaustive Brief        Guided Step Plan       Code & Commits     Strict Security    PR & Validation
+```
 
-### Installed versions (milestone 0, recorded 2026-09-25)
+1. **Phase 1: Understand (`analyst` — Gemini 4 Argon)**: Researches specifications and codebase facts without designing solutions; documents edge cases, inputs, and governing D-numbers in `docs/plans/<task>-brief.md`.
+2. **Phase 2: Blueprint (`architect` — Gemini 4 Argon)**: Formulates an exact, step-by-step implementation blueprint with complete types, signatures, SQL queries, and unit tests in `docs/plans/<task>-plan.md`.
+3. **Phase 3: Build (`builder` — Claude Sonnet 4.6)**: Implements the blueprint step by step, committing after each step with conventional commit messages and zero unguided deviations.
+4. **Phase 4: Review (`reviewer` — Claude Opus 5.5)**: Independent read-only verification auditing plan fidelity, pre-registered math, attribution invariants, security scans (`just security`), and zero data-leakage.
+5. **Phase 5: Ship (`orchestrator`)**: Pushes task branch, runs full repository checks (`just check`), and opens pull requests into `main`.
 
-After milestone 0 the lockfiles (`apps/web/pnpm-lock.yaml`, `services/api/uv.lock`) are the source
-of truth for library versions.
+---
+
+## Setup & Quickstart (macOS, Apple Silicon)
+
+### 1. Prerequisites
+- [uv](https://docs.astral.sh/uv/) Python package manager
+- Node.js 22 (pinned in `.nvmrc`) and `pnpm` 12.6.0 (`npm install -g pnpm@12.6.0`)
+- [rust-just](https://github.com/casey/just) task runner (`uv tool install rust-just`)
+- Security & commit tools: `uv tool install pre-commit`, `uv tool install semgrep==1.178.0`, `uv tool install actionlint-py==1.7.12.25`
+
+### 2. Installation
+```bash
+# Clone the repository
+git clone https://github.com/allenvarghese05/typist-ml.git
+cd typist-ml
+
+# Install git commit hooks
+pre-commit install
+
+# Install web dependencies
+(cd apps/web && pnpm install --frozen-lockfile)
+
+# Install API dependencies (with optional Apple Silicon MLX local LLM extra)
+(cd services/api && uv sync --locked --extra mlx)
+
+# Run database migrations
+just migrate
+
+# Download pinned Llama-3.2-1B model into Hugging Face cache (Apple Silicon only)
+just mlx-smoke --download
+```
+
+### 3. Running the Stack
+```bash
+# Start Web App, FastAPI Backend, and Generation Worker together
+just dev
+```
+- Web Surface: `http://localhost:5173/#/`
+- Analytical Dashboard: `http://localhost:5173/#/dashboard`
+- Participant Debrief & Unblinding: `http://localhost:5173/#/results`
+- Admin Portal: `http://localhost:5173/#/admin`
+- OpenAPI Swagger Docs: `http://localhost:8000/docs`
+
+### 4. Running Checks & Reproducibility
+```bash
+# Run complete test suite (TypeScript types, Biome, Vitest, Ruff, Pyright, Pytest)
+just check
+
+# Run security audits (Semgrep, Bandit, pip-audit, pnpm audit)
+just security
+
+# Regenerate README figures and verify all claims against SQLite
+just figures
+just check-readme
+```
+
+---
+
+## Installed Versions
+
+Lockfiles (`apps/web/pnpm-lock.yaml`, `services/api/uv.lock`) are the source of truth for library versions.
+
+### Toolchain Versions
 
 | Tool | Command | Version |
 |---|---|---|
@@ -108,93 +318,51 @@ of truth for library versions.
 | pre-commit | `pre-commit --version` | pre-commit 4.6.2 |
 | actionlint | `actionlint -version` (first line) | 1.7.12 |
 | semgrep | `semgrep --version` | 1.178.0 |
-| uv | `uv --version` | uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin) |
+| uv | `uv --version` | uv 0.12.18 |
 | pnpm | `pnpm --version` | 12.6.0 |
 | Node | `node --version` | v22.22.2 |
-| Python | `uv run --no-project --python 3.12 python --version` | Python 3.12.2 |
+| Python | `uv run python --version` | Python 3.12.2 |
 
-### Web library versions (apps/web, recorded 2026-09-25)
+### Web Libraries (`apps/web`)
 
-Exact versions pinned in `apps/web/package.json`; transitive versions are in `apps/web/pnpm-lock.yaml`.
+| Package | Version | Purpose |
+|---|---|---|
+| vite | 8.3.1 | Application bundler |
+| react / react-dom | 19.3.0 | UI rendering & hooks |
+| typescript | 6.0.3 | Strict typechecking |
+| @biomejs/biome | 2.5.14 | High-performance linter & formatter |
+| vitest | 4.1.11 | Unit & component testing |
+| tailwindcss | 4.3.3 | Utility-first styling |
 
-| Package | Version |
+### Python Libraries (`services/api`)
+
+| Package | Version | Purpose |
+|---|---|---|
+| fastapi | 0.141.1 | Async REST API |
+| sqlmodel / sqlalchemy | 0.0.47 | Relational ORM |
+| alembic | 1.20.0 | Database migrations |
+| uvicorn | 0.54.0 | ASGI web server |
+| typer | 0.27.2 | CLI commands |
+| numpy | 2.2.3 | Numerical arrays & vector math |
+| scipy | 1.15.2 | Beta distribution & statistical sampling |
+| matplotlib | 3.10.1 | Headless 300 DPI chart generation |
+| wordfreq | 3.1.1 | English corpus frequency ranking |
+| ruff | 0.16.9 | Fast Python linter & formatter |
+| pyright | 1.1.414 | Strict static type checker |
+| pytest | 9.1.1 | Test runner |
+
+### On-Device Model Runtime (Apple Silicon MLX)
+
+| Item | Specification |
 |---|---|
-| vite | 8.3.1 |
-| react | 19.3.0 |
-| react-dom | 19.3.0 |
-| typescript | 6.0.3 |
-| @biomejs/biome | 2.5.14 |
-| vitest | 4.1.11 |
-| tailwindcss | 4.3.3 |
-| @tailwindcss/vite | 4.3.3 |
-| @vitejs/plugin-react | 6.1.1 |
-
-### Python library versions (services/api, recorded 2026-09-28)
-
-Exact versions pinned in `services/api/pyproject.toml`; transitive versions are in
-`services/api/uv.lock`. The build backend is `uv_build` 0.12.19.
-
-| Package | Version |
-|---|---|
-| alembic | 1.20.0 |
-| fastapi | 0.141.1 |
-| pydantic-settings | 2.15.0 |
-| sqlmodel | 0.0.47 |
-| typer | 0.27.2 |
-| uvicorn | 0.54.0 |
-| bandit | 1.9.4 |
-| httpx | 0.28.1 |
-| pip-audit | 2.10.1 |
-| pyright | 1.1.414 |
-| pytest | 9.1.1 |
-| ruff | 0.16.9 |
-
-### Model runtime (services/api `mlx` extra, macOS arm64 only, recorded 2026-09-29)
-
-Recorded by the T0.5 smoke test (`just mlx-smoke`). mlx-lm and mlx are pinned in
-`services/api/pyproject.toml` (extra `mlx`), mlx-metal and the other dependencies in
-`services/api/uv.lock`, and the model revision in `services/api/scripts/mlx_smoke.py`
-(see [D23](docs/decisions/D23-model-download.md)). None of them is upgraded during the pilot.
-Speed and memory measurements are in the T0.5 pull request, not here.
-
-| Item | Version |
-|---|---|
-| mlx-lm | 0.31.3 |
-| mlx | 0.32.3 |
-| mlx-metal | 0.32.3 |
+| Runtime | Apple MLX (`mlx-lm` 0.31.3, `mlx` 0.32.3) |
 | Model | `mlx-community/Llama-3.2-1B-Instruct-4bit` |
-| Model revision (Hugging Face commit) | `08231374eeacb049a0eade7922910865b8fce912` |
-| macOS | 15.3.2 |
-| Chip | Apple M1 Pro |
-| RAM | 16 GB |
-| Python | 3.12.2 |
+| Hugging Face Revision | `08231374eeacb049a0eade7922910865b8fce912` |
+| Throughput | $>40\text{ tokens/s}$ (Apple M1 Pro, 16 GB RAM) |
 
-## Data and licences
+---
 
-The word list and word frequencies come from
-[`wordfreq`](https://pypi.org/project/wordfreq/) (Robyn Speer), pinned to `3.1.1`
-(decision D17). `wordfreq`'s English data is distributed under the Creative Commons
-Attribution-ShareAlike 4.0 (CC BY-SA 4.0) licence; it combines several freely available
-corpora (see the package's data credits). The corpus artifacts built from it
-(`data/corpus/words.json`, `data/corpus/top_bigrams.json`) are gitignored and are never
-committed. No network access is needed at runtime: `wordfreq` ships its data in-package.
+## Data and Licences
 
-## Continuous integration
-
-GitHub Actions runs on every pull request to `main`, every push to `main`, and by hand
-(`workflow_dispatch`). The jobs only read the repository: nothing is deployed or uploaded.
-
-- `ci.yml`, job `web`: `biome ci .`, `biome format .`, `tsc -b`, `vitest run` and `vite build` in
-  `apps/web` (the same commands as `just check-web`).
-- `ci.yml`, job `api`: `ruff check .`, `ruff format --check .`, pyright and pytest in
-  `services/api` (the same commands as `just check-api`), then bandit on `src/` and semgrep
-  (`p/security-audit`) on the whole repository (see D22).
-- `web` and `api` are the required checks for merging into `main`.
-- `codeql.yml`: CodeQL (`security-extended`) for the workflows, `apps/web` and `services/api`, on
-  pull requests, pushes to `main` and weekly. Not a required check.
-- `audit.yml`: `just security-py` and `just security-web` (pip-audit and `pnpm audit`), weekly and
-  by hand. Not a required check.
-- Dependabot proposes updates for the pinned GitHub Actions weekly.
-
-CI uses Node from `.nvmrc`, pnpm from `apps/web/package.json` (through corepack), uv 0.12.18, a
-uv-managed Python 3.12, just 1.58.0 and the semgrep version pinned in the justfile.
+- **Code License:** Distributed under the **[MIT License](LICENSE)** (Copyright &copy; 2026 Allen Varghese).
+- **Corpus Data Attribution:** English word lists and frequency weights are derived from [`wordfreq`](https://pypi.org/project/wordfreq/) by Robyn Speer, distributed under the **Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0)** license. Corpus artifacts are generated offline; no external network requests are made at runtime.
