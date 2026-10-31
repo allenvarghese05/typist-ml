@@ -7,11 +7,11 @@ Provides run_pipeline_simulation to run the full end-to-end experiment loop.
 Never used as scientific evidence (CLAUDE.md; Project Guide).
 """
 
-from datetime import datetime, timedelta, timezone
 import random
 import unittest.mock
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +24,6 @@ from typist.db import unfreeze_config_for_testing
 from typist.models import (
     Drill,
     ExperimentConfig,
-    Participant,
 )
 from typist.schemas.events import KeystrokeEventIn
 from typist.services.session_stats import recompute_stats
@@ -238,7 +237,7 @@ def run_pipeline_simulation(
         return uuid.UUID(int=id_rng.getrandbits(128), version=4)
 
     drill_counter = [0]
-    base_time = datetime(2026, 10, 20, 12, 0, 0, tzinfo=timezone.utc)
+    base_time = datetime(2026, 10, 20, 12, 0, 0, tzinfo=UTC)
     original_drill_init = Drill.__init__
 
     def _deterministic_drill_init(self: Any, *args: Any, **kwargs: Any) -> None:

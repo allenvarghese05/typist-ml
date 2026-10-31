@@ -31,7 +31,6 @@ def migrated_engine(isolated_settings: Path) -> Iterator[Engine]:
         engine.dispose()
 
 
-
 def test_generate_scripted_keystrokes_empty() -> None:
     events = generate_scripted_keystrokes("")
     assert events == []
@@ -115,4 +114,3 @@ def test_run_pipeline_simulation_builder_status_and_replenishment(
         p = session.get(Participant, result.participant_id)
         assert p is not None
         assert p.is_builder is True
-

@@ -113,9 +113,11 @@ def test_readme_claims_trace_to_database(reference_pilot_db: PilotDbFixture) -> 
         results = participant_results(session, reference_pilot_db.participant_id)
 
         # Total keystrokes and sessions count
-        keystroke_count = session.exec(select(func.count(KeystrokeEvent.id))).one()
+        keystroke_count = session.exec(select(func.count()).select_from(KeystrokeEvent)).one()
         completed_sessions = session.exec(
-            select(func.count(TypingSession.id)).where(col(TypingSession.status) == "completed")
+            select(func.count())
+            .select_from(TypingSession)
+            .where(col(TypingSession.status) == "completed")
         ).one()
 
         assert f"{keystroke_count:,}" in readme_text or str(keystroke_count) in readme_text
@@ -166,7 +168,13 @@ def test_cli_check_readme_detects_tampering(
 
     res = runner.invoke(
         app,
-        ["check-readme", "--readme", str(tampered_file), "--pid", reference_pilot_db.participant_id],
+        [
+            "check-readme",
+            "--readme",
+            str(tampered_file),
+            "--pid",
+            reference_pilot_db.participant_id,
+        ],
     )
     assert res.exit_code == 1
     assert "FAIL" in res.output

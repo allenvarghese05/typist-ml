@@ -852,8 +852,10 @@ def check_readme_command(
         forbidden = ["webassembly", "wasm", "statistically significant", "p-value", "p < 0.05"]
         for term in forbidden:
             if term in readme_text.lower():
-                typer.echo(f"FAIL: Forbidden marketing/significance term {term!r} found in README", err=True)
+                typer.echo(
+                    f"FAIL: Forbidden marketing/significance term {term!r} found in README",
+                    err=True,
+                )
                 raise typer.Exit(code=1)
 
     typer.echo("README claims check passed: all numbers trace to database records.")
-
