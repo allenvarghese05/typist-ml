@@ -23,6 +23,19 @@ describe("parseHash", () => {
     });
   });
 
+  it("parses #/dashboard with optional participant and tab", () => {
+    expect(parseHash("#/dashboard")).toEqual({
+      name: "dashboard",
+      participantId: undefined,
+      tab: undefined,
+    });
+    expect(parseHash("#/dashboard?participant=p-1&tab=trend")).toEqual({
+      name: "dashboard",
+      participantId: "p-1",
+      tab: "trend",
+    });
+  });
+
   it("parses everything else to the demo route", () => {
     expect(parseHash("")).toEqual({ name: "demo" });
     expect(parseHash("#")).toEqual({ name: "demo" });
@@ -38,6 +51,8 @@ function RouteProbe(): React.JSX.Element {
     label = `matrix:${route.sessionId}`;
   } else if (route.name === "admin") {
     label = `admin:${route.participantId ?? "none"}`;
+  } else if (route.name === "dashboard") {
+    label = `dashboard:${route.participantId ?? "none"}:${route.tab ?? "none"}`;
   }
   return <span data-testid="route">{label}</span>;
 }

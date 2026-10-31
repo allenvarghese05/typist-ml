@@ -277,6 +277,30 @@ def run_participant_checks(session: Session, participant_id: str) -> ChecksRespo
     )
 
     # Session trends
+    trend_entries = participant_session_trend(session, participant_id)
+
+    return ChecksResponse(
+        participant_id=participant.id,
+        alias=participant.alias,
+        status=participant.status,
+        passed=overall_passed,
+        checks=DataChecksResult(
+            seq_gaps=seq_gaps,
+            dwell_anomalies=dwell_anomalies,
+            short_blocks=short_blocks,
+            missing_keyups=missing_keyups,
+            in_progress_sessions=in_progress_sessions,
+        ),
+        trend=trend_entries,
+    )
+
+
+def participant_session_trend(session: Session, participant_id: str) -> list[SessionTrendEntry]:
+    """Build session trend entries for a participant's completed sessions."""
+    participant = session.get(Participant, participant_id)
+    if participant is None:
+        raise ParticipantNotFoundError(participant_id)
+
     completed_sessions = session.exec(
         select(TypingSession)
         .where(
@@ -322,18 +346,4 @@ def run_participant_checks(session: Session, participant_id: str) -> ChecksRespo
                 per_set_errors=per_set_errors,
             )
         )
-
-    return ChecksResponse(
-        participant_id=participant.id,
-        alias=participant.alias,
-        status=participant.status,
-        passed=overall_passed,
-        checks=DataChecksResult(
-            seq_gaps=seq_gaps,
-            dwell_anomalies=dwell_anomalies,
-            short_blocks=short_blocks,
-            missing_keyups=missing_keyups,
-            in_progress_sessions=in_progress_sessions,
-        ),
-        trend=trend_entries,
-    )
+    return trend_entries

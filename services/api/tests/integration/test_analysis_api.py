@@ -414,3 +414,90 @@ def test_participant_results_bigram_dropped_under_20_retest(migrated_engine: Eng
     assert set_b["retained_bigrams"] == ["er"]
     assert set_b["baseline_attempts"] == 50
     assert set_b["retest_attempts"] == 25
+
+
+def test_participant_trend_404_when_missing(migrated_engine: Engine) -> None:
+    response = _client().get("/api/v1/analysis/participants/unknown/trend")
+    assert response.status_code == 404
+    assert response.json() == {"detail": "participant not found"}
+
+
+def test_participant_trend_200_returns_entries(migrated_engine: Engine) -> None:
+    with Session(migrated_engine) as session:
+        participant = Participant(alias="trend-user")
+        session.add(participant)
+        session.flush()
+        pid = participant.id
+
+        session.add_all(
+            [
+                BigramAssignment(
+                    participant_id=pid,
+                    set_label="A",
+                    arm="control",
+                    bigram="th",
+                    baseline_rank=1,
+                    weakness_score=0.5,
+                    baseline_attempts=30,
+                    baseline_errors=6,
+                    frozen_at=NOW,
+                ),
+            ]
+        )
+        session.flush()
+
+        s_base = TypingSession(
+            participant_id=pid,
+            phase="baseline",
+            day_index=1,
+            status="completed",
+            wpm=32.5,
+            accuracy=0.94,
+            client_info={},
+            started_at=datetime(2026, 10, 20, 10, 0, 0, tzinfo=UTC),
+            ended_at=datetime(2026, 10, 20, 10, 5, 0, tzinfo=UTC),
+        )
+        session.add(s_base)
+        session.flush()
+        s_base_id = s_base.id
+
+        session.add(
+            BigramStat(
+                participant_id=pid,
+                session_id=s_base_id,
+                bigram="th",
+                attempts=20,
+                errors=2,
+                iki_n=0,
+            )
+        )
+        session.commit()
+
+    response = _client().get(f"/api/v1/analysis/participants/{pid}/trend")
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert len(body) == 1
+    entry = body[0]
+    assert entry["session_id"] == s_base_id
+    assert entry["phase"] == "baseline"
+    assert entry["day_index"] == 1
+    assert entry["wpm"] == 32.5
+    assert entry["accuracy"] == 0.94
+    assert entry["per_set_attempts"] == {"A": 20}
+    assert entry["per_set_errors"] == {"A": 2}
+    assert entry["per_set_error_rate"] == {"A": 0.1}
+
+
+def test_get_overview_returns_200(migrated_engine: Engine) -> None:
+    response = _client().get("/api/v1/analysis/overview")
+    assert response.status_code == 200
+    body = response.json()
+    assert "participants" in body
+    assert "overhead" in body
+    assert "generation" in body
+    assert isinstance(body["participants"], list)
+    assert isinstance(body["overhead"], list)
+    assert "arms" in body["generation"]
+    assert "total_drills" in body["generation"]
+    assert "total_attempts" in body["generation"]
