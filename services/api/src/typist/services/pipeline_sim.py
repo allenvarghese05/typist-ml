@@ -219,6 +219,7 @@ def run_pipeline_simulation(
     error_rate: float = 0.05,
     seed: int = 42,
     log_fn: Any = None,
+    is_builder: bool = True,
 ) -> PipelineSimulationResult:
     """Execute the complete experiment lifecycle from enrolment to done with scripted keystrokes."""
 
@@ -229,7 +230,7 @@ def run_pipeline_simulation(
     # 1. Enrolment
     _log("1. Enrolling participant...")
     resp = client.post(
-        "/api/v1/participants", json={"alias": participant_alias, "is_builder": False}
+        "/api/v1/participants", json={"alias": participant_alias, "is_builder": is_builder}
     )
     assert resp.status_code in (200, 201), resp.text
     pid = resp.json()["id"]
@@ -304,6 +305,10 @@ def run_pipeline_simulation(
     # 7. Simulate practice sessions across Latin square
     _log(f"7. Typing {practice_days} practice sessions across Latin square...")
     for day in range(1, practice_days + 1):
+        # Ensure drill pool is replenished for the upcoming practice session
+        client.post("/api/v1/admin/pool/replenish", json={"participant_id": pid})
+        while run_worker_once(engine, db_path, index) is not None:
+            pass
         resp = client.post(f"/api/v1/participants/{pid}/sessions")
         assert resp.status_code == 200, resp.text
         session_plan = resp.json()

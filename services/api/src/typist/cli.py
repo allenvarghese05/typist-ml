@@ -505,6 +505,9 @@ def test_pipeline_command(
     practice_days: int = typer.Option(
         2, "--practice-days", help="Number of practice days to simulate"
     ),
+    is_builder: bool = typer.Option(
+        True, "--is-builder/--no-is-builder", help="Whether participant is the author/builder"
+    ),
 ) -> None:
     """Run an end-to-end experiment pipeline simulation with scripted keystrokes."""
     settings = get_settings()
@@ -533,6 +536,7 @@ def test_pipeline_command(
             error_rate=error_rate,
             seed=seed,
             log_fn=typer.echo,
+            is_builder=is_builder,
         )
         typer.echo(
             f"\nSUCCESS: Participant '{result.alias}' ({result.participant_id}) reached status '{result.status}'."
