@@ -145,8 +145,8 @@ def test_participant_results_200_when_done(migrated_engine: Engine) -> None:
                     bigram="th",
                     baseline_rank=1,
                     weakness_score=0.5,
-                    baseline_attempts=10,
-                    baseline_errors=2,
+                    baseline_attempts=30,
+                    baseline_errors=6,
                     frozen_at=NOW,
                 ),
                 BigramAssignment(
@@ -156,8 +156,8 @@ def test_participant_results_200_when_done(migrated_engine: Engine) -> None:
                     bigram="er",
                     baseline_rank=2,
                     weakness_score=0.4,
-                    baseline_attempts=20,
-                    baseline_errors=4,
+                    baseline_attempts=30,
+                    baseline_errors=6,
                     frozen_at=NOW,
                 ),
             ]
@@ -171,6 +171,7 @@ def test_participant_results_200_when_done(migrated_engine: Engine) -> None:
             day_index=1,
             status="completed",
             wpm=30.0,
+            accuracy=0.95,
             client_info={},
             started_at=NOW,
             ended_at=NOW,
@@ -185,6 +186,7 @@ def test_participant_results_200_when_done(migrated_engine: Engine) -> None:
             day_index=1,
             status="completed",
             wpm=40.0,
+            accuracy=0.98,
             client_info={},
             started_at=NOW,
             ended_at=NOW,
@@ -192,39 +194,39 @@ def test_participant_results_200_when_done(migrated_engine: Engine) -> None:
         session.add(s_retest)
         session.flush()
 
-        # Add BigramStat rows
+        # Add BigramStat rows with > 20 attempts so none are dropped
         session.add_all(
             [
                 BigramStat(
                     participant_id=pid,
                     session_id=s_base.id,
                     bigram="th",
-                    attempts=10,
-                    errors=2,
+                    attempts=30,
+                    errors=6,
                     iki_n=0,
                 ),
                 BigramStat(
                     participant_id=pid,
                     session_id=s_base.id,
                     bigram="er",
-                    attempts=20,
-                    errors=4,
+                    attempts=30,
+                    errors=6,
                     iki_n=0,
                 ),
                 BigramStat(
                     participant_id=pid,
                     session_id=s_retest.id,
                     bigram="th",
-                    attempts=10,
-                    errors=1,
+                    attempts=25,
+                    errors=3,
                     iki_n=0,
                 ),
                 BigramStat(
                     participant_id=pid,
                     session_id=s_retest.id,
                     bigram="er",
-                    attempts=20,
-                    errors=2,
+                    attempts=25,
+                    errors=1,
                     iki_n=0,
                 ),
             ]
@@ -239,25 +241,176 @@ def test_participant_results_200_when_done(migrated_engine: Engine) -> None:
     assert body["status"] == "done"
     assert body["baseline_wpm"] == 30.0
     assert body["retest_wpm"] == 40.0
+    assert body["baseline_accuracy"] == 0.95
+    assert body["retest_accuracy"] == 0.98
     assert len(body["sets"]) == 2
+
+    # Verify exclusions report
+    assert "exclusions" in body
+    assert body["exclusions"] is not None
+    assert body["exclusions"]["excluded_sessions"] == []
+    assert body["exclusions"]["dropped_bigrams"] == []
+    assert "pause_counts" in body["exclusions"]
 
     sets_by_label = {s["set_label"]: s for s in body["sets"]}
     assert "A" in sets_by_label
-    assert sets_by_label["A"]["arm"] == "control"
-    assert sets_by_label["A"]["bigrams"] == ["th"]
-    assert sets_by_label["A"]["baseline_attempts"] == 10
-    assert sets_by_label["A"]["baseline_errors"] == 2
-    assert sets_by_label["A"]["baseline_error_rate"] == 0.2
-    assert sets_by_label["A"]["retest_attempts"] == 10
-    assert sets_by_label["A"]["retest_errors"] == 1
-    assert sets_by_label["A"]["retest_error_rate"] == 0.1
+    set_a = sets_by_label["A"]
+    assert set_a["arm"] == "control"
+    assert set_a["bigrams"] == ["th"]
+    assert set_a["retained_bigrams"] == ["th"]
+    assert set_a["dropped_bigrams"] == []
+    assert set_a["baseline_attempts"] == 30
+    assert set_a["baseline_errors"] == 6
+    assert set_a["baseline_error_rate"] == 0.2
+    assert isinstance(set_a["baseline_beta_ci_lower"], float)
+    assert isinstance(set_a["baseline_beta_ci_upper"], float)
+    assert set_a["retest_attempts"] == 25
+    assert set_a["retest_errors"] == 3
+    assert set_a["retest_error_rate"] == 0.12
+    assert isinstance(set_a["retest_beta_ci_lower"], float)
+    assert isinstance(set_a["retest_beta_ci_upper"], float)
+    assert set_a["targeting_effect"] is None  # control has no targeting effect vs itself
 
     assert "B" in sets_by_label
-    assert sets_by_label["B"]["arm"] == "heuristic"
-    assert sets_by_label["B"]["bigrams"] == ["er"]
-    assert sets_by_label["B"]["baseline_attempts"] == 20
-    assert sets_by_label["B"]["baseline_errors"] == 4
-    assert sets_by_label["B"]["baseline_error_rate"] == 0.2
-    assert sets_by_label["B"]["retest_attempts"] == 20
-    assert sets_by_label["B"]["retest_errors"] == 2
-    assert sets_by_label["B"]["retest_error_rate"] == 0.1
+    set_b = sets_by_label["B"]
+    assert set_b["arm"] == "heuristic"
+    assert set_b["bigrams"] == ["er"]
+    assert set_b["retained_bigrams"] == ["er"]
+    assert set_b["dropped_bigrams"] == []
+    assert set_b["baseline_attempts"] == 30
+    assert set_b["baseline_errors"] == 6
+    assert set_b["baseline_error_rate"] == 0.2
+    assert set_b["retest_attempts"] == 25
+    assert set_b["retest_errors"] == 1
+    assert set_b["retest_error_rate"] == 0.04
+    assert set_b["targeting_effect"] is not None
+    assert set_b["posterior_effect_median"] is not None
+    assert 0.0 <= set_b["share_below_zero"] <= 1.0
+
+
+def test_participant_results_bigram_dropped_under_20_retest(migrated_engine: Engine) -> None:
+    """Bigrams with <20 pooled retest attempts are dropped in both baseline and retest (D23(c))."""
+    with Session(migrated_engine) as session:
+        participant = Participant(alias="low-vol-user", status="done")
+        session.add(participant)
+        session.flush()
+        pid = participant.id
+
+        session.add_all(
+            [
+                BigramAssignment(
+                    participant_id=pid,
+                    set_label="A",
+                    arm="control",
+                    bigram="th",
+                    baseline_rank=1,
+                    weakness_score=0.5,
+                    baseline_attempts=50,
+                    baseline_errors=5,
+                    frozen_at=NOW,
+                ),
+                BigramAssignment(
+                    participant_id=pid,
+                    set_label="B",
+                    arm="heuristic",
+                    bigram="er",
+                    baseline_rank=2,
+                    weakness_score=0.4,
+                    baseline_attempts=50,
+                    baseline_errors=5,
+                    frozen_at=NOW,
+                ),
+            ]
+        )
+        session.flush()
+
+        s_base = TypingSession(
+            participant_id=pid,
+            phase="baseline",
+            day_index=1,
+            status="completed",
+            wpm=30.0,
+            client_info={},
+            started_at=NOW,
+            ended_at=NOW,
+        )
+        s_retest = TypingSession(
+            participant_id=pid,
+            phase="retest",
+            day_index=1,
+            status="completed",
+            wpm=40.0,
+            client_info={},
+            started_at=NOW,
+            ended_at=NOW,
+        )
+        session.add_all([s_base, s_retest])
+        session.flush()
+
+        # 'th' has only 15 retest attempts (< 20) -> dropped!
+        # 'er' has 25 retest attempts (>= 20) -> retained!
+        session.add_all(
+            [
+                BigramStat(
+                    participant_id=pid,
+                    session_id=s_base.id,
+                    bigram="th",
+                    attempts=50,
+                    errors=5,
+                    iki_n=0,
+                ),
+                BigramStat(
+                    participant_id=pid,
+                    session_id=s_base.id,
+                    bigram="er",
+                    attempts=50,
+                    errors=5,
+                    iki_n=0,
+                ),
+                BigramStat(
+                    participant_id=pid,
+                    session_id=s_retest.id,
+                    bigram="th",
+                    attempts=15,
+                    errors=1,
+                    iki_n=0,
+                ),
+                BigramStat(
+                    participant_id=pid,
+                    session_id=s_retest.id,
+                    bigram="er",
+                    attempts=25,
+                    errors=2,
+                    iki_n=0,
+                ),
+            ]
+        )
+        session.commit()
+
+    response = _client().get(f"/api/v1/analysis/participants/{pid}")
+    assert response.status_code == 200
+    body = response.json()
+
+    # Check exclusions dropped bigrams
+    dropped = body["exclusions"]["dropped_bigrams"]
+    assert len(dropped) == 1
+    assert dropped[0]["bigram"] == "th"
+    assert dropped[0]["retest_attempts"] == 15
+    assert dropped[0]["set_label"] == "A"
+    assert dropped[0]["arm"] == "control"
+
+    sets_by_label = {s["set_label"]: s for s in body["sets"]}
+    set_a = sets_by_label["A"]
+    assert set_a["dropped_bigrams"] == ["th"]
+    assert set_a["retained_bigrams"] == []
+    # Retained counts for Set A are 0
+    assert set_a["baseline_attempts"] == 0
+    assert set_a["retest_attempts"] == 0
+    assert set_a["baseline_error_rate"] is None
+    assert set_a["retest_error_rate"] is None
+
+    set_b = sets_by_label["B"]
+    assert set_b["dropped_bigrams"] == []
+    assert set_b["retained_bigrams"] == ["er"]
+    assert set_b["baseline_attempts"] == 50
+    assert set_b["retest_attempts"] == 25
