@@ -4,7 +4,8 @@ export type Route =
   | { readonly name: "demo" }
   | { readonly name: "matrix"; readonly sessionId: string }
   | { readonly name: "admin"; readonly participantId?: string }
-  | { readonly name: "dashboard"; readonly participantId?: string; readonly tab?: string };
+  | { readonly name: "dashboard"; readonly participantId?: string; readonly tab?: string }
+  | { readonly name: "debrief"; readonly participantId?: string };
 
 export function parseHash(hash: string): Route {
   const matrixMatch = /^#\/matrix\/(.+)$/.exec(hash);
@@ -26,6 +27,16 @@ export function parseHash(hash: string): Route {
     const participantId = params.get("participant") ?? undefined;
     const tab = params.get("tab") ?? undefined;
     return { name: "dashboard", participantId, tab };
+  }
+  const debriefMatch = /^#\/(?:results|debrief)(?:\/([^?]+?))?\/?(?:\?(.*))?$/.exec(hash);
+  if (debriefMatch) {
+    const pathPid = debriefMatch[1];
+    const search = debriefMatch[2];
+    const params = new URLSearchParams(search ?? "");
+    const participantId = pathPid
+      ? decodeURIComponent(pathPid)
+      : (params.get("participant") ?? undefined);
+    return { name: "debrief", participantId };
   }
   return { name: "demo" };
 }
