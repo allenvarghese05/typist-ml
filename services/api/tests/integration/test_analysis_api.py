@@ -488,3 +488,18 @@ def test_participant_trend_200_returns_entries(migrated_engine: Engine) -> None:
     assert entry["per_set_errors"] == {"A": 2}
     assert entry["per_set_error_rate"] == {"A": 0.1}
 
+
+def test_get_overview_returns_200(migrated_engine: Engine) -> None:
+    response = _client().get("/api/v1/analysis/overview")
+    assert response.status_code == 200
+    body = response.json()
+    assert "participants" in body
+    assert "overhead" in body
+    assert "generation" in body
+    assert isinstance(body["participants"], list)
+    assert isinstance(body["overhead"], list)
+    assert "arms" in body["generation"]
+    assert "total_drills" in body["generation"]
+    assert "total_attempts" in body["generation"]
+
+

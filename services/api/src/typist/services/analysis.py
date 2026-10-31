@@ -13,19 +13,37 @@ from typing import Final, cast
 
 import numpy as np
 import scipy.stats as sp_stats  # type: ignore[import-untyped]
+import sqlalchemy as sa
 from sqlmodel import Session, col, select
 
-from typist.models import BigramAssignment, BigramStat, KeystrokeEvent, Participant, SessionBlock
+from typist.models import (
+    BigramAssignment,
+    BigramStat,
+    Drill,
+    GenerationAttempt,
+    GenerationJob,
+    KeystrokeEvent,
+    Participant,
+    SessionBlock,
+)
 from typist.models import Session as TypingSession
+from typist.models.drills import DRILL_ARMS
 from typist.schemas.analysis import (
+    ArmGenerationSummary,
     BigramMatrix,
     DroppedBigram,
     ExcludedSession,
     ExclusionsReport,
+    GenerationOverview,
     MatrixCell,
+    Overview,
     ParticipantResults,
+    ParticipantSummary,
+    PercentilesSchema,
+    SessionOverheadEntry,
     SetOutcome,
 )
+from typist.services.overhead import overhead_report
 from typist.services.participants import ParticipantNotFoundError
 from typist.services.session_stats import SessionNotFoundError
 from typist.services.test_composer import ParticipantNotAssignedError
@@ -657,3 +675,133 @@ def participant_results(
         sets=sets,
         exclusions=exclusions_report,
     )
+
+
+def overview_report(session: Session) -> Overview:
+    """Build system-wide overview: participants, overhead percentiles, and generation audit stats."""
+    participants = session.exec(
+        select(Participant).order_by(col(Participant.created_at).asc(), col(Participant.id).asc())
+    ).all()
+    participant_summaries: list[ParticipantSummary] = []
+    for p in participants:
+        completed_count = int(
+            session.exec(
+                select(sa.func.count())
+                .select_from(TypingSession)
+                .where(
+                    col(TypingSession.participant_id) == p.id,
+                    col(TypingSession.status) == "completed",
+                )
+            ).one()
+        )
+        participant_summaries.append(
+            ParticipantSummary(
+                id=p.id,
+                alias=p.alias,
+                status=p.status,
+                is_builder=p.is_builder,
+                is_blinded=p.is_blinded,
+                completed_sessions=completed_count,
+            )
+        )
+
+    raw_overhead = overhead_report(session, None, None)
+    overhead_entries = [
+        SessionOverheadEntry(
+            session_id=row.session_id,
+            participant_id=row.participant_id,
+            events=row.events,
+            handler=(
+                PercentilesSchema(p50=row.handler.p50, p95=row.handler.p95, p99=row.handler.p99)
+                if row.handler is not None
+                else None
+            ),
+            dispatch=(
+                PercentilesSchema(p50=row.dispatch.p50, p95=row.dispatch.p95, p99=row.dispatch.p99)
+                if row.dispatch is not None
+                else None
+            ),
+        )
+        for row in raw_overhead
+    ]
+
+    arm_summaries: list[ArmGenerationSummary] = []
+    total_drills = 0
+    total_attempts = 0
+
+    for arm in DRILL_ARMS:
+        drills = session.exec(select(Drill).where(col(Drill.arm) == arm)).all()
+        drills_count = len(drills)
+        total_drills += drills_count
+
+        mean_density = (
+            sum(d.target_density for d in drills) / drills_count if drills_count > 0 else None
+        )
+        mean_word_len = (
+            sum(d.mean_word_len for d in drills) / drills_count if drills_count > 0 else None
+        )
+        mean_real_word = (
+            sum(d.real_word_ratio for d in drills) / drills_count if drills_count > 0 else None
+        )
+
+        attempts = session.exec(
+            select(GenerationAttempt)
+            .join(GenerationJob, col(GenerationAttempt.job_id) == col(GenerationJob.id))
+            .where(col(GenerationJob.arm) == arm)
+        ).all()
+        attempts_count = len(attempts)
+        total_attempts += attempts_count
+
+        accepted_count = sum(1 for a in attempts if a.accepted)
+        if attempts_count > 0:
+            acceptance_rate = round(accepted_count / attempts_count, 4)
+            attempts_per_drill = (
+                round(attempts_count / drills_count, 2) if drills_count > 0 else None
+            )
+        else:
+            acceptance_rate = 1.0 if drills_count > 0 else None
+            attempts_per_drill = 1.0 if drills_count > 0 else None
+
+        tokens_per_sec = None
+        mean_gen_ms = None
+        peak_memory_mb = None
+
+        if arm == "llm":
+            tps_values = [a.tokens_per_sec for a in attempts if a.tokens_per_sec is not None]
+            if tps_values:
+                tokens_per_sec = round(sum(tps_values) / len(tps_values), 1)
+
+            gen_ms_values = [a.gen_ms for a in attempts if a.gen_ms is not None]
+            if gen_ms_values:
+                mean_gen_ms = round(sum(gen_ms_values) / len(gen_ms_values), 1)
+
+            mem_values = [a.peak_memory_mb for a in attempts if a.peak_memory_mb is not None]
+            if mem_values:
+                peak_memory_mb = round(max(mem_values), 1)
+
+        arm_summaries.append(
+            ArmGenerationSummary(
+                arm=arm,
+                drills_count=drills_count,
+                attempts_count=attempts_count,
+                acceptance_rate=acceptance_rate,
+                attempts_per_drill=attempts_per_drill,
+                mean_target_density=round(mean_density, 4) if mean_density is not None else None,
+                mean_word_length=round(mean_word_len, 2) if mean_word_len is not None else None,
+                mean_real_word_ratio=round(mean_real_word, 4) if mean_real_word is not None else None,
+                tokens_per_sec=tokens_per_sec,
+                mean_gen_ms=mean_gen_ms,
+                peak_memory_mb=peak_memory_mb,
+            )
+        )
+
+    return Overview(
+        participants=participant_summaries,
+        overhead=overhead_entries,
+        generation=GenerationOverview(
+            arms=arm_summaries,
+            total_drills=total_drills,
+            total_attempts=total_attempts,
+        ),
+    )
+

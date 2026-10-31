@@ -132,3 +132,53 @@ class ParticipantResults(BaseModel):
     seed: int = 20261030
     sets: list[SetOutcome] = Field(default_factory=lambda: cast(list[SetOutcome], []))
     exclusions: ExclusionsReport | None = None
+
+
+class ParticipantSummary(BaseModel):
+    id: str
+    alias: str
+    status: str
+    is_builder: bool
+    is_blinded: bool
+    completed_sessions: int
+
+
+class PercentilesSchema(BaseModel):
+    p50: float
+    p95: float
+    p99: float
+
+
+class SessionOverheadEntry(BaseModel):
+    session_id: str
+    participant_id: str
+    events: int
+    handler: PercentilesSchema | None = None
+    dispatch: PercentilesSchema | None = None
+
+
+class ArmGenerationSummary(BaseModel):
+    arm: str
+    drills_count: int
+    attempts_count: int
+    acceptance_rate: float | None = None
+    attempts_per_drill: float | None = None
+    mean_target_density: float | None = None
+    mean_word_length: float | None = None
+    mean_real_word_ratio: float | None = None
+    tokens_per_sec: float | None = None
+    mean_gen_ms: float | None = None
+    peak_memory_mb: float | None = None
+
+
+class GenerationOverview(BaseModel):
+    arms: list[ArmGenerationSummary]
+    total_drills: int
+    total_attempts: int
+
+
+class Overview(BaseModel):
+    participants: list[ParticipantSummary]
+    overhead: list[SessionOverheadEntry]
+    generation: GenerationOverview
+

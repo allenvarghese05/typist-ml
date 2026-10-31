@@ -11,10 +11,11 @@ from sqlmodel import Session
 
 from typist.db import get_session
 from typist.schemas.admin import SessionTrendEntry
-from typist.schemas.analysis import BigramMatrix, ParticipantResults
+from typist.schemas.analysis import BigramMatrix, Overview, ParticipantResults
 from typist.services.analysis import (
     ParticipantNotDoneError,
     SessionNotCompletedError,
+    overview_report,
     participant_results,
     session_matrix,
 )
@@ -95,4 +96,16 @@ def get_participant_trend(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="participant not found"
         ) from error
+
+
+@router.get(
+    "/analysis/overview",
+    response_model=Overview,
+)
+def get_overview(
+    session: Annotated[Session, Depends(get_session)],
+) -> Overview:
+    """Return system-wide overview: participants, overhead percentiles, and generation audit stats."""
+    return overview_report(session)
+
 
