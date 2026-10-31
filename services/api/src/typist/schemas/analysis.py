@@ -181,4 +181,3 @@ class Overview(BaseModel):
     participants: list[ParticipantSummary]
     overhead: list[SessionOverheadEntry]
     generation: GenerationOverview
-

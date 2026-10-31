@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import {
-  type Overview,
-  type ParticipantResults,
-  type SessionTrendEntry,
   fetchOverview,
   fetchParticipantResults,
   fetchParticipantTrend,
+  type Overview,
+  type ParticipantResults,
+  type SessionTrendEntry,
 } from "../../api/analysis";
 import { GenerationTab } from "./GenerationTab";
 import { MatrixTab } from "./MatrixTab";
@@ -83,8 +83,9 @@ export function DashboardPage({
       if (res.status === "ok") {
         setOverview(res.overview);
         // If no participant was explicitly selected yet, select the first participant
-        if (!initialParticipantId && res.overview.participants.length > 0) {
-          setSelectedParticipantId(res.overview.participants[0].id);
+        const firstParticipant = res.overview.participants[0];
+        if (!initialParticipantId && firstParticipant) {
+          setSelectedParticipantId(firstParticipant.id);
         }
       } else {
         setOverviewError(res.message);
@@ -190,7 +191,8 @@ export function DashboardPage({
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Analysis Dashboard</h1>
           <p className="text-xs text-gray-500 mt-1">
-            Pre-registered Bayesian Beta posteriors, bootstrap IKI intervals, and operational metrics.
+            Pre-registered Bayesian Beta posteriors, bootstrap IKI intervals, and operational
+            metrics.
           </p>
         </div>
 
@@ -312,12 +314,8 @@ export function DashboardPage({
           <OutcomesTab results={outcomesState.results} loadState={outcomesState} />
         )}
         {activeTab === "trend" && <TrendTab trend={trend} loading={trendLoading} />}
-        {activeTab === "matrix" && (
-          <MatrixTab sessions={completedSessions} fetchImpl={fetchImpl} />
-        )}
-        {activeTab === "generation" && (
-          <GenerationTab generation={overview?.generation ?? null} />
-        )}
+        {activeTab === "matrix" && <MatrixTab sessions={completedSessions} fetchImpl={fetchImpl} />}
+        {activeTab === "generation" && <GenerationTab generation={overview?.generation ?? null} />}
         {activeTab === "overhead" && <OverheadTab overhead={overview?.overhead ?? null} />}
       </div>
     </div>

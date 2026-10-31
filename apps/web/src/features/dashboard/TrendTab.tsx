@@ -72,7 +72,9 @@ export function TrendTab({ trend, loading }: TrendTabProps): React.JSX.Element {
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">Session Performance Trajectory</h3>
+            <h3 className="text-base font-semibold text-gray-900">
+              Session Performance Trajectory
+            </h3>
             <p className="text-xs text-gray-500">
               Chronological WPM (left axis) and Accuracy (right axis) progression across study days.
             </p>
@@ -239,9 +241,7 @@ export function TrendTab({ trend, loading }: TrendTabProps): React.JSX.Element {
                     const rate = s.per_set_error_rate[lbl];
                     return (
                       <td key={lbl} className="py-2 px-3">
-                        {rate !== undefined && rate !== null
-                          ? `${(rate * 100).toFixed(1)}%`
-                          : "—"}
+                        {rate !== undefined && rate !== null ? `${(rate * 100).toFixed(1)}%` : "—"}
                       </td>
                     );
                   })}

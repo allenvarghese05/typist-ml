@@ -347,4 +347,3 @@ def participant_session_trend(session: Session, participant_id: str) -> list[Ses
             )
         )
     return trend_entries
-

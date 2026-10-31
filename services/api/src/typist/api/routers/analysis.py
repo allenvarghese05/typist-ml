@@ -107,5 +107,3 @@ def get_overview(
 ) -> Overview:
     """Return system-wide overview: participants, overhead percentiles, and generation audit stats."""
     return overview_report(session)
-
-

@@ -200,9 +200,7 @@ export type TrendResult =
   | { readonly status: "not-found" }
   | { readonly status: "error"; readonly message: string };
 
-export async function fetchOverview(
-  fetchImpl: typeof fetch = fetch,
-): Promise<OverviewResult> {
+export async function fetchOverview(fetchImpl: typeof fetch = fetch): Promise<OverviewResult> {
   try {
     const response = await fetchImpl(apiPath("/analysis/overview"));
     if (!response.ok) {

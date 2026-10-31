@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   type BigramMatrix,
-  type Overview,
-  type ParticipantResults,
-  type SessionTrendEntry,
   fetchOverview,
   fetchParticipantResults,
   fetchParticipantTrend,
   fetchSessionMatrix,
+  type Overview,
+  type ParticipantResults,
+  type SessionTrendEntry,
 } from "../analysis";
 
 const MATRIX: BigramMatrix = {
@@ -166,8 +166,9 @@ describe("fetchParticipantResults", () => {
   });
 
   it("returns not-found on 404", async () => {
-    const result = await fetchParticipantResults("unknown", async () =>
-      new Response(null, { status: 404 }),
+    const result = await fetchParticipantResults(
+      "unknown",
+      async () => new Response(null, { status: 404 }),
     );
     expect(result).toEqual({ status: "not-found" });
   });
@@ -183,8 +184,9 @@ describe("fetchParticipantResults", () => {
   });
 
   it("returns error on 500", async () => {
-    const result = await fetchParticipantResults("p1", async () =>
-      new Response(null, { status: 500 }),
+    const result = await fetchParticipantResults(
+      "p1",
+      async () => new Response(null, { status: 500 }),
     );
     expect(result).toEqual({ status: "error", message: "HTTP 500" });
   });
@@ -197,8 +199,9 @@ describe("fetchParticipantTrend", () => {
   });
 
   it("returns not-found on 404", async () => {
-    const result = await fetchParticipantTrend("unknown", async () =>
-      new Response(null, { status: 404 }),
+    const result = await fetchParticipantTrend(
+      "unknown",
+      async () => new Response(null, { status: 404 }),
     );
     expect(result).toEqual({ status: "not-found" });
   });

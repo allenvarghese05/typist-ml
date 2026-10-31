@@ -2,7 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { Overview, ParticipantResults, SessionTrendEntry } from "../../api/analysis";
+import type { Overview, ParticipantResults, SessionTrendEntry } from "../../../api/analysis";
 import { DashboardPage } from "../DashboardPage";
 
 afterEach(() => {

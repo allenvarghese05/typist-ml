@@ -39,16 +39,18 @@ export interface MatrixTabProps {
 }
 
 export function MatrixTab({ sessions, fetchImpl }: MatrixTabProps): React.JSX.Element {
-  const [selectedSessionId, setSelectedSessionId] = useState<string>(
-    sessions.length > 0 ? sessions[0].id : "",
-  );
+  const [selectedSessionId, setSelectedSessionId] = useState<string>(() => {
+    const first = sessions[0];
+    return first ? first.id : "";
+  });
   const [metric, setMetric] = useState<Metric>("error");
   const [state, setState] = useState<LoadState>({ status: "idle" });
 
   // Update selectedSessionId if sessions prop changes and selected is not in list
   useEffect(() => {
-    if (sessions.length > 0 && !sessions.some((s) => s.id === selectedSessionId)) {
-      setSelectedSessionId(sessions[0].id);
+    const first = sessions[0];
+    if (first && !sessions.some((s) => s.id === selectedSessionId)) {
+      setSelectedSessionId(first.id);
     }
   }, [sessions, selectedSessionId]);
 
@@ -155,7 +157,9 @@ export function MatrixTab({ sessions, fetchImpl }: MatrixTabProps): React.JSX.El
           <div>
             <span className="text-gray-400">Accuracy:</span>{" "}
             <span className="font-semibold">
-              {state.matrix.accuracy !== null ? `${(state.matrix.accuracy * 100).toFixed(1)}%` : "—"}
+              {state.matrix.accuracy !== null
+                ? `${(state.matrix.accuracy * 100).toFixed(1)}%`
+                : "—"}
             </span>
           </div>
           <div>

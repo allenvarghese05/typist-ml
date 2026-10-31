@@ -107,7 +107,7 @@ export function OverheadTab({ overhead }: OverheadTabProps): React.JSX.Element {
                       )}
                     </td>
                     <td className="py-2 px-3 font-sans">
-                      {isAll ? "—" : row.participant_id.slice(0, 8) + "..."}
+                      {isAll ? "—" : `${row.participant_id.slice(0, 8)}...`}
                     </td>
                     <td className="py-2 px-3">{row.events.toLocaleString()}</td>
                     <td className="py-2 px-3">{formatPercentiles(row.handler)}</td>

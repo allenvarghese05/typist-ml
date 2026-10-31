@@ -2,7 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ParticipantResults } from "../../api/analysis";
+import type { ParticipantResults } from "../../../api/analysis";
 import { OutcomesTab } from "../OutcomesTab";
 
 afterEach(() => {
@@ -151,7 +151,7 @@ describe("OutcomesTab", () => {
   it("renders exclusions card with dropped bigrams when present", () => {
     render(<OutcomesTab results={MOCK_RESULTS} loadState={{ status: "ok" }} />);
 
-    expect(screen.getByText('Pre-registered Exclusions Report (D20, D23)')).toBeInTheDocument();
+    expect(screen.getByText("Pre-registered Exclusions Report (D20, D23)")).toBeInTheDocument();
     expect(screen.getByText('"in"')).toBeInTheDocument();
     expect(screen.getByText(/12 attempts/)).toBeInTheDocument();
     expect(screen.getByText(/superseded/)).toBeInTheDocument();

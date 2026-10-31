@@ -788,7 +788,9 @@ def overview_report(session: Session) -> Overview:
                 attempts_per_drill=attempts_per_drill,
                 mean_target_density=round(mean_density, 4) if mean_density is not None else None,
                 mean_word_length=round(mean_word_len, 2) if mean_word_len is not None else None,
-                mean_real_word_ratio=round(mean_real_word, 4) if mean_real_word is not None else None,
+                mean_real_word_ratio=round(mean_real_word, 4)
+                if mean_real_word is not None
+                else None,
                 tokens_per_sec=tokens_per_sec,
                 mean_gen_ms=mean_gen_ms,
                 peak_memory_mb=peak_memory_mb,
@@ -804,4 +806,3 @@ def overview_report(session: Session) -> Overview:
             total_attempts=total_attempts,
         ),
     )
-

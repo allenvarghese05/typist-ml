@@ -501,5 +501,3 @@ def test_get_overview_returns_200(migrated_engine: Engine) -> None:
     assert "arms" in body["generation"]
     assert "total_drills" in body["generation"]
     assert "total_attempts" in body["generation"]
-
-

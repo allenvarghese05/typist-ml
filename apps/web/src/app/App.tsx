@@ -47,10 +47,7 @@ export function App() {
       <main className="flex-1">
         {route.name === "admin" && <AdminPage initialParticipantId={route.participantId} />}
         {route.name === "dashboard" && (
-          <DashboardPage
-            initialParticipantId={route.participantId}
-            initialTab={route.tab}
-          />
+          <DashboardPage initialParticipantId={route.participantId} initialTab={route.tab} />
         )}
         {route.name === "matrix" && (
           <MatrixPage key={route.sessionId} sessionId={route.sessionId} />

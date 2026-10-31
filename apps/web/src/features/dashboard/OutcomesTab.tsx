@@ -106,9 +106,7 @@ export function OutcomesTab({ results, loadState }: OutcomesTabProps): React.JSX
                     <td className="py-2 px-3">
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          isControl
-                            ? "bg-purple-100 text-purple-800"
-                            : "bg-blue-100 text-blue-800"
+                          isControl ? "bg-purple-100 text-purple-800" : "bg-blue-100 text-blue-800"
                         }`}
                       >
                         {isControl ? "Control Set (Held-out)" : set.arm}
@@ -146,11 +144,9 @@ export function OutcomesTab({ results, loadState }: OutcomesTabProps): React.JSX
                     <td className="py-2 px-3 font-mono text-gray-600">
                       {isControl ||
                       set.posterior_effect_ci_lower === null ||
-                      set.posterior_effect_ci_upper === null ? (
-                        "—"
-                      ) : (
-                        `[${(set.posterior_effect_ci_lower * 100).toFixed(2)}%, ${(set.posterior_effect_ci_upper * 100).toFixed(2)}%]`
-                      )}
+                      set.posterior_effect_ci_upper === null
+                        ? "—"
+                        : `[${(set.posterior_effect_ci_lower * 100).toFixed(2)}%, ${(set.posterior_effect_ci_upper * 100).toFixed(2)}%]`}
                     </td>
                     <td className="py-2 px-3 font-mono font-semibold">
                       {isControl ? "—" : formatPercent(set.share_below_zero)}
@@ -222,9 +218,7 @@ export function OutcomesTab({ results, loadState }: OutcomesTabProps): React.JSX
                     <td className="py-2 px-3">
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          isControl
-                            ? "bg-purple-100 text-purple-800"
-                            : "bg-blue-100 text-blue-800"
+                          isControl ? "bg-purple-100 text-purple-800" : "bg-blue-100 text-blue-800"
                         }`}
                       >
                         {isControl ? "Control Set (Held-out)" : set.arm}
@@ -263,11 +257,9 @@ export function OutcomesTab({ results, loadState }: OutcomesTabProps): React.JSX
                     <td className="py-2 px-3 font-mono text-gray-600">
                       {isControl ||
                       set.iki_bootstrap_ci_lower_ms === null ||
-                      set.iki_bootstrap_ci_upper_ms === null ? (
-                        "—"
-                      ) : (
-                        `[${set.iki_bootstrap_ci_lower_ms.toFixed(1)}, ${set.iki_bootstrap_ci_upper_ms.toFixed(1)}] ms`
-                      )}
+                      set.iki_bootstrap_ci_upper_ms === null
+                        ? "—"
+                        : `[${set.iki_bootstrap_ci_lower_ms.toFixed(1)}, ${set.iki_bootstrap_ci_upper_ms.toFixed(1)}] ms`}
                     </td>
                   </tr>
                 );
@@ -335,7 +327,8 @@ export function OutcomesTab({ results, loadState }: OutcomesTabProps): React.JSX
             <h4 className="text-xs font-semibold text-gray-700 uppercase mb-2">
               Dropped Bigrams (&lt;20 Retest Attempts)
             </h4>
-            {results.exclusions?.dropped_bigrams && results.exclusions.dropped_bigrams.length > 0 ? (
+            {results.exclusions?.dropped_bigrams &&
+            results.exclusions.dropped_bigrams.length > 0 ? (
               <ul className="divide-y divide-gray-100 text-xs text-gray-600">
                 {results.exclusions.dropped_bigrams.map((drp) => (
                   <li key={drp.bigram} className="py-1.5 flex justify-between">

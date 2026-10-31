@@ -2,7 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { BigramMatrix } from "../../api/analysis";
+import type { BigramMatrix } from "../../../api/analysis";
 import { MatrixTab } from "../MatrixTab";
 
 afterEach(() => {

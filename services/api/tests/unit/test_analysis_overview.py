@@ -160,6 +160,5 @@ def test_overview_with_drills_and_attempts(migrated_engine: Engine) -> None:
 
 
 def test_participant_session_trend_raises_not_found(migrated_engine: Engine) -> None:
-    with Session(migrated_engine) as session:
-        with pytest.raises(ParticipantNotFoundError):
-            participant_session_trend(session, "unknown-pid")
+    with Session(migrated_engine) as session, pytest.raises(ParticipantNotFoundError):
+        participant_session_trend(session, "unknown-pid")
