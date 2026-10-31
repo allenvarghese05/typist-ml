@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, col, select
 
 from typist.api.routers.admin import get_word_index
-from typist.config import get_settings
+from typist.config import REPO_ROOT, get_settings
 from typist.corpus.build import build_corpus
 from typist.corpus.word_index import WordIndex
 from typist.db import create_db_engine
@@ -24,6 +24,7 @@ from typist.services.analysis import (
     DEFAULT_POSTERIOR_DRAWS,
     DEFAULT_SEED,
     ParticipantNotDoneError,
+    overview_report,
     participant_results,
 )
 from typist.services.assignment import (
@@ -33,7 +34,12 @@ from typist.services.assignment import (
     load_assignment_config,
 )
 from typist.services.checks import run_participant_checks
-from typist.services.figures import generate_all_figures
+from typist.services.figures import (
+    format_generation_table,
+    format_limitations_paragraph,
+    format_overhead_line,
+    generate_all_figures,
+)
 from typist.services.overhead import format_report, overhead_report
 from typist.services.participants import (
     AliasAlreadyExistsError,
@@ -505,6 +511,9 @@ def test_pipeline_command(
     practice_days: int = typer.Option(
         2, "--practice-days", help="Number of practice days to simulate"
     ),
+    is_builder: bool = typer.Option(
+        True, "--is-builder/--no-is-builder", help="Whether participant is the author/builder"
+    ),
 ) -> None:
     """Run an end-to-end experiment pipeline simulation with scripted keystrokes."""
     settings = get_settings()
@@ -533,6 +542,7 @@ def test_pipeline_command(
             error_rate=error_rate,
             seed=seed,
             log_fn=typer.echo,
+            is_builder=is_builder,
         )
         typer.echo(
             f"\nSUCCESS: Participant '{result.alias}' ({result.participant_id}) reached status '{result.status}'."
@@ -750,3 +760,102 @@ def analyze_command(
             except Exception as exc:
                 typer.echo(f"failed to generate figures: {exc}", err=True)
                 raise typer.Exit(code=1) from exc
+
+
+@app.command("check-readme")
+def check_readme_command(
+    readme_path: Path = typer.Option(  # noqa: B008
+        REPO_ROOT / "README.md",
+        "--readme",
+        help="Path to README.md file to verify.",
+    ),
+    pid: str | None = typer.Option(
+        None,
+        "--pid",
+        help="Participant id to verify against (default: first completed participant).",
+    ),
+) -> None:
+    """Verify that all experimental claims and numbers in README.md trace to database records (T4.4)."""
+    if not readme_path.exists():
+        typer.echo(f"README file not found at {readme_path}", err=True)
+        raise typer.Exit(code=1)
+
+    readme_text = readme_path.read_text(encoding="utf-8")
+    settings = get_settings()
+    engine = create_db_engine(settings.db_path)
+
+    with Session(engine) as session:
+        if pid is not None:
+            participant = session.get(Participant, pid)
+            if participant is None:
+                typer.echo(f"Participant {pid!r} not found", err=True)
+                raise typer.Exit(code=1)
+        else:
+            participant = session.exec(
+                select(Participant)
+                .where(col(Participant.status) == "done")
+                .order_by(col(Participant.created_at))
+            ).first()
+            if participant is None:
+                typer.echo("no completed participants found (status 'done')", err=True)
+                raise typer.Exit(code=1)
+
+        overview = overview_report(session)
+        results = participant_results(session, participant.id)
+
+        # 1. Section 15.3 item 1: Chart reference
+        if "docs/figures/set_error_rate_change.png" not in readme_text:
+            typer.echo("FAIL: Primary outcome chart reference missing in README", err=True)
+            raise typer.Exit(code=1)
+
+        # 2. Section 15.3 item 2: Generation summary table
+        gen_table = format_generation_table(overview)
+        for line in gen_table.strip().splitlines():
+            if line.strip() not in readme_text:
+                typer.echo(f"FAIL: Generation table mismatch. Missing line: {line}", err=True)
+                raise typer.Exit(code=1)
+
+        # 3. Section 15.3 item 3: Overhead line
+        overhead_line = format_overhead_line(overview)
+        if overhead_line not in readme_text:
+            typer.echo(f"FAIL: Overhead line mismatch.\nExpected: {overhead_line}", err=True)
+            raise typer.Exit(code=1)
+
+        # 4. Section 15.3 item 4: Limitations paragraph
+        limitations = format_limitations_paragraph(session, overview)
+        if limitations not in readme_text:
+            typer.echo(f"FAIL: Limitations paragraph mismatch.\nExpected: {limitations}", err=True)
+            raise typer.Exit(code=1)
+
+        # 5. Outcome metrics verification
+        for s in results.sets:
+            base_str = f"{s.baseline_errors}/{s.baseline_attempts}"
+            ret_str = f"{s.retest_errors}/{s.retest_attempts}"
+            if base_str not in readme_text:
+                typer.echo(
+                    f"FAIL: Baseline counts for Set {s.set_label} ({base_str}) missing in README",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
+            if ret_str not in readme_text:
+                typer.echo(
+                    f"FAIL: Retest counts for Set {s.set_label} ({ret_str}) missing in README",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
+
+        # 6. Honesty rules check (D18, D19)
+        if "builder, unblinded" not in readme_text and "unblinded" not in readme_text:
+            typer.echo("FAIL: Builder unblinded disclosure missing in README", err=True)
+            raise typer.Exit(code=1)
+
+        forbidden = ["webassembly", "wasm", "statistically significant", "p-value", "p < 0.05"]
+        for term in forbidden:
+            if term in readme_text.lower():
+                typer.echo(
+                    f"FAIL: Forbidden marketing/significance term {term!r} found in README",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
+
+    typer.echo("README claims check passed: all numbers trace to database records.")

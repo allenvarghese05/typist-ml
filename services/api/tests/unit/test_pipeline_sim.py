@@ -1,9 +1,34 @@
 """Unit tests for scripted keystroke generation (design doc 16; T2.10)."""
 
-from typist.models import KeystrokeEvent
+from collections.abc import Iterator
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import Engine
+from sqlmodel import Session
+
+from typist.api.routers.admin import get_word_index
+from typist.config import get_settings
+from typist.corpus.build import build_corpus
+from typist.corpus.word_index import WordIndex
+from typist.db import create_db_engine
+from typist.main import create_app
+from typist.migrations import upgrade_to_head
+from typist.models import KeystrokeEvent, Participant
 from typist.schemas.events import KeystrokeEventIn
 from typist.services.attribution import attribute_block
-from typist.services.pipeline_sim import generate_scripted_keystrokes
+from typist.services.pipeline_sim import generate_scripted_keystrokes, run_pipeline_simulation
+
+
+@pytest.fixture
+def migrated_engine(isolated_settings: Path) -> Iterator[Engine]:
+    upgrade_to_head()
+    engine = create_db_engine(isolated_settings)
+    try:
+        yield engine
+    finally:
+        engine.dispose()
 
 
 def test_generate_scripted_keystrokes_empty() -> None:
@@ -59,3 +84,33 @@ def test_generate_scripted_keystrokes_attribution() -> None:
     # An error on 'h' following a correct 't' attributes 1 attempt and 1 error to 'th'
     assert "th" in err_stats
     assert err_stats["th"].errors > 0
+
+
+def test_run_pipeline_simulation_builder_status_and_replenishment(
+    migrated_engine: Engine, isolated_settings: Path, tmp_path: Path
+) -> None:
+    corpus_dir = tmp_path / "corpus"
+    build_corpus(corpus_dir, word_count=5000, tracked_count=50)
+    index = WordIndex.load(corpus_dir)
+
+    app = create_app(get_settings())
+    app.dependency_overrides[get_word_index] = lambda: index
+    client = TestClient(app)
+
+    result = run_pipeline_simulation(
+        client,
+        migrated_engine,
+        isolated_settings,
+        index,
+        participant_alias="test-builder",
+        practice_days=4,
+        is_builder=True,
+    )
+
+    assert result.status == "done"
+    assert result.practice_sessions == 4
+
+    with Session(migrated_engine) as session:
+        p = session.get(Participant, result.participant_id)
+        assert p is not None
+        assert p.is_builder is True
