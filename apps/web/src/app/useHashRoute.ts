@@ -3,7 +3,8 @@ import { useSyncExternalStore } from "react";
 export type Route =
   | { readonly name: "demo" }
   | { readonly name: "matrix"; readonly sessionId: string }
-  | { readonly name: "admin"; readonly participantId?: string };
+  | { readonly name: "admin"; readonly participantId?: string }
+  | { readonly name: "dashboard"; readonly participantId?: string; readonly tab?: string };
 
 export function parseHash(hash: string): Route {
   const matrixMatch = /^#\/matrix\/(.+)$/.exec(hash);
@@ -17,6 +18,14 @@ export function parseHash(hash: string): Route {
     const params = new URLSearchParams(search ?? "");
     const participantId = params.get("participant") ?? undefined;
     return { name: "admin", participantId };
+  }
+  const dashboardMatch = /^#\/dashboard(?:\?(.*))?$/.exec(hash);
+  if (dashboardMatch) {
+    const search = dashboardMatch[1];
+    const params = new URLSearchParams(search ?? "");
+    const participantId = params.get("participant") ?? undefined;
+    const tab = params.get("tab") ?? undefined;
+    return { name: "dashboard", participantId, tab };
   }
   return { name: "demo" };
 }

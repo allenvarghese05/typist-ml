@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { AdminPage } from "../features/admin/AdminPage";
+import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { MatrixPage } from "../features/matrix/MatrixPage";
 import { createCollectorSink } from "../features/session/collector";
 import { DEMO_BLOCK_LABEL, DEMO_BLOCK_TEXT } from "../features/session/fixtures";
@@ -32,11 +33,25 @@ export function App() {
           >
             Admin Dashboard
           </a>
+          <a
+            href="#/dashboard"
+            className={`hover:text-blue-400 transition-colors ${
+              route.name === "dashboard" ? "text-blue-400 font-semibold" : "text-gray-300"
+            }`}
+          >
+            Dashboard
+          </a>
         </div>
       </nav>
 
       <main className="flex-1">
         {route.name === "admin" && <AdminPage initialParticipantId={route.participantId} />}
+        {route.name === "dashboard" && (
+          <DashboardPage
+            initialParticipantId={route.participantId}
+            initialTab={route.tab}
+          />
+        )}
         {route.name === "matrix" && (
           <MatrixPage key={route.sessionId} sessionId={route.sessionId} />
         )}
