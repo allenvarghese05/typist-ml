@@ -39,9 +39,7 @@ def test_cli_analyze_participant_not_found(
     assert "no participant with id 'does-not-exist'" in result.output
 
 
-def test_cli_analyze_participant_not_done(
-    isolated_settings: Path, migrated_engine: Engine
-) -> None:
+def test_cli_analyze_participant_not_done(isolated_settings: Path, migrated_engine: Engine) -> None:
     """Invoking analyze on participant with status other than 'done' exits with code 1."""
     with Session(migrated_engine) as session:
         participant = Participant(alias="active-user", status="enrolled")
@@ -55,9 +53,7 @@ def test_cli_analyze_participant_not_done(
     assert "status is 'enrolled', expected 'done'" in result.output
 
 
-def test_cli_analyze_success(
-    isolated_settings: Path, migrated_engine: Engine
-) -> None:
+def test_cli_analyze_success(isolated_settings: Path, migrated_engine: Engine) -> None:
     """Seeds a completed participant and runs CLI runner on analyze --pid; asserts code 0 and table output."""
     with Session(migrated_engine) as session:
         participant = Participant(alias="done-tester", status="done")

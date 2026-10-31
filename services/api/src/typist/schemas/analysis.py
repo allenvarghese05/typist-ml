@@ -7,6 +7,8 @@ ParticipantResults provides study-level per-set outcomes, Jeffreys Beta credible
 posterior effect draws, median IKI bootstrap intervals, and the pre-registered exclusions report.
 """
 
+from typing import cast
+
 from pydantic import BaseModel, Field
 
 
@@ -57,8 +59,12 @@ class DroppedBigram(BaseModel):
 class ExclusionsReport(BaseModel):
     """Pre-registered exclusions report (D20, D23, analysis-plan)."""
 
-    excluded_sessions: list[ExcludedSession] = Field(default_factory=list)
-    dropped_bigrams: list[DroppedBigram] = Field(default_factory=list)
+    excluded_sessions: list[ExcludedSession] = Field(
+        default_factory=lambda: cast(list[ExcludedSession], [])
+    )
+    dropped_bigrams: list[DroppedBigram] = Field(
+        default_factory=lambda: cast(list[DroppedBigram], [])
+    )
     pause_counts: dict[str, int] = Field(default_factory=dict)
 
 
@@ -124,5 +130,5 @@ class ParticipantResults(BaseModel):
     posterior_draws: int = 100_000
     bootstrap_resamples: int = 10_000
     seed: int = 20261030
-    sets: list[SetOutcome] = Field(default_factory=list)
+    sets: list[SetOutcome] = Field(default_factory=lambda: cast(list[SetOutcome], []))
     exclusions: ExclusionsReport | None = None

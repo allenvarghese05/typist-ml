@@ -5,11 +5,6 @@ import json
 import pytest
 
 from typist.schemas.analysis import (
-    BigramMatrix,
-    DroppedBigram,
-    ExcludedSession,
-    ExclusionsReport,
-    MatrixCell,
     ParticipantResults,
     SetOutcome,
 )

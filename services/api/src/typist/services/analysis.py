@@ -9,10 +9,10 @@ stats have been written yet (bigram_stats exists only for completed sessions; ow
 from collections.abc import Sequence
 from dataclasses import dataclass
 from statistics import fmean
-from typing import Final
+from typing import Final, cast
 
 import numpy as np
-import scipy.stats as sp_stats
+import scipy.stats as sp_stats  # type: ignore[import-untyped]
 from sqlmodel import Session, col, select
 
 from typist.models import BigramAssignment, BigramStat, KeystrokeEvent, Participant, SessionBlock
@@ -64,7 +64,7 @@ def compute_beta_interval(
         raise ValueError(f"errors ({errors}) must be within [0, attempts ({attempts})]")
     a = errors + 0.5
     b = attempts - errors + 0.5
-    lower, upper = sp_stats.beta.ppf([alpha / 2.0, 1.0 - alpha / 2.0], a, b)
+    lower, upper = sp_stats.beta.ppf([alpha / 2.0, 1.0 - alpha / 2.0], a, b)  # pyright: ignore[reportUnknownMemberType]
     return (round(float(lower), 6), round(float(upper), 6))
 
 
@@ -172,9 +172,9 @@ def bootstrap_iki_effect(
 
     f_star = (m_ret_s - m_base_s) - (m_ret_ctl - m_base_ctl)
 
-    med = float(np.median(f_star))
-    ci_low = float(np.percentile(f_star, 2.5))
-    ci_high = float(np.percentile(f_star, 97.5))
+    med = float(cast(float, np.median(f_star)))
+    ci_low = float(cast(float, np.percentile(f_star, 2.5)))
+    ci_high = float(cast(float, np.percentile(f_star, 97.5)))
 
     return BootstrapIKISummary(
         median_effect=round(med, 2),
@@ -189,9 +189,7 @@ class SessionSelection:
     excluded_sessions: list[ExcludedSession]
 
 
-def select_phase_sessions(
-    sessions: Sequence[TypingSession], phase: str
-) -> SessionSelection:
+def select_phase_sessions(sessions: Sequence[TypingSession], phase: str) -> SessionSelection:
     """Select the 2 most recent completed sessions for phase; log superseded and abandoned sessions.
 
     Sessions are ordered chronologically by (day_index, started_at).
@@ -411,19 +409,19 @@ def participant_results(
     baseline_session_ids = [s.id for s in baseline_sessions]
     retest_session_ids = [s.id for s in retest_sessions]
 
-    baseline_stats = (
+    baseline_stats: Sequence[BigramStat] = (
         session.exec(
             select(BigramStat).where(col(BigramStat.session_id).in_(baseline_session_ids))
         ).all()
         if baseline_session_ids
-        else []
+        else cast(list[BigramStat], [])
     )
-    retest_stats = (
+    retest_stats: Sequence[BigramStat] = (
         session.exec(
             select(BigramStat).where(col(BigramStat.session_id).in_(retest_session_ids))
         ).all()
         if retest_session_ids
-        else []
+        else cast(list[BigramStat], [])
     )
 
     # Sum retest attempts per bigram to check the 20-attempt threshold (D23(c))
@@ -451,9 +449,7 @@ def participant_results(
         else:
             set_to_retained_bigrams[a.set_label].append(a.bigram)
 
-    retained_bigram_set = {
-        bg for bgs in set_to_retained_bigrams.values() for bg in bgs
-    }
+    retained_bigram_set = {bg for bgs in set_to_retained_bigrams.values() for bg in bgs}
 
     # Pool baseline attempts and errors on retained bigrams
     baseline_counts: dict[str, dict[str, int]] = {
@@ -499,9 +495,7 @@ def participant_results(
         pause_counts[f"{label}:retest"] = p_ret_count
 
     # Primary outcome calculations per set
-    control_label = next(
-        (label for label, arm in set_to_arm.items() if arm == "control"), None
-    )
+    control_label = next((label for label, arm in set_to_arm.items() if arm == "control"), None)
 
     # Intermediate structures
     base_rates: dict[str, float | None] = {}
@@ -521,9 +515,7 @@ def participant_results(
         base_rates[label] = b_rate
         ret_rates[label] = r_rate
         rate_changes[label] = (
-            round(r_rate - b_rate, 4)
-            if (r_rate is not None and b_rate is not None)
-            else None
+            round(r_rate - b_rate, 4) if (r_rate is not None and b_rate is not None) else None
         )
 
         base_intervals[label] = compute_beta_interval(b_err, b_att)
@@ -540,19 +532,13 @@ def participant_results(
         set_b_timing[label] = t_base
         set_r_timing[label] = t_ret
         timing_changes[label] = (
-            round(t_ret[0] - t_base[0], 2)
-            if (t_ret is not None and t_base is not None)
-            else None
+            round(t_ret[0] - t_base[0], 2) if (t_ret is not None and t_base is not None) else None
         )
 
     # Assemble SetOutcome objects
     sets: list[SetOutcome] = []
-    ctl_rate_change = (
-        rate_changes.get(control_label) if control_label else None
-    )
-    ctl_timing_change = (
-        timing_changes.get(control_label) if control_label else None
-    )
+    ctl_rate_change = rate_changes.get(control_label) if control_label else None
+    ctl_timing_change = timing_changes.get(control_label) if control_label else None
 
     for label in set_labels:
         arm = set_to_arm[label]
@@ -629,18 +615,10 @@ def participant_results(
                 retest_beta_ci_upper=r_ci[1] if r_ci else None,
                 error_rate_change=d_s,
                 targeting_effect=targeting_effect,
-                posterior_effect_median=(
-                    post_effect.median_effect if post_effect else None
-                ),
-                posterior_effect_ci_lower=(
-                    post_effect.ci_lower if post_effect else None
-                ),
-                posterior_effect_ci_upper=(
-                    post_effect.ci_upper if post_effect else None
-                ),
-                share_below_zero=(
-                    post_effect.share_below_zero if post_effect else None
-                ),
+                posterior_effect_median=(post_effect.median_effect if post_effect else None),
+                posterior_effect_ci_lower=(post_effect.ci_lower if post_effect else None),
+                posterior_effect_ci_upper=(post_effect.ci_upper if post_effect else None),
+                share_below_zero=(post_effect.share_below_zero if post_effect else None),
                 baseline_iki_n=len(set_b_iki[label]),
                 baseline_iki_median_ms=t_base[0] if t_base else None,
                 baseline_iki_iqr_ms=t_base[3] if t_base else None,
@@ -649,15 +627,9 @@ def participant_results(
                 retest_iki_iqr_ms=t_ret[3] if t_ret else None,
                 iki_change_ms=c_s,
                 iki_targeting_effect_ms=iki_targeting_effect,
-                iki_bootstrap_median_ms=(
-                    iki_bootstrap.median_effect if iki_bootstrap else None
-                ),
-                iki_bootstrap_ci_lower_ms=(
-                    iki_bootstrap.ci_lower if iki_bootstrap else None
-                ),
-                iki_bootstrap_ci_upper_ms=(
-                    iki_bootstrap.ci_upper if iki_bootstrap else None
-                ),
+                iki_bootstrap_median_ms=(iki_bootstrap.median_effect if iki_bootstrap else None),
+                iki_bootstrap_ci_lower_ms=(iki_bootstrap.ci_lower if iki_bootstrap else None),
+                iki_bootstrap_ci_upper_ms=(iki_bootstrap.ci_upper if iki_bootstrap else None),
             )
         )
 

@@ -12,7 +12,6 @@ from typist.services.analysis import extract_clean_iki_and_pauses, select_phase_
 
 def test_select_phase_sessions_superseded_and_abandoned() -> None:
     """Verify selection of 2 most recent completed sessions; mark older as superseded, unfinished as abandoned."""
-    now = datetime.now(UTC)
     s_abandoned = TypingSession(
         id="s-abandoned",
         participant_id="p-1",
@@ -20,6 +19,7 @@ def test_select_phase_sessions_superseded_and_abandoned() -> None:
         day_index=1,
         started_at=datetime(2026, 10, 1, 10, 0, tzinfo=UTC),
         status="abandoned",
+        client_info={},
     )
     s_comp1 = TypingSession(
         id="s-comp1",
@@ -28,6 +28,7 @@ def test_select_phase_sessions_superseded_and_abandoned() -> None:
         day_index=1,
         started_at=datetime(2026, 10, 1, 11, 0, tzinfo=UTC),
         status="completed",
+        client_info={},
     )
     s_comp2 = TypingSession(
         id="s-comp2",
@@ -36,6 +37,7 @@ def test_select_phase_sessions_superseded_and_abandoned() -> None:
         day_index=2,
         started_at=datetime(2026, 10, 2, 10, 0, tzinfo=UTC),
         status="completed",
+        client_info={},
     )
     s_comp3 = TypingSession(
         id="s-comp3",
@@ -44,6 +46,7 @@ def test_select_phase_sessions_superseded_and_abandoned() -> None:
         day_index=3,
         started_at=datetime(2026, 10, 3, 10, 0, tzinfo=UTC),
         status="completed",
+        client_info={},
     )
     s_other_phase = TypingSession(
         id="s-other",
@@ -52,6 +55,7 @@ def test_select_phase_sessions_superseded_and_abandoned() -> None:
         day_index=4,
         started_at=datetime(2026, 10, 4, 10, 0, tzinfo=UTC),
         status="completed",
+        client_info={},
     )
 
     all_sessions = [s_comp2, s_abandoned, s_comp1, s_other_phase, s_comp3]
