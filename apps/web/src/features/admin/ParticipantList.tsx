@@ -126,18 +126,28 @@ export function ParticipantList({
                       </span>
                     </td>
                     <td className="py-2 px-3 text-right">
-                      <button
-                        type="button"
-                        disabled={!canAssign}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onAssign(p.id);
-                        }}
-                        className="px-2.5 py-1 text-xs font-medium rounded-md bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-30 disabled:cursor-not-allowed"
-                        data-testid={`assign-btn-${p.id}`}
-                      >
-                        Assign
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <a
+                          href={`#/results/${p.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="px-2 py-1 text-xs font-medium rounded-md text-blue-600 hover:text-blue-800 hover:underline"
+                          data-testid={`debrief-link-${p.id}`}
+                        >
+                          Debrief
+                        </a>
+                        <button
+                          type="button"
+                          disabled={!canAssign}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAssign(p.id);
+                          }}
+                          className="px-2.5 py-1 text-xs font-medium rounded-md bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                          data-testid={`assign-btn-${p.id}`}
+                        >
+                          Assign
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

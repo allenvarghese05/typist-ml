@@ -47,6 +47,10 @@ describe("ParticipantList", () => {
     expect(screen.getByText("builder-user")).toBeInTheDocument();
     expect(screen.getByText("Builder")).toBeInTheDocument();
 
+    const debriefLink = screen.getByTestId("debrief-link-p-1");
+    expect(debriefLink).toBeInTheDocument();
+    expect(debriefLink).toHaveAttribute("href", "#/results/p-1");
+
     fireEvent.click(screen.getByTestId("participant-row-p-2"));
     expect(onSelect).toHaveBeenCalledWith("p-2");
   });
