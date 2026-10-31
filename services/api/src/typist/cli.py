@@ -3,6 +3,7 @@
 import random
 from contextlib import suppress
 from datetime import UTC, datetime
+from pathlib import Path
 
 import typer
 from fastapi.testclient import TestClient
@@ -32,6 +33,7 @@ from typist.services.assignment import (
     load_assignment_config,
 )
 from typist.services.checks import run_participant_checks
+from typist.services.figures import generate_all_figures
 from typist.services.overhead import format_report, overhead_report
 from typist.services.participants import (
     AliasAlreadyExistsError,
@@ -663,6 +665,38 @@ def format_analysis_report(res: ParticipantResults) -> str:
     return "\n".join(lines)
 
 
+@app.command("figures")
+def figures_command(
+    pid: str | None = typer.Option(
+        None, "--pid", help="Participant id to generate figures for (default: all completed)."
+    ),
+    out_dir: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--out-dir",
+        help="Directory to save figures and snippets (default: <repo>/docs/figures).",
+    ),
+) -> None:
+    """Regenerate study outcome figures and README Markdown snippets (§15.3, §16)."""
+    settings = get_settings()
+    engine = create_db_engine(settings.db_path)
+    with Session(engine) as session:
+        try:
+            artifacts = generate_all_figures(session, out_dir=out_dir, pid=pid)
+        except ParticipantNotFoundError:
+            typer.echo(f"no participant with id {pid!r}", err=True)
+            raise typer.Exit(code=1) from None
+        except (ParticipantNotDoneError, ParticipantNotAssignedError) as error:
+            typer.echo(f"cannot generate figures: {error}", err=True)
+            raise typer.Exit(code=1) from None
+
+    typer.echo(f"Saved primary chart: {artifacts.primary_png} (and .svg)")
+    for alias, png, _svg in artifacts.participant_figures:
+        if png != artifacts.primary_png:
+            typer.echo(f"Saved participant chart ({alias}): {png} (and .svg)")
+    typer.echo(f"Saved README snippets: {artifacts.readme_snippets_path}")
+    typer.echo("\n" + artifacts.snippets_markdown)
+
+
 @app.command("analyze")
 def analyze_command(
     pid: str = typer.Option(..., "--pid", help="Participant id whose study results to analyze."),
@@ -674,6 +708,14 @@ def analyze_command(
     ),
     resamples: int = typer.Option(
         DEFAULT_BOOTSTRAP_RESAMPLES, "--resamples", help="Number of IKI bootstrap resamples."
+    ),
+    figures: bool = typer.Option(
+        False, "--figures", help="Also generate figures and README snippets for this participant."
+    ),
+    out_dir: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--out-dir",
+        help="Directory to save figures if --figures is set (default: <repo>/docs/figures).",
     ),
 ) -> None:
     """Compute and display pre-registered study outcome analysis for one completed participant."""
@@ -691,4 +733,20 @@ def analyze_command(
             typer.echo(f"cannot analyze {pid}: {error}", err=True)
             raise typer.Exit(code=1) from None
 
-    typer.echo(format_analysis_report(results))
+        typer.echo(format_analysis_report(results))
+
+        if figures:
+            try:
+                artifacts = generate_all_figures(
+                    session,
+                    out_dir=out_dir,
+                    pid=pid,
+                    seed=seed,
+                    n_draws=draws,
+                    n_resamples=resamples,
+                )
+                typer.echo(f"\nSaved primary chart: {artifacts.primary_png} (and .svg)")
+                typer.echo(f"Saved README snippets: {artifacts.readme_snippets_path}")
+            except Exception as exc:
+                typer.echo(f"failed to generate figures: {exc}", err=True)
+                raise typer.Exit(code=1) from exc
