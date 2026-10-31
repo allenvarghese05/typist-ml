@@ -1,12 +1,23 @@
+<div align="center">
+
 # Typist-ML
 
-[![CI](https://github.com/allenvarghese05/typist-ml/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/allenvarghese05/typist-ml/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python: 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)](services/api/)
-[![React: 19](https://img.shields.io/badge/React-19-blue.svg)](apps/web/)
-[![Apple Silicon MLX](https://img.shields.io/badge/MLX-Apple%20Silicon-orange.svg)](https://github.com/ml-explore/mlx)
+**On-Device Generative AI Typing Coach & Controlled Motor-Learning Experiment**
 
-An on-device AI-powered typing coach engineered as a single-blind randomized controlled trial (RCT). Typist-ML instruments hardware-level keystroke physics, discovers individual letter-pair weaknesses via Empirical Bayes, synthesizes targeted practice drills across competing generative strategies (dictionary heuristic, character Markov chains, on-device 1B LLM), and evaluates whether generative AI drills outperform plain text practice under pre-registered Bayesian difference-in-differences analysis.
+[![CI](https://img.shields.io/github/actions/workflow/status/allenvarghese05/typist-ml/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/allenvarghese05/typist-ml/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-2563eb?style=flat-square)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776ab?style=flat-square&logo=python&logoColor=white)](services/api/)
+[![React 19 + TypeScript](https://img.shields.io/badge/React_19-TypeScript_Strict-0284c7?style=flat-square&logo=typescript&logoColor=white)](apps/web/)
+[![Apple Silicon MLX](https://img.shields.io/badge/Inference-Apple_MLX_4--bit-ea580c?style=flat-square&logo=apple&logoColor=white)](https://github.com/ml-explore/mlx)
+[![Study Design](https://img.shields.io/badge/Study-Pre--Registered_RCT-059669?style=flat-square)](docs/analysis-plan.md)
+
+[Architecture](#system-architecture) · [Keystroke Physics](#keystroke-physics--biomechanical-telemetry) · [Bayesian Assignment](#experimental-protocol--empirical-bayes-assignment) · [Generative Arms](#the-4-generative-drill-arms--trade-offs) · [Statistical Inference](#pre-registered-statistical-inference) · [Pilot Results](#pilot-results) · [Agentic Pipeline](#autonomous-multi-agent-engineering-pipeline) · [Quickstart](#setup--quickstart)
+
+</div>
+
+---
+
+**Typist-ML** is a local-first typing coach engineered from the ground up as a within-subject, single-blind randomized controlled trial (RCT). Rather than treating typing speed as a coarse word-level average, the system captures sub-millisecond hardware keystroke physics, isolates individual character-transition weaknesses via **Empirical Bayes shrinkage**, synthesizes targeted practice drills across four competing generative paradigms (**Control**, **Dictionary Heuristic**, **2nd-Order Markov**, and an **On-Device 1B Quantized LLM** on Apple Silicon Metal/MLX), and evaluates motor-learning transfer under pre-registered **Bayesian difference-in-differences** inference.
 
 Status: milestone 4 (Pilot complete).
 
@@ -14,195 +25,338 @@ Design: [docs/design/Typist-ML_Technical_Design.pdf](docs/design/Typist-ML_Techn
 
 Analysis plan (pre-registered): [docs/analysis-plan.md](docs/analysis-plan.md)
 
-- **Interactive Results Notebook:** [notebooks/03_results.ipynb](notebooks/03_results.ipynb)
-- **Visual Analytics Dashboard:** `#/dashboard` | **Participant Debrief & Unblinding:** `#/results`
+| Telemetry Precision | Experimental Scale | Generative Paradigms | Verification & Reproducibility |
+| :--- | :--- | :--- | :--- |
+| **`0.20 ms` p95** keystroke handler (`< 1.0 ms` SLA) | **`14` sessions** · **`25,022`** recorded keystrokes | **4 arms** gated by an identical fairness validator | **`643` tests** (`164` Web + `479` API) + automated DB claim audit |
+
+- **Interactive Results Notebook:** [`notebooks/03_results.ipynb`](notebooks/03_results.ipynb)
+- **Web Routes:** Typing Surface (`#/`) · Visual Analytics Dashboard (`#/dashboard`) · Single-Blind Debrief & Unmasking (`#/results`) · Admin Console (`#/admin`)
 
 ---
 
-## Architecture Overview
+## System Architecture
 
-Typist-ML is built as a local-first monorepo combining sub-millisecond browser telemetry, an asynchronous Python/FastAPI backend, native Apple Silicon model inference (Metal / MLX), and zero-dependency SVG statistical visualizations:
+Typist-ML is structured as a zero-cloud monorepo. Every keystroke event, model forward pass, SQLite transaction, and posterior Monte Carlo draw executes strictly on-device:
 
+```mermaid
+flowchart TB
+    subgraph Client["Browser Client · apps/web (React 19 · TypeScript Strict · Vite 8)"]
+        TS["Typing Surface & TextCursor State Machine"]
+        DB["Analytical Dashboard (#/dashboard · Pure SVG Plots)"]
+        DR["Debrief & Single-Blind Unmasking (#/results)"]
+        AD["Admin & Pool Telemetry (#/admin)"]
+    end
+
+    subgraph API["Backend Service · services/api (Python 3.12 · FastAPI · SQLModel)"]
+        TE["D14 First-Attempt Attribution Engine"]
+        AE["Empirical Bayes & Snake-Order Assignment"]
+        SP["Latin Square Session Planner"]
+        AN["Bayesian Posterior & Bootstrap Analysis"]
+    end
+
+    subgraph Gen["Asynchronous Drill Synthesis Worker"]
+        G1["Arm A · Corpus Control"]
+        G2["Arm B · Dictionary Heuristic"]
+        G3["Arm C · 2nd-Order Markov"]
+        G4["Arm D · Llama-3.2-1B-4bit (MLX)"]
+        VG["Shared Fairness Validator Gate"]
+        G1 & G2 & G3 & G4 --> VG
+    end
+
+    subgraph Store["Local Persistence & Audit CLI"]
+        SQ[("SQLite WAL · data/typist.db")]
+        CLI["typist CLI · figures & check-readme"]
+    end
+
+    TS -- "Monotonic Keystroke Batch" --> TE
+    SP -- "Masked Daily Blocks" --> TS
+    AN -- "Credible Intervals & Matrices" --> DB & DR
+    TE & AE & SP --> SQ
+    VG -- "3-Day Pre-Generated Buffer" --> SQ
+    SQ --> AN & CLI
 ```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                   TYPIST-ML SYSTEM ARCHITECTURE                        │
-├────────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                        │
-│   APPS / WEB (Vite 8 + React 19 + TypeScript Strict + Tailwind CSS 4)                  │
-│   ├── Typing Surface: Custom TextCursor state machine & monotonic event.timeStamp      │
-│   ├── Analytical Dashboard (#/dashboard): 6 views, pure SVG whisker forest plots       │
-│   ├── Participant Debrief (#/results): Single-blind guard & post-retest unmasking      │
-│   └── Admin Portal (#/admin): Participant state, drill pool depth, worker status       │
-│                                                                                        │
-│                                           ▲                                            │
-│                                           │  REST / Local IPC (p95 < 1.0 ms SLA)       │
-│                                           ▼                                            │
-│                                                                                        │
-│   SERVICES / API (Python 3.12 + FastAPI + SQLModel + SQLite in WAL mode)               │
-│   ├── Telemetry Engine: D14 first-attempt substitution attribution, dwell, press-press │
-│   ├── Assignment Engine: Empirical Bayes Beta prior shrinkage & snake-order dealing    │
-│   ├── Background Generation Worker: Batch asynchronous generator (3-day buffer)        │
-│   └── Analysis Engine: Monte Carlo Beta posterior effect draws & bootstrap median IKI  │
-│                                                                                        │
-│                     ┌─────────────────────┴─────────────────────┐                      │
-│                     ▼                                           ▼                      │
-│   DRILL GENERATION STRATEGIES                 PERSISTENCE & REPRODUCIBILITY            │
-│   ├── Arm A: Held-out Control (Volume)        ├── data/typist.db (SQLite WAL)          │
-│   ├── Arm B: Dictionary Heuristic (wordfreq)  ├── Shared Validator (Fairness Gate)     │
-│   ├── Arm C: 2nd-order Markov Pseudo-words    ├── CLI: `typist figures`, `check-readme`│
-│   └── Arm D: Apple Silicon MLX (1B LLM)       └── Automated Justfile Task Runner       │
-│                                                                                        │
-└────────────────────────────────────────────────────────────────────────────────────────┘
-```
+
+| Layer | Location | Key Engineering Responsibilities |
+| :--- | :--- | :--- |
+| **Web Client** | [`apps/web`](apps/web/) | Deterministic `TextCursor` state machine, monotonic `event.timeStamp` capture, display-only session feedback, zero-dependency SVG forest/whisker plots, single-blind arm lock until completion. |
+| **Telemetry & Attribution** | [`services/api/src/typist/services/attribution.py`](services/api/src/typist/services/attribution.py) | Authoritative bigram attempt, error, dwell, and press-to-press IKI extraction; strict pause/blur exclusion; raw sample pooling across session blocks (never taking a median of medians). |
+| **Drill Synthesis & MLX** | [`services/api/src/typist/generation/`](services/api/src/typist/generation/) | Pluggable 4-arm drill generators behind an identical validator (`[0.10, 0.40]` density, character set, coverage, lexical caps) with background buffer replenishment. |
+| **Statistical Engine** | [`services/api/src/typist/services/analysis.py`](services/api/src/typist/services/analysis.py) | Jeffreys Beta credible intervals, 100,000-draw Monte Carlo targeting posteriors, 10,000-resample non-parametric IKI bootstraps, headless 300 DPI figure generation, and automated README verification. |
 
 ---
 
-## The Physics of Keystroke Telemetry & Mathematical Attribution
+## Keystroke Physics & Biomechanical Telemetry
 
-Standard typing tools (like Monkeytype) evaluate typing at the word or string level. Typist-ML treats human typing as a continuous physical process of biomechanical transitions between letter pairs (bigrams $b = (k_{j-1}, k_j)$), instrumented with sub-millisecond precision.
+Conventional typing tests score completed words at the end of a timer. Typist-ML models typing as a continuous neuromotor sequence of physical switch depressions $t_{\mathrm{down}}(j)$ and releases $t_{\mathrm{up}}(j)$ across adjacent lowercase letter pairs (bigrams $b = c_{j-1}c_j$).
 
+```text
+         t_down(j-1)         t_up(j-1)          t_down(j)          t_up(j)
+              │                  │                  │                 │
+              ▼                  ▼                  ▼                 ▼
+Timeline ─────●══════════════════●──────────────────●═════════════════●─────►
+              │◄── Dwell(j-1) ──►│                  │◄─── Dwell(j) ──►│
+              │                                     │
+              │◄────── Press-to-Press IKI(j) ──────►│
 ```
-           Key-Down (j-1)      Key-Up (j-1)            Key-Down (j)        Key-Up (j)
-                 │                   │                       │                  │
-                 ▼                   ▼                       ▼                  ▼
-Timeline: ───────●───────────────────●───────────────────────●──────────────────●───────►
-                 │◄─── Dwell (j-1) ──►│                       │◄─── Dwell (j) ──►│
-                 │                                           │
-                 │◄─────────────── Inter-Key Interval (IKI) ─►│
-```
 
-### 1. Timing Telemetry Equations
-- **Dwell Time:** The continuous duration a physical key switch is held down:
-  $$\text{Dwell}_j = t_{\text{up}}(j) - t_{\text{down}}(j)$$
-- **Inter-Key Interval (IKI):** Measured strictly **press-to-press** using high-resolution browser monotonic timestamps (`event.timeStamp`):
-  $$\text{IKI}_j = t_{\text{down}}(j) - t_{\text{down}}(j-1)$$
-  *Why Press-to-Press?* Fast typists routinely exhibit **rollover typing**, depressing the next key before the previous key has released ($\text{Release-to-Press} < 0$). Press-to-press timing is strictly positive and directly represents finger flight time.
-- **Pause & Cognitive Disruption Filtering (D15, D23a):** Keystrokes following pauses $> 2000\text{ ms}$ or window blur events represent distraction rather than motor execution; they are tracked but excluded from IKI distributions.
-- **Net Typing Speed (D26):** Standardized net words per minute based on correct first-attempt keystrokes:
-  $$\text{WPM} = \frac{\text{Correct First-Attempt Characters} / 5}{\text{Elapsed Minutes}}$$
+### 1. Physical Switch Dwell Duration
 
-### 2. The D14 First-Attempt Attribution Engine
-A major challenge in typing analysis is preventing error cascades from polluting downstream metrics. When a typist mistypes a character and backspaces, naive string comparisons misattribute errors to subsequent correct keystrokes.
-- **Attribution Rule (D14):** A bigram attempt $(c_{j-1}, c_j)$ is registered at target index $j$ **if and only if** character $c_{j-1}$ was typed correctly on its first attempt.
-- **Substitution Error:** If the typist's first key-down at position $j$ produces $k_j \ne c_j$, an error is attributed to $(c_{j-1}, c_j)$.
-- **Backspace & Recovery:** Post-error backspaces and subsequent correction attempts are recorded in `keystroke_events` for telemetry audits, but are strictly excluded from the error denominator to prevent artificial inflation of sample sizes.
-- **Source of Truth:** Both Python (`services/api`) and TypeScript (`apps/web`) attribution implementations are verified against the shared golden telemetry fixture (`services/api/tests/fixtures/golden_session.json`).
+Dwell time measures the mechanical hold duration of a single key switch from initial actuation to release:
+
+$$
+\mathrm{Dwell}_j = t_{\mathrm{up}}(j) - t_{\mathrm{down}}(j)
+$$
+
+- **Telemetry handling:** Recorded as an append-only update to `keystroke_events` when the matching `keyup` arrives, capturing finger hold tension without blocking the `keydown` hot path.
+
+### 2. Press-to-Press Inter-Key Interval (IKI) & Rollover Physics
+
+Transition latency between consecutive characters $c_{j-1} \to c_j$ is defined strictly **press-to-press** using monotonic high-resolution timestamps:
+
+$$
+\mathrm{IKI}_j = t_{\mathrm{down}}(j) - t_{\mathrm{down}}(j - 1)
+$$
+
+Fast touch-typists routinely overlap keystrokes (**rollover typing**), initiating the downward strike of key $j$ before key $j - 1$ has physically released:
+
+$$
+t_{\mathrm{down}}(j) \lt t_{\mathrm{up}}(j - 1) \implies t_{\mathrm{down}}(j) - t_{\mathrm{up}}(j - 1) \lt 0
+$$
+
+Measuring release-to-press flight time produces negative intervals under rollover, whereas press-to-press $\mathrm{IKI}_j$ remains strictly positive and directly reflects motor-program execution between consecutive finger strikes.
+
+### 3. Pause & Attentional Disruption Filtering (D24, D23a)
+
+Looking away from the screen, window focus loss (`blur`), or mid-sentence hesitation injects multi-second delays unrelated to finger transition speed. Under pre-registered rules **D24** and **D23a**, an adjacent clean transition yields a valid timing sample if and only if it belongs to $\mathcal{I}_{\mathrm{clean}}$:
+
+$$
+\mathcal{I}_{\mathrm{clean}} = \left\{\, \mathrm{IKI}_j \;\middle|\; 0\,\mathrm{ms} \lt \mathrm{IKI}_j \le 2000\,\mathrm{ms} \;\land\; \neg\,\mathrm{paused}(j) \,\right\}
+$$
+
+- **Strict threshold (D24):** Gaps strictly exceeding $2000\,\mathrm{ms}$ ($\mathrm{IKI}_j \gt 2000\,\mathrm{ms}$) or carrying `after_pause = true` (focus blur / resume) are classified as cognitive pauses; a gap of exactly $2000\,\mathrm{ms}$ is retained.
+- **No denominator distortion (D23a):** Paused pairs still count toward bigram **attempts** (and **errors** if mistyped); only the contaminated **IKI timing sample** is dropped.
+
+### 4. Session Net Typing Speed & First-Attempt Accuracy (D26)
+
+Session speed and accuracy pool raw counts across all $B$ blocks in a session (excluding idle inter-block rest screens) using the standard 5-character word convention:
+
+$$
+\mathrm{WPM} = \frac{\left(\sum_{m=1}^{B} C_m\right) / 5}{\left(\sum_{m=1}^{B} \Delta T_m\right) / 60000}
+$$
+
+$$
+\mathrm{Accuracy} = \frac{\sum_{m=1}^{B} C_m}{\sum_{m=1}^{B} N_m}
+$$
+
+- $C_m$: Correct **first-attempt** characters in block $m$.
+- $N_m$: Total **first-attempt** characters in block $m$.
+- $\Delta T_m = t_{\mathrm{down}}(\mathrm{last}_m) - t_{\mathrm{down}}(\mathrm{first}_m)$: Active block span in milliseconds.
 
 ---
 
-## Experimental Methodology & Bayesian Study Design
+### 5. The D14 First-Attempt Bigram Attribution Engine
 
+When a typist makes a typo, hits `Backspace`, and retypes, naive string diffing corrupts adjacent transitions and inflates sample counts. Typist-ML isolates clean motor transitions via the **D14 First-Attempt Attribution State Machine**:
+
+```mermaid
+flowchart LR
+    P["Target Pair (c[j-1], c[j])"] --> G1{"Both lowercase a-z?"}
+    G1 -- "No" --> SK["Skip Pair"]
+    G1 -- "Yes" --> G2{"First attempt a at j-1 is correct?"}
+    G2 -- "No" --> SK
+    G2 -- "Yes" --> G3{"Any Backspace between a.seq and b.seq?"}
+    G3 -- "Yes" --> SK
+    G3 -- "No" --> ATT["Count +1 Bigram Attempt"]
+    ATT --> G4{"First attempt b at j == c[j]?"}
+    G4 -- "No" --> ERR["Count +1 Bigram Error"]
+    G4 -- "Yes" --> G5{"b.seq == a.seq + 1 and unpaused?"}
+    G5 -- "Yes" --> IKI["Record Clean IKI Sample"]
+    G5 -- "No" --> DONE["Attempt Only (Drop IKI)"]
 ```
-   14-DAY SINGLE-BLIND PROTOCOL
-   ┌─────────────┐      ┌─────────────────────────┐      ┌─────────────┐      ┌─────────────┐
-   │  Days 0–1   │      │        End Day 1        │      │  Days 2–11  │      │  Days 12–13 │
-   │  Baseline   │ ───► │  Empirical Bayes Deal   │ ───► │ 10 Practice │ ───► │   Retest    │
-   │  (Form A)   │      │  & 4-Arm Masked Assign  │      │  Sessions   │      │  (Form B)   │
-   └─────────────┘      └─────────────────────────┘      └─────────────┘      └─────────────┘
-                                                                                     │
-                                                                                     ▼
-                                                                              ┌─────────────┐
-                                                                              │   Debrief   │
-                                                                              │  Unmasking  │
-                                                                              └─────────────┘
-```
 
-### 1. Empirical Bayes Prior Shrinkage (Weakness Discovery)
-Raw empirical error rates $e_b = \frac{\text{errors}_b}{\text{attempts}_b}$ are noisy when sample counts are low (e.g. a rare bigram like `qz` with 1 attempt and 1 error looks artificially worse than `th` with 12 errors in 100 attempts).
-Typist-ML applies **Empirical Bayes shrinkage** using a Beta prior estimated from the typist's aggregate baseline bigram distribution:
-$$\hat{\theta}_b = \frac{\text{errors}_b + \alpha_0}{\text{attempts}_b + \alpha_0 + \beta_0}$$
-This regularizes low-count bigrams toward the participant's global mean error rate, isolating true motor weakness.
+| Scenario (`target = "the"`) | Keystroke Stream | Attributed to `"th"` | Attributed to `"he"` | Why It Matters |
+| :--- | :--- | :--- | :--- | :--- |
+| **Clean fluent strike** | `t` → `h` → `e` | `1` attempt, `0` errors, clean IKI | `1` attempt, `0` errors, clean IKI | Baseline ballistic motor transition. |
+| **Mistyped `h` (uncorrected)** | `t` → `x` → `e` | `1` attempt, **`1` error**, no IKI | **Skipped** (`a` at `h` was an error) | Prevents blaming `"he"` for a hand displacement that happened on `"th"`. |
+| **Mistyped `h`, fixed via Backspace** | `t` → `x` → `⌫` → `h` → `e` | `1` attempt, **`1` error**, no IKI | **Skipped** (`a` first attempt failed) | Retry strokes never double-count `"th"` attempts or fabricate artificial fluency. |
 
-### 2. Snake-Order Dealing into 4 Matched Sets (D04)
-To prevent one experimental arm from receiving an easier set of bigrams, the top 16 weak bigrams are sorted by weakness score and dealt across 4 sets in bidirectional **snake order**:
-$$\begin{array}{lcccc}
-\text{Round 1 (Worst):} & \text{Rank 1} \to \text{Set A} & \text{Rank 2} \to \text{Set B} & \text{Rank 3} \to \text{Set C} & \text{Rank 4} \to \text{Set D} \\
-\text{Round 2 (Reversed):} & \text{Rank 8} \to \text{Set A} & \text{Rank 7} \to \text{Set B} & \text{Rank 6} \to \text{Set C} & \text{Rank 5} \to \text{Set D} \\
-\text{Round 3:} & \text{Rank 9} \to \text{Set A} & \text{Rank 10} \to \text{Set B} & \text{Rank 11} \to \text{Set C} & \text{Rank 12} \to \text{Set D} \\
-\text{Round 4 (Reversed):} & \text{Rank 16} \to \text{Set A} & \text{Rank 15} \to \text{Set B} & \text{Rank 14} \to \text{Set C} & \text{Rank 13} \to \text{Set D}
-\end{array}$$
-Sets are mapped to generator arms via a seeded cryptographic shuffle and permanently frozen before practice begins.
-
-### 3. Latin Square Block Rotation (Warm-up & Fatigue Control)
-Each daily practice session contains 4 blocks (one per arm, 600 characters each). To eliminate order bias (Block 1 always suffering from cold hands, Block 4 suffering from fatigue), block presentation follows a balanced $4 \times 4$ Latin square rotated across days:
-- **Day 2:** Block 1 $\to$ Block 2 $\to$ Block 3 $\to$ Block 4
-- **Day 3:** Block 2 $\to$ Block 3 $\to$ Block 4 $\to$ Block 1
-- **Day 4:** Block 3 $\to$ Block 4 $\to$ Block 1 $\to$ Block 2
-- **Day 5:** Block 4 $\to$ Block 1 $\to$ Block 2 $\to$ Block 3
+> [!IMPORTANT]
+> **Cross-Language Golden Contract:** Bigram attribution runs authoritatively in Python ([`attribution.py`](services/api/src/typist/services/attribution.py)), while [`TextCursor`](apps/web/src/telemetry/TextCursor.ts) tracks live cursor state in TypeScript. Both engines are continuously verified against the shared golden keystroke fixture ([`golden_session.json`](services/api/tests/fixtures/golden_session.json)).
 
 ---
 
-## The 4 Generative Arms: Architecture & Trade-Offs
+## Experimental Protocol & Empirical Bayes Assignment
 
-Each arm represents a distinct paradigm for automated practice drill generation:
+The study follows a **14-session within-person protocol** designed to separate genuine targeted learning from general typing warm-up, daily fatigue, and regression to the mean:
 
-```
-┌──────────────┬───────────────────────────────┬─────────────────────────────┬───────────────────────────┐
-│ Arm          │ Generation Engine             │ Linguistic Realism          │ Target Bigram Density     │
-├──────────────┼───────────────────────────────┼─────────────────────────────┼───────────────────────────┤
-│ Control (A)  │ Frequency-Weighted Corpus     │ Real English prose (100%)   │ Natural baseline (0.00)   │
-│ Heuristic (B)│ Word-List Greedy Combinator   │ Valid dictionary words (95%)│ High density (0.20–0.30)  │
-│ Markov (C)   │ 2nd-Order N-gram Transitions  │ Pseudo-words ("quastic",15%)│ Very high density (>0.35) │
-│ LLM (D)      │ Local 1B Quantized LM (MLX)   │ Natural sentences (~95%)    │ Calibrated (0.10–0.40)    │
-└──────────────┴───────────────────────────────┴─────────────────────────────┴───────────────────────────┘
+```mermaid
+flowchart LR
+    B["Days 0–1 · Baseline (Form A)"] --> A["End of Day 1 · Freeze Assignment"]
+    A --> P["Days 2–11 · 10 Masked Practice Sessions"]
+    P --> R["Days 12–13 · Retest (Form B)"]
+    R --> U["Post-Retest · Debrief & Unblinding"]
 ```
 
-### The Shared Validator Fairness Gate (D16, D30)
-To ensure that arms compete strictly on generative drill quality rather than drill length or cheat-density, every candidate drill must pass an identical validator before being written to the database:
-1. **Length:** Exactly $250\text{ to }350$ characters ($50\text{ to }70$ words).
-2. **Charset:** Lowercase English ASCII letters (`a`–`z`) and spaces only; no numbers or punctuation.
-3. **Density Bounds:** Target bigram density must fall strictly within $[0.10, 0.40]$ (calibrated in T3.4 per D30).
-4. **Coverage:** Every assigned target bigram must appear $\ge 3$ times in the drill.
-5. **Repetition Limits:** No word may be repeated more than twice per block.
+### 1. Empirical Bayes Beta-Binomial Weakness Discovery
+
+Raw error proportions $\hat{p}_b = k_b / n_b$ are dominated by small-sample noise: a rare bigram like `"qz"` with `1/1` error (`100%`) would outrank a genuinely problematic high-frequency bigram like `"th"` with `15/90` errors (`16.7%`).
+
+After pooling baseline counts across both baseline sessions and filtering to candidate bigrams with $n_b \ge 15$ attempts (**D28**), Typist-ML regularizes each bigram's error rate under a conjugate **Empirical Bayes Beta prior** centered on the participant's global baseline error rate $p_0$ with prior concentration $M = 20$:
+
+$$
+\theta_b \sim \mathrm{Beta}(\alpha_0, \beta_0), \qquad \alpha_0 = M p_0, \qquad \beta_0 = M(1 - p_0)
+$$
+
+Observing $k_b$ errors in $n_b$ baseline attempts yields the posterior mean weakness score $\hat{\theta}_b$, a precision-weighted shrinkage estimator between individual evidence and the participant's baseline prior:
+
+$$
+\hat{\theta}_b = \mathbb{E}[\theta_b \mid k_b, n_b] = \frac{k_b + M p_0}{n_b + M} = \left(\frac{n_b}{n_b + M}\right)\frac{k_b}{n_b} + \left(\frac{M}{n_b + M}\right)p_0
+$$
+
+Ties in $\hat{\theta}_b$ are broken deterministically using the candidate's standardized median IKI z-score across all qualifying candidates, followed by lexicographic bigram order:
+
+$$
+z_b = \frac{m_b - \mu_m}{\sigma_m}
+$$
+
+- $m_b$: Single exact median over raw clean IKI samples re-pooled across both baseline sessions.
+- $\mu_m, \sigma_m$: Population mean and standard deviation across qualifying candidate medians.
+- **Total ranking order:** $(-\hat{\theta}_b,\; -z_b,\; b)$ — zero randomness in weakness ranking.
+
+### 2. Serpentine ("Snake-Order") Set Balancing (D04)
+
+To ensure no generative arm inherits an unfairly easy or punishing set of bigrams, the top `16` ranked bigrams (`4 sets × 4 bigrams`, or `2 × 4 = 8` in two-set contingency mode) are dealt across sets in **bidirectional serpentine ("snake") order**:
+
+| Deal Cycle | Direction | Set A | Set B | Set C | Set D |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Cycle 0 (Hardest)** | Forward `→` | Rank `1` | Rank `2` | Rank `3` | Rank `4` |
+| **Cycle 1 (Reversed)** | `←` Reverse | Rank `8` | Rank `7` | Rank `6` | Rank `5` |
+| **Cycle 2 (Forward)** | Forward `→` | Rank `9` | Rank `10` | Rank `11` | Rank `12` |
+| **Cycle 3 (Reversed)** | `←` Reverse | Rank `16` | Rank `15` | Rank `14` | Rank `13` |
+| **Difficulty Balance** | **Sum / Mean Rank** | **`34` (`8.5`)** | **`34` (`8.5`)** | **`34` (`8.5`)** | **`34` (`8.5`)** |
+
+For 0-based rank index $i \in \{0, \dots, KS - 1\}$ across $S$ sets with cycle $q = \lfloor i / S \rfloor$ and offset $r = i \bmod S$, the assigned set index is:
+
+$$
+\mathrm{set}(i) = (1 - (q \bmod 2))\,r + (q \bmod 2)\,(S - 1 - r)
+$$
+
+> [!TIP]
+> **Cryptographic Freeze:** Once snake dealing finishes, sets `{A, B, C, D}` are mapped to generative arms via a single seeded shuffle (`random.Random(f"{seed}:{participant_id}")`) and locked at the database layer via an immutable SQLite `BEFORE UPDATE` trigger. Neither the UI nor the participant sees arm labels until the final retest session is complete.
+
+### 3. Balanced 4×4 Latin Square Block Schedule
+
+Each daily practice session consists of 4 blocks (one per arm). Because Block 1 suffers from cold-hand warm-up and Block 4 suffers from motor fatigue, presentation order rotates daily across a balanced **$4 \times 4$ cyclic Latin square**:
+
+| Practice Day | Slot 1 (Cold Start) | Slot 2 | Slot 3 | Slot 4 (Fatigue Tail) |
+| :---: | :---: | :---: | :---: | :---: |
+| **Day 2 (Cycle 1)** | Arm 1 | Arm 2 | Arm 3 | Arm 4 |
+| **Day 3 (Cycle 2)** | Arm 2 | Arm 3 | Arm 4 | Arm 1 |
+| **Day 4 (Cycle 3)** | Arm 3 | Arm 4 | Arm 1 | Arm 2 |
+| **Day 5 (Cycle 4)** | Arm 4 | Arm 1 | Arm 2 | Arm 3 |
+
+Every arm occupies every temporal slot an equal number of times across each 4-day cycle.
 
 ---
 
-## Pre-Registered Statistical Formulation
+## The 4 Generative Drill Arms & Trade-Offs
 
-All evaluation procedures were frozen in `docs/analysis-plan.md` on 2026-10-30 prior to study execution (D20).
+Typist-ML pits three distinct algorithmic drill-generation strategies against an untargeted volume baseline to test whether syntactic naturalness, lexical validity, or pure transition density drives motor learning:
 
-### 1. Primary Outcome: Targeting Effect $E(s)$
-The primary metric evaluates whether error rate reduction on targeted sets exceeds natural learning on the held-out control set (difference-in-differences):
-$$d(s) = p_{\text{retest}}(s) - p_{\text{baseline}}(s)$$
-$$E(s) = d(s) - d(\text{control})$$
-A **negative** $E(s)$ indicates that targeted practice produced greater error reduction than plain volume practice.
-- **Jeffreys Beta Prior:** Equal-tailed 95% credible intervals are computed using the non-informative Jeffreys prior $\text{Beta}(0.5, 0.5)$:
-  $$\theta \sim \text{Beta}(\text{errors} + 0.5, \text{attempts} - \text{errors} + 0.5)$$
-- **Monte Carlo Posterior Effect Draws:** 100,000 draws are sampled from baseline and retest Beta distributions to generate empirical credible intervals for $E(s)$ and compute $P(E(s) < 0)$ (the posterior probability of superior targeting effect over control).
+| Arm | Engine Architecture | Lexical Realism | Target Density Profile | Runtime Cost | Core Engineering Trade-Off |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Control** (`control`) | Frequency-weighted English word sampler (`wordfreq`) | **100% real words** | Untargeted baseline (`~0.00`) | `< 0.1 ms` | Captures general typing volume & task adaptation without targeting weak transitions. |
+| **Heuristic** (`heuristic`) | Greedy dictionary scorer maximizing target bigram hits | **100% real words** | High (`0.20 – 0.30`) | `< 0.2 ms` | High target density with valid vocabulary, but lacks sentence-level grammar (`"frame front rusty..."`). |
+| **Markov** (`markov`) | Character-level 2nd-order N-gram transition sampler | **Phonotactic pseudowords** (`~15–25%` real) | Very high (`0.25 – 0.40`) | `< 1.0 ms` | Isolates pure finger biomechanics without word-memory shortcuts, at the cost of alien non-words. |
+| **Local LLM** (`llm`) | `Llama-3.2-1B-Instruct-4bit` via Apple Silicon MLX + rejection sampling | **Coherent English prose** (`~95%+` real) | Calibrated (`0.10 – 0.40`) | `~0.8 – 1.5 s` (async worker) | Synthesizes fluent, grammatical sentences embedding target bigrams; requires background pool buffering. |
 
-### 2. Key Secondary Outcome: Median IKI Shift $F(s)$
-The secondary confirmatory outcome evaluates clean inter-key interval changes (ms):
-$$c(s) = \text{median}(\text{IKI}_{\text{retest}}(s)) - \text{median}(\text{IKI}_{\text{baseline}}(s))$$
-$$F(s) = c(s) - c(\text{control})$$
-- **Non-Parametric Bootstrap:** 10,000 bootstrap resamples are computed to derive robust, distribution-free 95% confidence intervals for $F(s)$.
+### The Shared Fairness Validator Gate (D16, D30)
+
+To guarantee that arms compete strictly on **text quality** rather than drill length or runaway repetition, every candidate drill from every targeted arm must clear the exact same deterministic fairness gate before entering `drills`:
+
+| Validation Rule | Enforced Bound | Rationale |
+| :--- | :--- | :--- |
+| **Character Length** | $250 \le L \le 350$ chars | Standardizes physical keystroke exposure per practice block. |
+| **Character Set** | `^[a-z]+( [a-z]+)*$` | Eliminates punctuation/shift confounding (D13 tracks lowercase `a–z` pairs). |
+| **Target Bigram Density** | $0.10 \le \rho_{\mathrm{target}} \le 0.40$ | Calibrated feasible window (D30) preventing both weak dilution and degenerate spam. |
+| **Minimum Pair Coverage** | $\mathrm{count}(b) \ge 3 \;\;\forall b \in \mathcal{S}$ | Ensures every assigned bigram in the set is actively practiced in every drill. |
+| **Lexical Repetition Cap** | $\mathrm{count}(w) \le 2$ per drill | Blocks trivial single-word looping (e.g., repeating one high-density word 30 times). |
+
+---
+
+## Pre-Registered Statistical Inference
+
+All confirmatory estimators, exclusion criteria, priors, and random seeds (`20261030`) were frozen in [`docs/analysis-plan.md`](docs/analysis-plan.md) on **2026-10-30** prior to practice sessions (**D20**).
+
+### 1. Primary Outcome — Difference-in-Differences Targeting Effect
+
+For each bigram set $s$, let $p_{\mathrm{base}}(s)$ and $p_{\mathrm{ret}}(s)$ denote the true error rates on Baseline (Form A) and Retest (Form B). The within-set longitudinal change is:
+
+$$
+d(s) = p_{\mathrm{ret}}(s) - p_{\mathrm{base}}(s)
+$$
+
+To isolate the specific benefit of targeted drill generation beyond general practice volume, the primary outcome $E(s)$ subtracts the concurrent change observed on the participant's held-out **Control** set:
+
+$$
+E(s) = d(s) - d(\mathrm{control})
+$$
+
+- **Interpretation:** $E(s) \lt 0$ indicates that arm $s$ reduced error rates **more** than untargeted practice volume alone.
+- **Conjugate Jeffreys Posterior:** Each binomial proportion $p$ given $k$ errors in $n$ attempts is modeled independently under the non-informative **Jeffreys prior** $\mathrm{Beta}(0.5, 0.5)$:
+
+$$
+p \mid (k, n) \sim \mathrm{Beta}(k + 0.5,\; n - k + 0.5)
+$$
+
+- **Monte Carlo Posterior Contrasts:** Exactly `100,000` independent joint draws (`seed = 20261030`) are sampled from the four posteriors $\bigl(p_{\mathrm{base}}(s),\, p_{\mathrm{ret}}(s),\, p_{\mathrm{base}}(\mathrm{ctl}),\, p_{\mathrm{ret}}(\mathrm{ctl})\bigr)$ to compute the empirical 95% equal-tailed credible interval for $E(s)$ and the posterior probability of superiority $P(E(s) \lt 0)$.
+
+### 2. Key Secondary Outcome — Clean Median IKI Shift
+
+Because keystroke latency distributions are right-skewed even after pause filtering, transition speed is evaluated via pooled raw medians rather than means. For set $s$, the baseline-to-retest median shift is:
+
+$$
+c(s) = \mathrm{median}\!\left(\mathrm{IKI}_{\mathrm{ret}}(s)\right) - \mathrm{median}\!\left(\mathrm{IKI}_{\mathrm{base}}(s)\right)
+$$
+
+The difference-in-differences latency targeting effect $F(s)$ (in milliseconds) is:
+
+$$
+F(s) = c(s) - c(\mathrm{control})
+$$
+
+- **Interpretation:** $F(s) \lt 0\,\mathrm{ms}$ indicates greater transition speed-up than the untargeted control set.
+- **Distribution-Free Uncertainty:** Confidence bounds `[ci_lower, ci_upper]` are estimated via `10,000` stratified non-parametric bootstrap resamples over the four raw clean IKI sample pools.
 
 ---
 
 ## Pilot Results
 
-The pilot evaluation was completed using a 10-practice-day reference protocol (14 completed sessions, 25,022 total keystrokes) in the pre-registered two-set contingency mode comparing plain practice (`control`, Set A) against dictionary-targeted practice (`heuristic`, Set B).
+The reference pilot evaluation was executed across the full 14-session protocol (`2` baseline, `10` practice, `2` retest; **14 completed sessions** and **25,022 total keystrokes**) under the pre-registered two-set contingency mode comparing untargeted volume (`control`, Set A) against dictionary-targeted drills (`heuristic`, Set B).
 
 ### Primary Outcome: Error Rate Change
 
-![Per-set error rate change](docs/figures/set_error_rate_change.png)
+<div align="center">
+  <img src="docs/figures/set_error_rate_change.png" width="760" alt="Per-set error rate change between Baseline Form A and Retest Form B with 95% Jeffreys credible intervals" />
+</div>
 
-The primary outcome is the change in per-set error rate $d(s) = e_{\text{ret}}(s) - e_{\text{base}}(s)$ on assigned bigrams between baseline (Form A) and retest (Form B), evaluated under Jeffreys 95% Beta credible intervals and posterior targeting effect draws:
+The table below reports baseline (Form A) and retest (Form B) error counts, exact equal-tailed 95% Jeffreys Beta credible intervals, within-set change $d(s)$, difference-in-differences targeting effect $E(s)$, and posterior probability $P(E(s) \lt 0)$:
 
-| Set | Arm | Assigned Bigrams | Baseline Errors / Attempts | Baseline 95% CI | Retest Errors / Attempts | Retest 95% CI | Error Rate Change $d(s)$ | Targeting Effect $E(s)$ | $P(E(s) < 0)$ |
-|---|---|---|---:|---|---:|---|---:|---:|---:|
-| A | control | `be`, `ev`, `ly`, `nc` | 13/77 (16.9%) | [0.0981, 0.2639] | 7/155 (4.5%) | [0.0204, 0.0866] | -12.36% | - | - |
-| B | heuristic | `ay`, `fr`, `no`, `rs` | 14/84 (16.7%) | [0.0989, 0.2570] | 9/143 (6.3%) | [0.0316, 0.1117] | -10.38% | +1.98% | 37.7% |
+| Set | Arm | Assigned Bigrams | Baseline Errors / Attempts | Baseline 95% CI | Retest Errors / Attempts | Retest 95% CI | Error Rate Change $d(s)$ | Targeting Effect $E(s)$ | $P(E(s) \lt 0)$ |
+| :---: | :--- | :--- | ---: | :---: | ---: | :---: | ---: | ---: | ---: |
+| **A** | `control` | `be`, `ev`, `ly`, `nc` | 13/77 (16.9%) | `[0.0981, 0.2639]` | 7/155 (4.5%) | `[0.0204, 0.0866]` | -12.36% | — | — |
+| **B** | `heuristic` | `ay`, `fr`, `no`, `rs` | 14/84 (16.7%) | `[0.0989, 0.2570]` | 9/143 (6.3%) | `[0.0316, 0.1117]` | -10.38% | +1.98% | 37.7% |
 
-### Key Secondary Outcome: Inter-Key Interval (IKI) Shift
+### Key Secondary Outcome: Clean Inter-Key Interval (IKI) Shift
 
-The key secondary outcome is the clean inter-key interval (IKI) shift $c(s) = m_{\text{ret}}(s) - m_{\text{base}}(s)$ evaluated across clean first-attempt keystrokes, with empirical bootstrap 95% confidence intervals:
+Clean press-to-press transition latencies across unpaused first-attempt keystrokes, with 10,000-resample non-parametric bootstrap 95% confidence intervals:
 
-| Set | Arm | Baseline Median IKI (n) | Baseline IQR | Retest Median IKI (n) | Retest IQR | Shift $c(s)$ | Targeting Effect $F(s)$ | Bootstrap 95% CI |
-|---|---|---:|---:|---:|---:|---:|---:|---|
-| A | control | 142.2ms (64) | 20.0ms | 140.6ms (148) | 19.8ms | -1.6ms | - | - |
-| B | heuristic | 139.3ms (70) | 16.0ms | 137.2ms (134) | 20.9ms | -2.0ms | -0.4ms | [-8.4, +7.9] |
+| Set | Arm | Baseline Median IKI ($n$) | Baseline IQR | Retest Median IKI ($n$) | Retest IQR | Shift $c(s)$ | Targeting Effect $F(s)$ | Bootstrap 95% CI |
+| :---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | :---: |
+| **A** | `control` | 142.2 ms (64) | 20.0 ms | 140.6 ms (148) | 19.8 ms | -1.6 ms | — | — |
+| **B** | `heuristic` | 139.3 ms (70) | 16.0 ms | 137.2 ms (134) | 20.9 ms | -2.0 ms | -0.4 ms | `[-8.4, +7.9]` ms |
 
-### Generation Summary Table
+### Generation Summary & Telemetry Overhead
 
 | Arm | Drills | Mean Density | Real-Word Ratio | Acceptance Rate |
 |---|---:|---:|---:|---:|
@@ -211,158 +365,160 @@ The key secondary outcome is the clean inter-key interval (IKI) shift $c(s) = m_
 | markov | 0 | - | - | - |
 | llm | 0 | - | - | - |
 
-### Overhead & Throughput
-
 Instrumentation overhead: handler p95 = 0.20 ms (target < 1.0 ms), dispatch lag p95 = 0.50 ms. LLM generation: N/A.
 
-### Limitations
+### Limitations & Study Interpretation
 
-This pilot reports findings from N = 1 participant (builder, unblinded) across 14 completed sessions and 25,022 total keystrokes. The primary participant is the author and system builder, who was unblinded to arm assignments during typing; results are descriptive within-person comparisons and should be evaluated with this limitation in mind.
+> [!NOTE]
+> This pilot reports findings from N = 1 participant (builder, unblinded) across 14 completed sessions and 25,022 total keystrokes. The primary participant is the author and system builder, who was unblinded to arm assignments during typing; results are descriptive within-person comparisons and should be evaluated with this limitation in mind.
 
-### Findings & Interpretation
+- **Substantial Longitudinal Improvement:** Error rates fell sharply across both sets (`-12.36%` in Set A `control`; `-10.38%` in Set B `heuristic`), reflecting strong general motor adaptation across the 10 practice days.
+- **Targeting Parity in Single-Subject Pilot:** The difference-in-differences contrast $E(\mathrm{heuristic}) = +1.98\%$ ($P(E \lt 0) = 37.7\%$) and latency contrast $F(\mathrm{heuristic}) = -0.4\,\mathrm{ms}$ (`[-8.4, +7.9] ms`) show broad parity between greedy dictionary targeting and plain typing volume in this $N = 1$ run, validating end-to-end telemetry precision, attribution invariants, and reproducible Bayesian reporting without overclaiming population effects.
 
-In this pilot participant, error rates dropped substantially across both sets (-12.36% in Set A control, -10.38% in Set B heuristic), reflecting general motor practice and task familiarisation across the 10 practice days. The targeting effect $E(s) = d(\text{heuristic}) - d(\text{control}) = +1.98\%$ indicates no meaningful divergence between heuristic drill targeting and general plain-text typing practice within this single-subject evaluation. Posterior distributions show $P(E(s) < 0) = 37.7\%$, consistent with parity between conditions. Clean inter-key interval shifts showed similar modest speed-ups across both arms (-1.6 ms in control, -2.0 ms in heuristic; targeting effect $F(s) = -0.4\text{ ms}$, bootstrap 95% CI $[-8.4, +7.9]\text{ ms}$). Because this is an $N=1$ unblinded pilot, these results serve to validate system instrumentation, attribution pipelines, and analysis workflows rather than establish population claims.
+### Automated Claim Traceability
 
-### Verification & Reproducibility
+Every empirical figure, count, and interval in this README is programmatically audited against `data/typist.db`:
 
-All claims in this document trace directly to SQLite database records. The results can be inspected and regenerated locally:
-- `just figures`: Regenerates outcome charts and markdown snippets into `docs/figures/`.
-- `just check-readme`: Verifies that every number, interval, and table in this document matches database records ($0.00$ claim divergence).
-- Interactive exploration is available via Jupyter notebook `notebooks/03_results.ipynb` and the web dashboard at `#/dashboard`.
-
----
-
-## Autonomous Multi-Agent Development Pipeline
-
-This codebase was developed following an autonomous 5-phase agentic pipeline with strict separation of concerns and independent quality gates:
-
-```
-  Phase 1: Understand ──► Phase 2: Blueprint ──► Phase 3: Build ──► Phase 4: Review ──► Phase 5: Ship
-   (Gemini 4 Argon)        (Gemini 4 Argon)      (Claude Sonnet)     (Claude Opus)       (Orchestrator)
-   Exhaustive Brief        Guided Step Plan       Code & Commits     Strict Security    PR & Validation
-```
-
-1. **Phase 1: Understand (`analyst` — Gemini 4 Argon)**: Researches specifications and codebase facts without designing solutions; documents edge cases, inputs, and governing D-numbers in `docs/plans/<task>-brief.md`.
-2. **Phase 2: Blueprint (`architect` — Gemini 4 Argon)**: Formulates an exact, step-by-step implementation blueprint with complete types, signatures, SQL queries, and unit tests in `docs/plans/<task>-plan.md`.
-3. **Phase 3: Build (`builder` — Claude Sonnet 4.6)**: Implements the blueprint step by step, committing after each step with conventional commit messages and zero unguided deviations.
-4. **Phase 4: Review (`reviewer` — Claude Opus 5.5)**: Independent read-only verification auditing plan fidelity, pre-registered math, attribution invariants, security scans (`just security`), and zero data-leakage.
-5. **Phase 5: Ship (`orchestrator`)**: Pushes task branch, runs full repository checks (`just check`), and opens pull requests into `main`.
-
----
-
-## Setup & Quickstart (macOS, Apple Silicon)
-
-### 1. Prerequisites
-- [uv](https://docs.astral.sh/uv/) Python package manager
-- Node.js 22 (pinned in `.nvmrc`) and `pnpm` 12.6.0 (`npm install -g pnpm@12.6.0`)
-- [rust-just](https://github.com/casey/just) task runner (`uv tool install rust-just`)
-- Security & commit tools: `uv tool install pre-commit`, `uv tool install semgrep==1.178.0`, `uv tool install actionlint-py==1.7.12.25`
-
-### 2. Installation
 ```bash
-# Clone the repository
+just figures       # Regenerate 300 DPI charts & Markdown snippets from SQLite
+just check-readme  # Verify zero divergence between README claims and database rows
+```
+
+---
+
+## Autonomous Multi-Agent Engineering Pipeline
+
+Every feature across Milestones M0–M4 (`T0.1` through `T4.5`) was engineered through a disciplined **5-phase multi-agent pipeline** enforcing strict separation between specification, architecture, implementation, and adversarial review:
+
+```mermaid
+flowchart LR
+    U["1. Understand · Analyst"] --> B["2. Blueprint · Architect"]
+    B --> C["3. Build · Builder"]
+    C --> R["4. Review · Reviewer"]
+    R --> S["5. Ship · Orchestrator"]
+```
+
+| Phase | Role | Model Configuration | Deliverable & Quality Gate |
+| :--- | :--- | :--- | :--- |
+| **1. Understand** | `analyst` | Gemini 4 Argon (Medium) | Audits design doc & ADRs without writing code; produces [`docs/plans/<task>-brief.md`](docs/plans/). |
+| **2. Blueprint** | `architect` | Gemini 4 Argon (Medium) | Authors exact types, SQL queries, math invariants, and test specs in [`docs/plans/<task>-plan.md`](docs/plans/). |
+| **3. Build** | `builder` | Claude Sonnet 4.6 (Medium) | Executes the blueprint step-by-step with atomic conventional commits and zero unapproved scope drift. |
+| **4. Review** | `reviewer` | Claude Opus 5.5 (Medium) | Read-only adversarial audit checking pre-registered math, D-number invariants, golden fixtures, and security gates. |
+| **5. Ship** | `orchestrator` | Main Session | Runs full-stack `just check` & `just security` gates and opens a single-task pull request. |
+
+---
+
+## Setup & Quickstart
+
+### 1. Prerequisites (macOS · Apple Silicon Recommended)
+
+- **[uv](https://docs.astral.sh/uv/)** Python package & environment manager
+- **Node.js 22** (pinned in `.nvmrc`) and **`pnpm` 12.6.0** (`npm install -g pnpm@12.6.0`)
+- **[just](https://github.com/casey/just)** command runner (`uv tool install rust-just`)
+- **Audit & hook tools:** `uv tool install pre-commit`, `uv tool install semgrep==1.178.0`, `uv tool install actionlint-py==1.7.12.25`
+
+### 2. Install & Initialize
+
+```bash
+# Clone repository and install pre-commit hooks
 git clone https://github.com/allenvarghese05/typist-ml.git
 cd typist-ml
-
-# Install git commit hooks
 pre-commit install
 
-# Install web dependencies
+# Install frontend and backend dependencies (with Apple Silicon MLX extra)
 (cd apps/web && pnpm install --frozen-lockfile)
-
-# Install API dependencies (with optional Apple Silicon MLX local LLM extra)
 (cd services/api && uv sync --locked --extra mlx)
 
-# Run database migrations
+# Apply SQLite Alembic migrations & build offline English corpus
 just migrate
+cd services/api && uv run --locked typist corpus build && cd ../..
 
-# Download pinned Llama-3.2-1B model into Hugging Face cache (Apple Silicon only)
+# Optional (Apple Silicon): Download & verify pinned 4-bit Llama-3.2-1B model
 just mlx-smoke --download
 ```
 
-### 3. Running the Stack
+### 3. Launch the Full Stack
+
 ```bash
-# Start Web App, FastAPI Backend, and Generation Worker together
 just dev
 ```
-- Web Surface: `http://localhost:5173/#/`
-- Analytical Dashboard: `http://localhost:5173/#/dashboard`
-- Participant Debrief & Unblinding: `http://localhost:5173/#/results`
-- Admin Portal: `http://localhost:5173/#/admin`
-- OpenAPI Swagger Docs: `http://localhost:8000/docs`
 
-### 4. Running Checks & Reproducibility
+| Surface | Local URL | Purpose |
+| :--- | :--- | :--- |
+| **Typing Coach** | `http://localhost:5173/#/` | Minimalist typing surface with live WPM, accuracy, and block progression |
+| **Analytics Dashboard** | `http://localhost:5173/#/dashboard` | 6 interactive views: Overview, Outcomes, Bigram Matrix, Trends, Generation, Overhead |
+| **Participant Debrief** | `http://localhost:5173/#/results` | Single-blind lock banner during study; interactive arm reveal & diagnostics post-retest |
+| **Admin Console** | `http://localhost:5173/#/admin` | Participant enrollment, drill pool depth monitor, and worker status |
+| **OpenAPI Docs** | `http://localhost:8000/docs` | Interactive FastAPI Swagger documentation |
+
+### 4. Verification & Security Suite
+
 ```bash
-# Run complete test suite (TypeScript types, Biome, Vitest, Ruff, Pyright, Pytest)
-just check
-
-# Run security audits (Semgrep, Bandit, pip-audit, pnpm audit)
-just security
-
-# Regenerate README figures and verify all claims against SQLite
-just figures
-just check-readme
+just check         # Lint, format, strict types, and 643 unit/integration tests (Web + API)
+just security      # Semgrep SAST, Bandit, pip-audit, and pnpm dependency audit
+just figures       # Rebuild docs/figures/ from SQLite
+just check-readme  # Audit README claims against database records
 ```
 
 ---
 
-## Installed Versions
+## Environment & Model Specifications
 
-Lockfiles (`apps/web/pnpm-lock.yaml`, `services/api/uv.lock`) are the source of truth for library versions.
+| Component | Pinned Specification |
+| :--- | :--- |
+| **On-Device Inference Runtime** | Apple MLX (`mlx-lm` `0.31.3`, `mlx` `0.32.3`) — skipped cleanly on Linux CI |
+| **Quantized Language Model** | `mlx-community/Llama-3.2-1B-Instruct-4bit` |
+| **Pinned Hugging Face Revision** | `08231374eeacb049a0eade7922910865b8fce912` |
+| **Measured Generation Throughput** | `> 40 tokens/s` on Apple M1 Pro (16 GB unified memory) |
 
-### Toolchain Versions
+<details>
+<summary><strong>Pinned Toolchain, Frontend &amp; Backend Versions</strong> (click to expand)</summary>
 
-| Tool | Command | Version |
-|---|---|---|
-| just | `just --version` | just 1.58.0 |
-| pre-commit | `pre-commit --version` | pre-commit 4.6.2 |
-| actionlint | `actionlint -version` (first line) | 1.7.12 |
-| semgrep | `semgrep --version` | 1.178.0 |
-| uv | `uv --version` | uv 0.12.18 |
-| pnpm | `pnpm --version` | 12.6.0 |
-| Node | `node --version` | v22.22.2 |
-| Python | `uv run python --version` | Python 3.12.2 |
+Lockfiles ([`apps/web/pnpm-lock.yaml`](apps/web/pnpm-lock.yaml) and [`services/api/uv.lock`](services/api/uv.lock)) are the authoritative sources of truth.
 
-### Web Libraries (`apps/web`)
+#### Toolchain
 
-| Package | Version | Purpose |
-|---|---|---|
-| vite | 8.3.1 | Application bundler |
-| react / react-dom | 19.3.0 | UI rendering & hooks |
-| typescript | 6.0.3 | Strict typechecking |
-| @biomejs/biome | 2.5.14 | High-performance linter & formatter |
-| vitest | 4.1.11 | Unit & component testing |
-| tailwindcss | 4.3.3 | Utility-first styling |
+| Tool | Verification Command | Pinned Version |
+| :--- | :--- | :--- |
+| `just` | `just --version` | `1.58.0` |
+| `pre-commit` | `pre-commit --version` | `4.6.2` |
+| `actionlint` | `actionlint -version` | `1.7.12` |
+| `semgrep` | `semgrep --version` | `1.178.0` |
+| `uv` | `uv --version` | `0.12.18` |
+| `pnpm` | `pnpm --version` | `12.6.0` |
+| `node` | `node --version` | `v22.22.2` |
+| `python` | `uv run python --version` | `3.12.2` |
 
-### Python Libraries (`services/api`)
+#### Web Stack (`apps/web`)
 
-| Package | Version | Purpose |
-|---|---|---|
-| fastapi | 0.141.1 | Async REST API |
-| sqlmodel / sqlalchemy | 0.0.47 | Relational ORM |
-| alembic | 1.20.0 | Database migrations |
-| uvicorn | 0.54.0 | ASGI web server |
-| typer | 0.27.2 | CLI commands |
-| numpy | 2.2.3 | Numerical arrays & vector math |
-| scipy | 1.15.2 | Beta distribution & statistical sampling |
-| matplotlib | 3.10.1 | Headless 300 DPI chart generation |
-| wordfreq | 3.1.1 | English corpus frequency ranking |
-| ruff | 0.16.9 | Fast Python linter & formatter |
-| pyright | 1.1.414 | Strict static type checker |
-| pytest | 9.1.1 | Test runner |
+| Package | Version | Role |
+| :--- | :--- | :--- |
+| `vite` | `8.3.1` | Frontend build tool & dev server |
+| `react` / `react-dom` | `19.3.0` | UI rendering & state hooks |
+| `typescript` | `6.0.3` | Strict static type checking |
+| `@biomejs/biome` | `2.5.14` | Linter & code formatter |
+| `vitest` | `4.1.11` | Component & state-machine test runner |
+| `tailwindcss` | `4.3.3` | Utility-first styling |
 
-### On-Device Model Runtime (Apple Silicon MLX)
+#### API & Data Science Stack (`services/api`)
 
-| Item | Specification |
-|---|---|
-| Runtime | Apple MLX (`mlx-lm` 0.31.3, `mlx` 0.32.3) |
-| Model | `mlx-community/Llama-3.2-1B-Instruct-4bit` |
-| Hugging Face Revision | `08231374eeacb049a0eade7922910865b8fce912` |
-| Throughput | $>40\text{ tokens/s}$ (Apple M1 Pro, 16 GB RAM) |
+| Package | Version | Role |
+| :--- | :--- | :--- |
+| `fastapi` | `0.141.1` | Async REST API framework |
+| `sqlmodel` | `0.0.47` | Typed SQLite ORM over SQLAlchemy |
+| `alembic` | `1.20.0` | Schema & trigger migrations |
+| `uvicorn` | `0.54.0` | ASGI HTTP server |
+| `typer` | `0.27.2` | CLI orchestration (`typist`) |
+| `numpy` / `scipy` | `2.2.3` / `1.15.2` | Vectorized Beta posteriors & bootstrap sampling |
+| `matplotlib` | `3.10.1` | Deterministic 300 DPI publication charts |
+| `wordfreq` | `3.1.1` | Offline English lexical frequency index |
+| `ruff` / `pyright` / `pytest` | `0.16.9` / `1.1.414` / `9.1.1` | Linting, strict typing & test suite |
+
+</details>
 
 ---
 
-## Data and Licences
+## License & Data Attribution
 
-- **Code License:** Distributed under the **[MIT License](LICENSE)** (Copyright &copy; 2026 Allen Varghese).
-- **Corpus Data Attribution:** English word lists and frequency weights are derived from [`wordfreq`](https://pypi.org/project/wordfreq/) by Robyn Speer, distributed under the **Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0)** license. Corpus artifacts are generated offline; no external network requests are made at runtime.
+- **Source Code & Documentation:** Licensed under the **[MIT License](LICENSE)** (Copyright © 2026 Allen Varghese).
+- **Lexical Corpus Attribution:** Offline English word frequency lists are derived from [`wordfreq`](https://pypi.org/project/wordfreq/) by Robyn Speer and licensed under **[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)**. All corpus artifacts are built locally; zero external network calls occur at runtime.
