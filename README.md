@@ -2,15 +2,77 @@
 
 [![CI](https://github.com/allenvarghese05/typist-ml/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/allenvarghese05/typist-ml/actions/workflows/ci.yml)
 
-A typing coach built as a controlled experiment: it finds the letter pairs you are weakest at,
-generates practice drills aimed at them with three methods (dictionary heuristic, Markov chain,
-on-device 1B language model), and tests whether any of them beat plain practice.
+A typing coach built as a controlled experiment: does a small on-device language model write better typing drills than a dictionary heuristic or Markov chain? Plain practice serves as the control comparison.
 
-Status: milestone 0. No results yet.
+Typist-ML identifies the character bigrams where a typist exhibits elevated error rates or latency, generates targeted practice drills across competing generation strategies, and tests whether targeted practice outperforms plain text practice.
+
+Status: milestone 4 (Pilot complete).
 
 Design: [docs/design/Typist-ML_Technical_Design.pdf](docs/design/Typist-ML_Technical_Design.pdf)
 
 Analysis plan (pre-registered): [docs/analysis-plan.md](docs/analysis-plan.md)
+
+## Pilot Results
+
+The pilot evaluation was completed using a 10-practice-day reference protocol (14 completed sessions, 25,022 total keystrokes) in the pre-registered two-set contingency mode comparing plain practice (`control`, Set A) against dictionary-targeted practice (`heuristic`, Set B).
+
+### Primary Outcome: Error Rate Change
+
+![Per-set error rate change](docs/figures/set_error_rate_change.png)
+
+The primary outcome is the change in per-set error rate $d(s) = e_{\text{ret}}(s) - e_{\text{base}}(s)$ on assigned bigrams between baseline (Form A) and retest (Form B), evaluated under Jeffreys 95% Beta credible intervals and posterior targeting effect draws:
+
+| Set | Arm | Assigned Bigrams | Baseline Errors / Attempts | Baseline 95% CI | Retest Errors / Attempts | Retest 95% CI | Error Rate Change $d(s)$ | Targeting Effect $E(s)$ | $P(E(s) < 0)$ |
+|---|---|---|---:|---|---:|---|---:|---:|---:|
+| A | control | `be`, `ev`, `ly`, `nc` | 13/77 (16.9%) | [0.0981, 0.2639] | 7/155 (4.5%) | [0.0204, 0.0866] | -12.36% | - | - |
+| B | heuristic | `ay`, `fr`, `no`, `rs` | 14/84 (16.7%) | [0.0989, 0.2570] | 9/143 (6.3%) | [0.0316, 0.1117] | -10.38% | +1.98% | 37.7% |
+
+### Key Secondary Outcome: Inter-Key Interval (IKI) Shift
+
+The key secondary outcome is the clean inter-key interval (IKI) shift $c(s) = m_{\text{ret}}(s) - m_{\text{base}}(s)$ evaluated across clean first-attempt keystrokes, with empirical bootstrap 95% confidence intervals:
+
+| Set | Arm | Baseline Median IKI (n) | Baseline IQR | Retest Median IKI (n) | Retest IQR | Shift $c(s)$ | Targeting Effect $F(s)$ | Bootstrap 95% CI |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| A | control | 142.2ms (64) | 20.0ms | 140.6ms (148) | 19.8ms | -1.6ms | - | - |
+| B | heuristic | 139.3ms (70) | 16.0ms | 137.2ms (134) | 20.9ms | -2.0ms | -0.4ms | [-8.4, +7.9] |
+
+### Generation Summary Table
+
+| Arm | Drills | Mean Density | Real-Word Ratio | Acceptance Rate |
+|---|---:|---:|---:|---:|
+| control | 24 | 0.000 | 1.000 | 100.0% |
+| heuristic | 24 | 0.245 | 1.000 | 100.0% |
+| markov | 0 | - | - | - |
+| llm | 0 | - | - | - |
+
+### Overhead & Throughput
+
+Instrumentation overhead: handler p95 = 0.20 ms (target < 1.0 ms), dispatch lag p95 = 0.50 ms. LLM generation: N/A.
+
+### Limitations
+
+This pilot reports findings from N = 1 participant (builder, unblinded) across 14 completed sessions and 25,022 total keystrokes. The primary participant is the author and system builder, who was unblinded to arm assignments during typing; results are descriptive within-person comparisons and should be evaluated with this limitation in mind.
+
+### Findings & Interpretation
+
+In this pilot participant, error rates dropped substantially across both sets (-12.36% in Set A control, -10.38% in Set B heuristic), reflecting general motor practice and task familiarisation across the 10 practice days. The targeting effect $E(s) = d(\text{heuristic}) - d(\text{control}) = +1.98\%$ indicates no meaningful divergence between heuristic drill targeting and general plain-text typing practice within this single-subject evaluation. Posterior distributions show $P(E(s) < 0) = 37.7\%$, consistent with parity between conditions. Clean inter-key interval shifts showed similar modest speed-ups across both arms (-1.6 ms in control, -2.0 ms in heuristic; targeting effect $F(s) = -0.4\text{ ms}$, bootstrap 95% CI $[-8.4, +7.9]\text{ ms}$). Because this is an $N=1$ unblinded pilot, these results serve to validate system instrumentation, attribution pipelines, and analysis workflows rather than establish population claims.
+
+### Verification & Reproducibility
+
+All claims in this document trace directly to SQLite database records. The results can be inspected and regenerated locally:
+- `just figures`: Regenerates outcome charts and markdown snippets into `docs/figures/`.
+- `just check-readme`: Verifies that every number, interval, and table in this document matches database records ($0.00$ claim divergence).
+- Interactive exploration is available via Jupyter notebook `notebooks/03_results.ipynb` and the web dashboard at `#/dashboard`.
+
+## Experimental Method
+
+- **Within-Person Comparison (D01):** Each participant acts as their own control. Rather than comparing between different typists with divergent baseline proficiencies, each participant trains simultaneously on distinct target bigram sets assigned to different generation arms.
+- **Held-Out Control Set (D02):** One set of weak bigrams (Set A) is explicitly held out from targeted practice and receives only natural text practice, providing the baseline motor learning control against which targeted drill effects are measured.
+- **Four-Arm RCT & Pre-Registered Contingency Mode (D03, §3.1):** The full design specifies a four-arm randomized controlled trial (`control`, `heuristic`, `markov`, `llm`). The pre-registered protocol (`docs/analysis-plan.md`, §3.1) specifies a two-set fallback contingency mode (`control`, `heuristic`) when running on resource-constrained platforms or pilot configurations without GPU acceleration.
+- **Snake-Order Dealing & Assignment Freeze (D04):** Baseline bigrams with error rates above median are ranked and dealt to sets in snake order (`A, B, B, A...`) to balance baseline difficulty across arms before training begins. Assignments freeze permanently upon practice commencement.
+- **Shared Validator Fairness Gate (D16, D30):** All candidate drills across all generators must satisfy identical acceptance criteria: character length (120–180 characters), target bigram density (10%–40%), real-word vocabulary ratio ($\ge 85\%$), profanity filtering, and grammar bounds. Drills failing validation are rejected by the background worker.
+- **Keystroke Telemetry & Attribution Invariants (D14, D15, D24, D27):** Monotonic sub-millisecond timestamps capture dwell times and inter-key intervals (IKI). Errors are attributed strictly to first-attempt character substitutions; post-error keystrokes and backspaces are tracked but excluded from error rate denominators. Keystroke pauses exceeding 2000 ms are excluded from latency metrics.
+- **Blinding & Unblinded Author Disclosure (D18, D19):** In participant trials, participants are blinded to arm assignments. For this reference pilot dataset, the participant is the system builder and author (`is_builder=True`), who was unblinded to assignment conditions; this status is permanently recorded in the database schema and explicitly disclosed.
 
 ## Setup (macOS, Apple Silicon)
 
