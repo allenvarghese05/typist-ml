@@ -17,6 +17,14 @@ from typist.main import create_app
 from typist.migrations import upgrade_to_head
 from typist.models import ExperimentConfig, Participant
 from typist.schemas.admin import ChecksResponse
+from typist.schemas.analysis import ParticipantResults
+from typist.services.analysis import (
+    DEFAULT_BOOTSTRAP_RESAMPLES,
+    DEFAULT_POSTERIOR_DRAWS,
+    DEFAULT_SEED,
+    ParticipantNotDoneError,
+    participant_results,
+)
 from typist.services.assignment import (
     AssignmentError,
     MissingConfigError,
@@ -537,3 +545,146 @@ def test_pipeline_command(
     except Exception as exc:
         typer.echo(f"\nFAILURE: Pipeline simulation failed: {exc}", err=True)
         raise typer.Exit(code=1) from exc
+
+
+def format_analysis_report(res: ParticipantResults) -> str:
+    """Format study-level outcome analysis report for terminal display."""
+    lines: list[str] = []
+    builder_str = " (builder, unblinded)" if res.is_builder else " (blinded)"
+    lines.append(f"Participant: {res.alias} ({res.participant_id}){builder_str} - Status: {res.status}")
+    lines.append(
+        f"Baseline: WPM={res.baseline_wpm if res.baseline_wpm is not None else '-'}, "
+        f"Acc={f'{res.baseline_accuracy*100:.1f}%' if res.baseline_accuracy is not None else '-'} "
+        f"(Sessions: {', '.join(res.analyzed_baseline_session_ids)})"
+    )
+    lines.append(
+        f"Retest:   WPM={res.retest_wpm if res.retest_wpm is not None else '-'}, "
+        f"Acc={f'{res.retest_accuracy*100:.1f}%' if res.retest_accuracy is not None else '-'} "
+        f"(Sessions: {', '.join(res.analyzed_retest_session_ids)})"
+    )
+    lines.append("")
+
+    # Primary Outcome table
+    lines.append("PRIMARY OUTCOME: Error Rates and Beta Posterior Targeting Effects")
+    lines.append(
+        f"{'Set':<5} {'Arm':<11} {'Base Err':<12} {'Base 95% CI':<18} "
+        f"{'Ret Err':<12} {'Ret 95% CI':<18} {'Change':<8} {'Effect E(s)':<12} {'P(E<0)':<8}"
+    )
+    lines.append("-" * 105)
+    for s in res.sets:
+        b_err = (
+            f"{s.baseline_errors}/{s.baseline_attempts} ({s.baseline_error_rate*100:.1f}%)"
+            if s.baseline_error_rate is not None
+            else "-"
+        )
+        b_ci = (
+            f"[{s.baseline_beta_ci_lower:.4f}, {s.baseline_beta_ci_upper:.4f}]"
+            if s.baseline_beta_ci_lower is not None
+            else "-"
+        )
+        r_err = (
+            f"{s.retest_errors}/{s.retest_attempts} ({s.retest_error_rate*100:.1f}%)"
+            if s.retest_error_rate is not None
+            else "-"
+        )
+        r_ci = (
+            f"[{s.retest_beta_ci_lower:.4f}, {s.retest_beta_ci_upper:.4f}]"
+            if s.retest_beta_ci_lower is not None
+            else "-"
+        )
+        chg = f"{s.error_rate_change*100:+.2f}%" if s.error_rate_change is not None else "-"
+        eff = f"{s.targeting_effect*100:+.2f}%" if s.targeting_effect is not None else "-"
+        p_below = f"{s.share_below_zero*100:.1f}%" if s.share_below_zero is not None else "-"
+        lines.append(
+            f"{s.set_label:<5} {s.arm:<11} {b_err:<12} {b_ci:<18} "
+            f"{r_err:<12} {r_ci:<18} {chg:<8} {eff:<12} {p_below:<8}"
+        )
+    lines.append("")
+
+    # Secondary Outcome table
+    lines.append("KEY SECONDARY OUTCOME: Median IKI and Bootstrap Confidence Intervals")
+    lines.append(
+        f"{'Set':<5} {'Arm':<11} {'Base IKI (n)':<16} {'Base IQR':<10} "
+        f"{'Ret IKI (n)':<16} {'Ret IQR':<10} {'Change':<10} {'Effect F(s)':<14} {'Bootstrap 95% CI':<20}"
+    )
+    lines.append("-" * 115)
+    for s in res.sets:
+        b_iki = (
+            f"{s.baseline_iki_median_ms:.1f}ms ({s.baseline_iki_n})"
+            if s.baseline_iki_median_ms is not None
+            else "-"
+        )
+        b_iqr = (
+            f"{s.baseline_iki_iqr_ms:.1f}ms"
+            if s.baseline_iki_iqr_ms is not None
+            else "-"
+        )
+        r_iki = (
+            f"{s.retest_iki_median_ms:.1f}ms ({s.retest_iki_n})"
+            if s.retest_iki_median_ms is not None
+            else "-"
+        )
+        r_iqr = (
+            f"{s.retest_iki_iqr_ms:.1f}ms"
+            if s.retest_iki_iqr_ms is not None
+            else "-"
+        )
+        chg = f"{s.iki_change_ms:+.1f}ms" if s.iki_change_ms is not None else "-"
+        eff = f"{s.iki_targeting_effect_ms:+.1f}ms" if s.iki_targeting_effect_ms is not None else "-"
+        boot_ci = (
+            f"[{s.iki_bootstrap_ci_lower_ms:+.1f}, {s.iki_bootstrap_ci_upper_ms:+.1f}]"
+            if s.iki_bootstrap_ci_lower_ms is not None
+            else "-"
+        )
+        lines.append(
+            f"{s.set_label:<5} {s.arm:<11} {b_iki:<16} {b_iqr:<10} "
+            f"{r_iki:<16} {r_iqr:<10} {chg:<10} {eff:<14} {boot_ci:<20}"
+        )
+
+    if res.exclusions:
+        lines.append("")
+        lines.append("EXCLUSIONS REPORT:")
+        if res.exclusions.excluded_sessions:
+            for ex in res.exclusions.excluded_sessions:
+                lines.append(f"  - Session {ex.session_id} ({ex.phase}, day {ex.day_index}): {ex.reason}")
+        else:
+            lines.append("  - Excluded sessions: none")
+
+        if res.exclusions.dropped_bigrams:
+            for db in res.exclusions.dropped_bigrams:
+                lines.append(
+                    f"  - Dropped bigram '{db.bigram}' (Set {db.set_label}, {db.arm}): {db.retest_attempts} attempts (< 20)"
+                )
+        else:
+            lines.append("  - Dropped bigrams: none")
+
+        if res.exclusions.pause_counts:
+            pause_strs = [f"{k}={v}" for k, v in sorted(res.exclusions.pause_counts.items())]
+            lines.append(f"  - Excluded pause pairs: {', '.join(pause_strs)}")
+
+    return "\n".join(lines)
+
+
+@app.command("analyze")
+def analyze_command(
+    pid: str = typer.Option(..., "--pid", help="Participant id whose study results to analyze."),
+    seed: int = typer.Option(DEFAULT_SEED, "--seed", help="Random seed for posterior draws and bootstrap."),
+    draws: int = typer.Option(DEFAULT_POSTERIOR_DRAWS, "--draws", help="Number of Beta posterior effect draws."),
+    resamples: int = typer.Option(DEFAULT_BOOTSTRAP_RESAMPLES, "--resamples", help="Number of IKI bootstrap resamples."),
+) -> None:
+    """Compute and display pre-registered study outcome analysis for one completed participant."""
+    settings = get_settings()
+    engine = create_db_engine(settings.db_path)
+    with Session(engine) as session:
+        try:
+            results = participant_results(
+                session, pid, seed=seed, n_draws=draws, n_resamples=resamples
+            )
+        except ParticipantNotFoundError:
+            typer.echo(f"no participant with id {pid!r}", err=True)
+            raise typer.Exit(code=1) from None
+        except (ParticipantNotDoneError, ParticipantNotAssignedError) as error:
+            typer.echo(f"cannot analyze {pid}: {error}", err=True)
+            raise typer.Exit(code=1) from None
+
+    typer.echo(format_analysis_report(results))
