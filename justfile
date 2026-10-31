@@ -250,6 +250,18 @@ figures *args:
     cd services/api
     uv run --locked typist figures {{args}}
 
+# Verify that README claims trace to the database (T4.4; design doc 15.3, 16).
+check-readme *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{justfile_directory()}}"
+    if [ ! -f services/api/pyproject.toml ]; then
+        echo "services/api not yet scaffolded, skipping check-readme"
+        exit 0
+    fi
+    cd services/api
+    uv run --locked typist check-readme {{args}}
+
 # Generate apps/web/src/api/schema.d.ts from the API's OpenAPI schema (not ready yet).
 gen-types:
     @echo "gen-types not yet implemented (needs services/api and apps/web), skipping"
