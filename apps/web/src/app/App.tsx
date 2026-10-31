@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { AdminPage } from "../features/admin/AdminPage";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
+import { DebriefPage } from "../features/debrief/DebriefPage";
 import { MatrixPage } from "../features/matrix/MatrixPage";
 import { createCollectorSink } from "../features/session/collector";
 import { DEMO_BLOCK_LABEL, DEMO_BLOCK_TEXT } from "../features/session/fixtures";
@@ -41,6 +42,14 @@ export function App() {
           >
             Dashboard
           </a>
+          <a
+            href="#/results"
+            className={`hover:text-blue-400 transition-colors ${
+              route.name === "debrief" ? "text-blue-400 font-semibold" : "text-gray-300"
+            }`}
+          >
+            Debrief
+          </a>
         </div>
       </nav>
 
@@ -49,6 +58,7 @@ export function App() {
         {route.name === "dashboard" && (
           <DashboardPage initialParticipantId={route.participantId} initialTab={route.tab} />
         )}
+        {route.name === "debrief" && <DebriefPage initialParticipantId={route.participantId} />}
         {route.name === "matrix" && (
           <MatrixPage key={route.sessionId} sessionId={route.sessionId} />
         )}

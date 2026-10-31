@@ -36,6 +36,16 @@ describe("parseHash", () => {
     });
   });
 
+  it("parses #/results and #/debrief paths with optional participantId", () => {
+    expect(parseHash("#/results")).toEqual({ name: "debrief", participantId: undefined });
+    expect(parseHash("#/results/p-42")).toEqual({ name: "debrief", participantId: "p-42" });
+    expect(parseHash("#/results?participant=p-42")).toEqual({
+      name: "debrief",
+      participantId: "p-42",
+    });
+    expect(parseHash("#/debrief/p-99")).toEqual({ name: "debrief", participantId: "p-99" });
+  });
+
   it("parses everything else to the demo route", () => {
     expect(parseHash("")).toEqual({ name: "demo" });
     expect(parseHash("#")).toEqual({ name: "demo" });
@@ -53,6 +63,8 @@ function RouteProbe(): React.JSX.Element {
     label = `admin:${route.participantId ?? "none"}`;
   } else if (route.name === "dashboard") {
     label = `dashboard:${route.participantId ?? "none"}:${route.tab ?? "none"}`;
+  } else if (route.name === "debrief") {
+    label = `debrief:${route.participantId ?? "none"}`;
   }
   return <span data-testid="route">{label}</span>;
 }
@@ -71,5 +83,10 @@ describe("useHashRoute", () => {
       window.dispatchEvent(new HashChangeEvent("hashchange"));
     });
     expect(screen.getByTestId("route")).toHaveTextContent("admin:p-1");
+    act(() => {
+      window.location.hash = "#/results/p-10";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(screen.getByTestId("route")).toHaveTextContent("debrief:p-10");
   });
 });
