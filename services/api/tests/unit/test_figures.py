@@ -7,7 +7,9 @@ from pathlib import Path
 import pytest
 from sqlalchemy import Engine
 from sqlmodel import Session
+from typer.testing import CliRunner
 
+from typist.cli import app
 from typist.db import create_db_engine
 from typist.migrations import upgrade_to_head
 from typist.models import BigramAssignment, BigramStat, Participant
@@ -33,6 +35,7 @@ from typist.services.figures import (
 )
 
 NOW = datetime(2026, 10, 30, 12, 0, 0, tzinfo=UTC)
+runner = CliRunner()
 
 
 @pytest.fixture
@@ -390,3 +393,136 @@ def test_generate_all_figures_end_to_end(migrated_engine: Engine, tmp_path: Path
         assert artifacts.primary_svg.exists()
         assert artifacts.readme_snippets_path.exists()
         assert "README Snippets" in artifacts.snippets_markdown
+
+
+def _seed_completed_participant(session: Session, alias: str = "pilot-builder") -> str:
+    p = Participant(alias=alias, status="done", is_builder=True, is_blinded=False)
+    session.add(p)
+    session.flush()
+
+    session.add_all(
+        [
+            BigramAssignment(
+                participant_id=p.id,
+                set_label="A",
+                arm="control",
+                bigram="th",
+                baseline_rank=1,
+                weakness_score=0.5,
+                baseline_attempts=30,
+                baseline_errors=3,
+                frozen_at=NOW,
+            ),
+            BigramAssignment(
+                participant_id=p.id,
+                set_label="B",
+                arm="heuristic",
+                bigram="er",
+                baseline_rank=2,
+                weakness_score=0.4,
+                baseline_attempts=30,
+                baseline_errors=3,
+                frozen_at=NOW,
+            ),
+        ]
+    )
+    session.flush()
+
+    s_base = TypingSession(
+        participant_id=p.id,
+        phase="baseline",
+        day_index=1,
+        status="completed",
+        wpm=55.0,
+        accuracy=0.96,
+        client_info={},
+        started_at=NOW,
+        ended_at=NOW,
+    )
+    s_retest = TypingSession(
+        participant_id=p.id,
+        phase="retest",
+        day_index=2,
+        status="completed",
+        wpm=60.0,
+        accuracy=0.98,
+        client_info={},
+        started_at=NOW,
+        ended_at=NOW,
+    )
+    session.add_all([s_base, s_retest])
+    session.flush()
+
+    session.add_all(
+        [
+            BigramStat(
+                participant_id=p.id,
+                session_id=s_base.id,
+                bigram="th",
+                attempts=30,
+                errors=3,
+                iki_n=0,
+            ),
+            BigramStat(
+                participant_id=p.id,
+                session_id=s_base.id,
+                bigram="er",
+                attempts=30,
+                errors=3,
+                iki_n=0,
+            ),
+            BigramStat(
+                participant_id=p.id,
+                session_id=s_retest.id,
+                bigram="th",
+                attempts=30,
+                errors=2,
+                iki_n=0,
+            ),
+            BigramStat(
+                participant_id=p.id,
+                session_id=s_retest.id,
+                bigram="er",
+                attempts=30,
+                errors=1,
+                iki_n=0,
+            ),
+        ]
+    )
+    session.commit()
+    return p.id
+
+
+def test_cli_figures_command_empty_db(isolated_settings: Path, migrated_engine: Engine) -> None:
+    result = runner.invoke(app, ["figures"])
+    assert result.exit_code == 1
+    assert "no completed participants found" in result.output
+
+
+def test_cli_figures_command_success(
+    isolated_settings: Path, migrated_engine: Engine, tmp_path: Path
+) -> None:
+    with Session(migrated_engine) as session:
+        _seed_completed_participant(session)
+
+    result = runner.invoke(app, ["figures", "--out-dir", str(tmp_path)])
+    assert result.exit_code == 0
+    assert (tmp_path / "set_error_rate_change.png").exists()
+    assert (tmp_path / "set_error_rate_change.svg").exists()
+    assert (tmp_path / "readme_snippets.md").exists()
+    assert "Saved primary chart" in result.output
+    assert "README Snippets" in result.output
+
+
+def test_cli_analyze_with_figures_flag(
+    isolated_settings: Path, migrated_engine: Engine, tmp_path: Path
+) -> None:
+    with Session(migrated_engine) as session:
+        pid = _seed_completed_participant(session)
+
+    result = runner.invoke(app, ["analyze", "--pid", pid, "--figures", "--out-dir", str(tmp_path)])
+    assert result.exit_code == 0
+    assert f"Participant: pilot-builder ({pid})" in result.output
+    assert (tmp_path / "set_error_rate_change.png").exists()
+    assert (tmp_path / "set_error_rate_change.svg").exists()
+    assert (tmp_path / "readme_snippets.md").exists()
