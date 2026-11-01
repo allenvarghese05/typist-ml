@@ -179,6 +179,41 @@ export function TypingSurface(props: TypingSurfaceProps): ReactElement {
   );
 }
 
+interface CharDescriptor {
+  readonly char: string;
+  readonly index: number;
+  readonly key: string;
+}
+
+type TextToken =
+  | { readonly kind: "word"; readonly key: string; readonly cells: readonly CharDescriptor[] }
+  | { readonly kind: "space"; readonly key: string; readonly cell: CharDescriptor };
+
+function tokenizeTarget(target: string): readonly TextToken[] {
+  const tokens: TextToken[] = [];
+  let wordCells: CharDescriptor[] = [];
+
+  for (let i = 0; i < target.length; i++) {
+    const char = target[i] ?? "";
+    const cell: CharDescriptor = { char, index: i, key: `${i}:${char}` };
+    if (char === " ") {
+      if (wordCells.length > 0) {
+        const firstIdx = wordCells[0]?.index ?? i;
+        tokens.push({ kind: "word", key: `w:${firstIdx}`, cells: wordCells });
+        wordCells = [];
+      }
+      tokens.push({ kind: "space", key: `s:${i}`, cell });
+    } else {
+      wordCells.push(cell);
+    }
+  }
+  if (wordCells.length > 0) {
+    const firstIdx = wordCells[0]?.index ?? 0;
+    tokens.push({ kind: "word", key: `w:${firstIdx}`, cells: wordCells });
+  }
+  return tokens;
+}
+
 const TextView = memo(function TextView({
   store,
   probe,
@@ -187,16 +222,22 @@ const TextView = memo(function TextView({
   readonly probe?: RenderProbe;
 }): ReactElement {
   probe?.onTextRender?.();
-  // Keys are built off the map (not the JSX index arg) so noArrayIndexKey is not triggered.
-  const cells = useMemo(
-    () => Array.from(store.target, (char, index) => ({ char, index, key: `${index}:${char}` })),
-    [store],
-  );
+  // Group contiguous letters into nowrap word spans and keep spaces as real breakable spaces
+  // between words so words never cut off mid-line and wrapped lines start flush-left.
+  const tokens = useMemo(() => tokenizeTarget(store.target), [store]);
   return (
-    <p className="mt-7 whitespace-pre-wrap break-words font-mono text-[21px] leading-[1.85] tracking-[-0.01em] select-none">
-      {cells.map((cell) => (
-        <CharCell key={cell.key} store={store} index={cell.index} char={cell.char} />
-      ))}
+    <p className="mt-7 whitespace-pre-wrap font-mono text-[21px] leading-[1.85] tracking-[-0.01em] select-none">
+      {tokens.map((token) =>
+        token.kind === "word" ? (
+          <span key={token.key} className="inline-block whitespace-nowrap max-w-full" data-word="">
+            {token.cells.map((cell) => (
+              <CharCell key={cell.key} store={store} index={cell.index} char={cell.char} />
+            ))}
+          </span>
+        ) : (
+          <CharCell key={token.key} store={store} index={token.cell.index} char={token.cell.char} />
+        ),
+      )}
     </p>
   );
 });
@@ -211,6 +252,11 @@ const CharCell = memo(function CharCell({
   readonly char: string;
 }): ReactElement {
   const state = useSyncExternalStore(store.subscribe, () => store.getCellSnapshot(index));
+  const isLastTyped = useSyncExternalStore(store.subscribe, () => {
+    const cur = store.getCursorIndex();
+    return cur > 0 && cur < store.length && index === cur - 1;
+  });
+
   const isCursor = state.endsWith("-cursor");
   const status = isCursor ? state.slice(0, -"-cursor".length) : state;
   const color =
@@ -219,12 +265,25 @@ const CharCell = memo(function CharCell({
       : status === "correct"
         ? "text-[#111111]"
         : "text-[#9B9A95]";
-  const cursor = isCursor
-    ? " bg-[#111111]/8 text-[#111111] underline decoration-[#111111] decoration-2 underline-offset-4 rounded-[2px]"
-    : "";
+
+  // Highlight sits one behind on the character already typed (cursorIndex - 1), never on the
+  // upcoming untyped character. Before any key is pressed, index 0 shows a thin leading bar only.
+  const activeTrail = isLastTyped
+    ? status === "error"
+      ? " bg-[#FAD6D6] rounded-[3px] shadow-[inset_-2px_0_0_#9F2F2D]"
+      : " bg-[#111111]/[0.09] rounded-[3px] shadow-[inset_-2px_0_0_#111111]"
+    : index === 0 && isCursor
+      ? " shadow-[inset_2px_0_0_#111111]"
+      : "";
+
   return (
-    <span className={`${color}${cursor}`} data-cell={index} data-state={state}>
-      {char === " " ? "\u00a0" : char}
+    <span
+      className={`${color}${activeTrail}`}
+      data-active-trail={isLastTyped ? "true" : undefined}
+      data-cell={index}
+      data-state={state}
+    >
+      {char}
     </span>
   );
 });
