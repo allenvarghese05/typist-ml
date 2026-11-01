@@ -2,7 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { parseHash, useHashRoute } from "../useHashRoute";
+import { hashFromLocation, parseHash, useHashRoute } from "../useHashRoute";
 
 afterEach(() => {
   cleanup();
@@ -51,6 +51,14 @@ describe("parseHash", () => {
     expect(parseHash("#")).toEqual({ name: "demo" });
     expect(parseHash("#/")).toEqual({ name: "demo" });
     expect(parseHash("#/other")).toEqual({ name: "demo" });
+  });
+
+  it("normalizes direct SPA pathnames into canonical hash routes when hash is empty", () => {
+    expect(hashFromLocation("/dashboard", "?tab=trend", "")).toBe("#/dashboard?tab=trend");
+    expect(hashFromLocation("/results/p-42", "", "")).toBe("#/results/p-42");
+    expect(hashFromLocation("/admin", "", "")).toBe("#/admin");
+    expect(hashFromLocation("/", "", "#/admin")).toBe("#/admin");
+    expect(hashFromLocation("/", "", "")).toBe("");
   });
 });
 

@@ -7,29 +7,26 @@ export interface JobsTableProps {
 }
 
 const STATUS_BADGES: Record<string, string> = {
-  done: "bg-green-100 text-green-800",
-  running: "bg-blue-100 text-blue-800",
-  pending: "bg-yellow-100 text-yellow-800",
-  failed: "bg-red-100 text-red-800",
+  done: "bg-[#EDF3EC] text-[#2B5930] border-[#D7E6D5]",
+  running: "bg-[#EBF3FA] text-[#1F5E8B] border-[#CEE2F4]",
+  pending: "bg-[#FBF3DB] text-[#8A5A00] border-[#EFE0B4]",
+  failed: "bg-[#FDEBEB] text-[#9F2F2D] border-[#F5D0D2]",
 };
 
 export function JobsTable({ jobs, onRefresh, onRetry }: JobsTableProps): React.JSX.Element {
   return (
-    <div
-      className="flex flex-col gap-4 bg-white p-6 border border-gray-200 rounded-lg shadow-xs"
-      data-testid="jobs-panel"
-    >
-      <div className="flex justify-between items-center pb-4 border-b border-gray-200">
+    <div className="flex flex-col gap-4 typist-card p-6" data-testid="jobs-panel">
+      <div className="flex justify-between items-center pb-4 border-b border-[#EAEAEA]">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Generation Jobs Queue</h2>
-          <p className="text-xs text-gray-500">
+          <h2 className="text-base font-semibold text-[#111111]">Generation Jobs Queue</h2>
+          <p className="text-xs text-[#666560]">
             Monitor background LLM and heuristic generation tasks
           </p>
         </div>
         <button
           type="button"
           onClick={onRefresh}
-          className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md transition-colors"
+          className="typist-btn-secondary px-3 py-1.5 text-xs"
           data-testid="refresh-jobs-btn"
         >
           Refresh

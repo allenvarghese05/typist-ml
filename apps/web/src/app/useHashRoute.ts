@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 export type Route =
   | { readonly name: "demo" }
@@ -41,6 +41,20 @@ export function parseHash(hash: string): Route {
   return { name: "demo" };
 }
 
+/**
+ * If a user opens a known SPA path directly without a `#` prefix (e.g. `/dashboard`, `/admin`,
+ * `/results`, `/debrief`, `/matrix/<id>`), convert it into the canonical hash route.
+ */
+export function hashFromLocation(pathname: string, search: string, hash: string): string {
+  if (hash !== "" && hash !== "#") {
+    return hash;
+  }
+  if (/^\/(?:admin|dashboard|results|debrief|matrix\/)/.test(pathname)) {
+    return `#${pathname}${search}`;
+  }
+  return hash;
+}
+
 function subscribe(onChange: () => void): () => void {
   window.addEventListener("hashchange", onChange);
   return () => {
@@ -49,7 +63,7 @@ function subscribe(onChange: () => void): () => void {
 }
 
 function getSnapshot(): string {
-  return window.location.hash;
+  return hashFromLocation(window.location.pathname, window.location.search, window.location.hash);
 }
 
 function getServerSnapshot(): string {
@@ -57,6 +71,16 @@ function getServerSnapshot(): string {
 }
 
 export function useHashRoute(): Route {
-  const hash = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  return parseHash(hash);
+  const effectiveHash = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+
+  useEffect(() => {
+    if (
+      (window.location.hash === "" || window.location.hash === "#") &&
+      effectiveHash.startsWith("#/")
+    ) {
+      window.history.replaceState(null, "", `/${effectiveHash}`);
+    }
+  }, [effectiveHash]);
+
+  return parseHash(effectiveHash);
 }

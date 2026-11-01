@@ -155,11 +155,26 @@ export function TypingSurface(props: TypingSurfaceProps): ReactElement {
   };
 
   return (
-    <section aria-label={blockLabel} className="mx-auto max-w-3xl p-8">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">{blockLabel}</h2>
-      <TextView store={store} probe={probe} />
-      <ProgressBar store={store} />
-      <BlockOverlay store={store} onRestart={restart} />
+    <section aria-label={blockLabel} className="mx-auto max-w-3xl px-6 py-8 sm:py-10">
+      <div className="typist-card p-6 sm:p-10">
+        <div className="flex items-center justify-between pb-5 border-b border-[#EAEAEA]">
+          <h2 className="text-xs font-medium text-[#666560]">{blockLabel}</h2>
+          <ProgressCounter store={store} />
+        </div>
+
+        <TextView store={store} probe={probe} />
+        <ProgressBar store={store} />
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-[#666560]">
+          <div className="flex items-center gap-2">
+            <span>Errors stay highlighted until corrected with</span>
+            <kbd className="typist-kbd">Backspace</kbd>
+          </div>
+          <span className="font-mono text-[11px] text-[#8A8883]">Lowercase a–z &amp; space</span>
+        </div>
+
+        <BlockOverlay store={store} onRestart={restart} />
+      </div>
     </section>
   );
 }
@@ -178,7 +193,7 @@ const TextView = memo(function TextView({
     [store],
   );
   return (
-    <p className="mt-4 whitespace-pre-wrap break-words font-mono text-xl leading-relaxed">
+    <p className="mt-7 whitespace-pre-wrap break-words font-mono text-[21px] leading-[1.85] tracking-[-0.01em] select-none">
       {cells.map((cell) => (
         <CharCell key={cell.key} store={store} index={cell.index} char={cell.char} />
       ))}
@@ -199,14 +214,29 @@ const CharCell = memo(function CharCell({
   const isCursor = state.endsWith("-cursor");
   const status = isCursor ? state.slice(0, -"-cursor".length) : state;
   const color =
-    status === "error" ? "text-red-600" : status === "correct" ? "text-gray-900" : "text-gray-400";
-  const cursor = isCursor ? " underline decoration-2" : "";
+    status === "error"
+      ? "text-[#9F2F2D] bg-[#FDEBEB] rounded-[2px]"
+      : status === "correct"
+        ? "text-[#111111]"
+        : "text-[#9B9A95]";
+  const cursor = isCursor
+    ? " bg-[#111111]/8 text-[#111111] underline decoration-[#111111] decoration-2 underline-offset-4 rounded-[2px]"
+    : "";
   return (
     <span className={`${color}${cursor}`} data-cell={index} data-state={state}>
       {char === " " ? "\u00a0" : char}
     </span>
   );
 });
+
+function ProgressCounter({ store }: { readonly store: TypingDisplayStore }): ReactElement {
+  const typed = useSyncExternalStore(store.subscribe, store.getTypedCount);
+  return (
+    <span className="font-mono text-xs text-[#666560] tabular-nums">
+      {typed} <span className="text-[#8A8883]">/ {store.length} chars</span>
+    </span>
+  );
+}
 
 function ProgressBar({ store }: { readonly store: TypingDisplayStore }): ReactElement {
   const typed = useSyncExternalStore(store.subscribe, store.getTypedCount);
@@ -217,10 +247,13 @@ function ProgressBar({ store }: { readonly store: TypingDisplayStore }): ReactEl
       aria-valuemax={total}
       aria-valuemin={0}
       aria-valuenow={typed}
-      className="mt-6 h-2 w-full overflow-hidden rounded bg-gray-200"
+      className="mt-8 h-1.5 w-full overflow-hidden rounded-full bg-[#EFEEE9]"
       role="progressbar"
     >
-      <div className="h-full bg-gray-800" style={{ width: `${pct}%` }} />
+      <div
+        className="h-full bg-[#111111] transition-[width] duration-150 ease-out"
+        style={{ width: `${pct}%` }}
+      />
     </div>
   );
 }
@@ -236,17 +269,25 @@ function BlockOverlay({
   const paused = useSyncExternalStore(store.subscribe, store.isPaused);
   if (phase === "done") {
     return (
-      <p className="mt-4 text-green-700" role="status">
+      <div
+        className="mt-6 rounded-lg border border-[#D7E6D5] bg-[#EDF3EC] px-4 py-3 text-sm font-medium text-[#2B5930]"
+        role="status"
+      >
         Block complete.
-      </p>
+      </div>
     );
   }
   if (phase === "abandoned") {
     return (
-      <div className="mt-4" role="alert">
-        <p className="text-red-700">Block abandoned after too long without typing.</p>
+      <div
+        className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-[#F5D0D2] bg-[#FDEBEB] px-4 py-3"
+        role="alert"
+      >
+        <p className="text-sm font-medium text-[#9F2F2D]">
+          Block abandoned after too long without typing.
+        </p>
         <button
-          className="mt-2 rounded bg-gray-800 px-3 py-1 text-white"
+          className="typist-btn-primary px-3.5 py-1.5 text-xs shrink-0"
           onClick={onRestart}
           type="button"
         >
@@ -257,15 +298,21 @@ function BlockOverlay({
   }
   if (phase === "warning") {
     return (
-      <p className="mt-4 text-amber-700" role="alert">
+      <p
+        className="mt-6 rounded-lg border border-[#EFE0B4] bg-[#FBF3DB] px-4 py-2.5 text-sm font-medium text-[#8A5A00]"
+        role="alert"
+      >
         Still there? Keep typing.
       </p>
     );
   }
   if (paused) {
     return (
-      <p className="mt-4 text-gray-600" role="status">
-        Paused — the window lost focus.
+      <p
+        className="mt-6 rounded-lg border border-[#E4E2DC] bg-[#F5F4F0] px-4 py-2.5 text-sm text-[#4A4945]"
+        role="status"
+      >
+        Paused — the window lost focus. Click anywhere in the window to resume.
       </p>
     );
   }

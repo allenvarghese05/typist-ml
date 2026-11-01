@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   assignParticipant,
+  completeBlock,
+  completeSession,
   createJob,
   createParticipant,
   fetchChecks,
@@ -8,7 +10,11 @@ import {
   fetchJobs,
   fetchParticipants,
   fetchPoolStatus,
+  fetchSessionPlan,
+  recordParticipantConsent,
   replenishPool,
+  startBlock,
+  startOrResumeSession,
 } from "../client";
 
 function mockFetch(status = 200, body: unknown = {}): typeof fetch {
@@ -138,5 +144,57 @@ describe("api/client", () => {
   it("throws error with detail on failed HTTP status", async () => {
     const fetchFn = mockFetch(404, { detail: "Participant not found" });
     await expect(fetchChecks("missing", fetchFn)).rejects.toThrow("Participant not found");
+  });
+
+  it("recordParticipantConsent sends POST to /api/v1/participants/:id/consent", async () => {
+    const fetchFn = mockFetch(200, { id: "p-1", status: "baseline" });
+    const res = await recordParticipantConsent("p-1", "MacBook Pro", fetchFn);
+    expect(fetchFn).toHaveBeenCalledWith(
+      "/api/v1/participants/p-1/consent",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ keyboard_label: "MacBook Pro" }),
+      }),
+    );
+    expect(res.status).toBe("baseline");
+  });
+
+  it("startOrResumeSession, fetchSessionPlan, startBlock, completeBlock, and completeSession call session endpoints", async () => {
+    const planFn = mockFetch(200, { session_id: "s-1", phase: "baseline", blocks: [] });
+    await startOrResumeSession("p-1", { phase: "baseline" }, planFn);
+    expect(planFn).toHaveBeenCalledWith(
+      "/api/v1/participants/p-1/sessions",
+      expect.objectContaining({ method: "POST" }),
+    );
+
+    await fetchSessionPlan("s-1", planFn);
+    expect(planFn).toHaveBeenCalledWith("/api/v1/sessions/s-1", expect.anything());
+
+    const blockFn = mockFetch(200, { id: "b-1", session_id: "s-1", block_index: 0 });
+    await startBlock("b-1", blockFn);
+    expect(blockFn).toHaveBeenCalledWith(
+      "/api/v1/blocks/b-1/start",
+      expect.objectContaining({ method: "POST" }),
+    );
+
+    await completeBlock("b-1", blockFn);
+    expect(blockFn).toHaveBeenCalledWith(
+      "/api/v1/blocks/b-1/complete",
+      expect.objectContaining({ method: "POST" }),
+    );
+
+    const summaryFn = mockFetch(200, {
+      session_id: "s-1",
+      wpm: 58.4,
+      accuracy: 0.97,
+      bigram_count: 42,
+      blocks: 1,
+    });
+    const summary = await completeSession("s-1", summaryFn);
+    expect(summaryFn).toHaveBeenCalledWith(
+      "/api/v1/sessions/s-1/complete",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(summary.wpm).toBe(58.4);
   });
 });

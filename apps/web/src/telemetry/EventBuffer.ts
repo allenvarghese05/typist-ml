@@ -119,6 +119,8 @@ export class EventBuffer implements KeystrokeSink {
   readonly #waitTimers = new Map<number, number>();
   /** Rows ready to send, in the order they became ready. */
   readonly #ready: BufferedRow[] = [];
+  /** Callbacks awaiting full drain of pending key-ups and ready batches at block end. */
+  readonly #drainWaiters = new Set<() => void>();
 
   #intervalTimer: number | null = null;
   #immediateTimer: number | null = null;
@@ -186,6 +188,23 @@ export class EventBuffer implements KeystrokeSink {
     this.#flush();
   }
 
+  /**
+   * Wait until all pending key-ups arrive (or reach keyUpWaitMs) and all ready batches finish
+   * uploading so block/session completion never races the final keystroke batch.
+   */
+  drain(): Promise<void> {
+    if (this.#closed) {
+      return Promise.resolve();
+    }
+    this.#flush();
+    if (this.#pending.size === 0 && this.#ready.length === 0 && !this.#sending) {
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+      this.#drainWaiters.add(resolve);
+    });
+  }
+
   /** Stop all timers and the pagehide listener. Call when the attempt is finished or discarded. */
   dispose(): void {
     this.#closed = true;
@@ -206,6 +225,7 @@ export class EventBuffer implements KeystrokeSink {
     }
     this.#waitTimers.clear();
     this.#lifecycleTarget?.removeEventListener("pagehide", this.#onPageHide);
+    this.#resolveDrainWaiters();
   }
 
   /** Move a pending row to the ready queue and clear its wait timer. */
@@ -221,7 +241,10 @@ export class EventBuffer implements KeystrokeSink {
       this.#waitTimers.delete(seq);
     }
     this.#ready.push(row);
-    if (this.#ready.length >= this.#config.flushRows) {
+    if (
+      this.#ready.length >= this.#config.flushRows ||
+      (this.#drainWaiters.size > 0 && this.#pending.size === 0)
+    ) {
       this.#scheduleImmediate();
     }
   }
@@ -267,6 +290,21 @@ export class EventBuffer implements KeystrokeSink {
     this.#backoffExponent = 0;
     if (!this.#closed && this.#ready.length > 0) {
       this.#scheduleImmediate();
+      return;
+    }
+    if (this.#pending.size === 0 && this.#ready.length === 0) {
+      this.#resolveDrainWaiters();
+    }
+  }
+
+  #resolveDrainWaiters(): void {
+    if (this.#drainWaiters.size === 0) {
+      return;
+    }
+    const waiters = Array.from(this.#drainWaiters);
+    this.#drainWaiters.clear();
+    for (const resolve of waiters) {
+      resolve();
     }
   }
 

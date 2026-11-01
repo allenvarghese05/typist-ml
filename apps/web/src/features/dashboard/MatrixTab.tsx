@@ -92,11 +92,11 @@ export function MatrixTab({ sessions, fetchImpl }: MatrixTabProps): React.JSX.El
   const max = values.length > 0 ? Math.max(...values) : 0;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5 space-y-6">
+    <div className="typist-card p-5 space-y-6">
       {/* Controls: Session selector & Metric toggle */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#EAEAEA] pb-4">
         <div className="flex items-center gap-3">
-          <label htmlFor="matrix-session-select" className="text-xs font-semibold text-gray-700">
+          <label htmlFor="matrix-session-select" className="text-xs font-medium text-[#666560]">
             Session:
           </label>
           <select
@@ -104,7 +104,7 @@ export function MatrixTab({ sessions, fetchImpl }: MatrixTabProps): React.JSX.El
             aria-label="Session selector"
             value={selectedSessionId}
             onChange={(e) => setSelectedSessionId(e.target.value)}
-            className="text-xs font-mono border border-gray-300 rounded px-2.5 py-1.5 bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="text-xs font-mono border border-[#EAEAEA] rounded-lg px-2.5 py-1.5 bg-white text-[#111111] focus:outline-none focus:border-[#111111]"
           >
             {sessions.map((s) => (
               <option key={s.id} value={s.id}>
@@ -114,16 +114,15 @@ export function MatrixTab({ sessions, fetchImpl }: MatrixTabProps): React.JSX.El
           </select>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-gray-500 mr-1.5">Metric:</span>
+        <div className="inline-flex items-center p-0.5 rounded-lg bg-[#F3F2EE] border border-[#EAEAEA]">
           <button
             type="button"
             data-active={metric === "error"}
             onClick={() => setMetric("error")}
-            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+            className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
               metric === "error"
-                ? "bg-red-100 text-red-800 border border-red-300"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-white text-[#111111] border border-[#EAEAEA]"
+                : "text-[#666560] hover:text-[#111111]"
             }`}
           >
             Error rate
@@ -132,10 +131,10 @@ export function MatrixTab({ sessions, fetchImpl }: MatrixTabProps): React.JSX.El
             type="button"
             data-active={metric === "iki"}
             onClick={() => setMetric("iki")}
-            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+            className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
               metric === "iki"
-                ? "bg-blue-100 text-blue-800 border border-blue-300"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-white text-[#111111] border border-[#EAEAEA]"
+                : "text-[#666560] hover:text-[#111111]"
             }`}
           >
             Median IKI
@@ -145,26 +144,28 @@ export function MatrixTab({ sessions, fetchImpl }: MatrixTabProps): React.JSX.El
 
       {/* Headline session stats if available */}
       {state.status === "ok" && state.matrix && (
-        <div className="flex items-center gap-6 text-xs text-gray-600 bg-gray-50 px-3 py-2 rounded">
+        <div className="flex flex-wrap items-center gap-6 text-xs text-[#666560] typist-inset px-3.5 py-2.5 tabular-nums">
           <div>
-            <span className="text-gray-400">Phase:</span>{" "}
-            <span className="font-semibold uppercase">{state.matrix.phase}</span>
+            <span className="text-[#9A9992]">Phase:</span>{" "}
+            <span className="font-semibold uppercase text-[#111111]">{state.matrix.phase}</span>
           </div>
           <div>
-            <span className="text-gray-400">WPM:</span>{" "}
-            <span className="font-semibold">{state.matrix.wpm?.toFixed(1) ?? "—"}</span>
+            <span className="text-[#9A9992]">WPM:</span>{" "}
+            <span className="font-semibold text-[#111111]">
+              {state.matrix.wpm?.toFixed(1) ?? "—"}
+            </span>
           </div>
           <div>
-            <span className="text-gray-400">Accuracy:</span>{" "}
-            <span className="font-semibold">
+            <span className="text-[#9A9992]">Accuracy:</span>{" "}
+            <span className="font-semibold text-[#111111]">
               {state.matrix.accuracy !== null
                 ? `${(state.matrix.accuracy * 100).toFixed(1)}%`
                 : "—"}
             </span>
           </div>
           <div>
-            <span className="text-gray-400">Recorded Bigrams:</span>{" "}
-            <span className="font-semibold">{cells.length}</span>
+            <span className="text-[#9A9992]">Recorded Bigrams:</span>{" "}
+            <span className="font-semibold text-[#111111]">{cells.length}</span>
           </div>
         </div>
       )}

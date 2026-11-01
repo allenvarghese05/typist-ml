@@ -6,8 +6,44 @@ export interface ParticipantResponse {
   readonly status: string;
   readonly is_builder: boolean;
   readonly is_blinded: boolean;
+  readonly keyboard_label?: string | null;
   readonly created_at: string;
   readonly consent_at: string | null;
+}
+
+export interface BlockPlan {
+  readonly block_id: string;
+  readonly block_index: number;
+  readonly label: string;
+  readonly target_text: string;
+  readonly started_at: string | null;
+  readonly ended_at: string | null;
+}
+
+export interface SessionPlan {
+  readonly session_id: string;
+  readonly participant_id: string;
+  readonly phase: "baseline" | "practice" | "retest" | string;
+  readonly day_index: number;
+  readonly status: string;
+  readonly blocks: readonly BlockPlan[];
+}
+
+export interface BlockResponse {
+  readonly id: string;
+  readonly session_id: string;
+  readonly block_index: number;
+  readonly label: string;
+  readonly started_at: string | null;
+  readonly ended_at: string | null;
+}
+
+export interface SessionSummary {
+  readonly session_id: string;
+  readonly wpm: number | null;
+  readonly accuracy: number | null;
+  readonly bigram_count: number;
+  readonly blocks: number;
 }
 
 export interface AssignmentResponse {
@@ -145,13 +181,94 @@ export async function createParticipant(
   alias: string,
   isBuilder: boolean,
   fetchImpl: typeof fetch = fetch,
+  keyboardLabel?: string,
 ): Promise<ParticipantResponse> {
+  const trimmedLabel = keyboardLabel?.trim();
+  const payload = trimmedLabel
+    ? { alias, is_builder: isBuilder, keyboard_label: trimmedLabel }
+    : { alias, is_builder: isBuilder };
   return requestJson<ParticipantResponse>(
     apiPath("/participants"),
     {
       method: "POST",
-      body: JSON.stringify({ alias, is_builder: isBuilder }),
+      body: JSON.stringify(payload),
     },
+    fetchImpl,
+  );
+}
+
+export async function recordParticipantConsent(
+  participantId: string,
+  keyboardLabel?: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ParticipantResponse> {
+  const trimmedLabel = keyboardLabel?.trim();
+  const body = trimmedLabel ? { keyboard_label: trimmedLabel } : {};
+  return requestJson<ParticipantResponse>(
+    apiPath(`/participants/${encodeURIComponent(participantId)}/consent`),
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+    fetchImpl,
+  );
+}
+
+export async function startOrResumeSession(
+  participantId: string,
+  options: { phase?: string; client_info?: Record<string, unknown> } = {},
+  fetchImpl: typeof fetch = fetch,
+): Promise<SessionPlan> {
+  return requestJson<SessionPlan>(
+    apiPath(`/participants/${encodeURIComponent(participantId)}/sessions`),
+    {
+      method: "POST",
+      body: JSON.stringify(options),
+    },
+    fetchImpl,
+  );
+}
+
+export async function fetchSessionPlan(
+  sessionId: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<SessionPlan> {
+  return requestJson<SessionPlan>(
+    apiPath(`/sessions/${encodeURIComponent(sessionId)}`),
+    {},
+    fetchImpl,
+  );
+}
+
+export async function startBlock(
+  blockId: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<BlockResponse> {
+  return requestJson<BlockResponse>(
+    apiPath(`/blocks/${encodeURIComponent(blockId)}/start`),
+    { method: "POST" },
+    fetchImpl,
+  );
+}
+
+export async function completeBlock(
+  blockId: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<BlockResponse> {
+  return requestJson<BlockResponse>(
+    apiPath(`/blocks/${encodeURIComponent(blockId)}/complete`),
+    { method: "POST" },
+    fetchImpl,
+  );
+}
+
+export async function completeSession(
+  sessionId: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<SessionSummary> {
+  return requestJson<SessionSummary>(
+    apiPath(`/sessions/${encodeURIComponent(sessionId)}/complete`),
+    { method: "POST" },
     fetchImpl,
   );
 }
