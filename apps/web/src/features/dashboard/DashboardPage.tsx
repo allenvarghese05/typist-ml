@@ -185,12 +185,12 @@ export function DashboardPage({
   }));
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="px-6 py-8 max-w-6xl mx-auto space-y-6">
       {/* Top Header: Title & Participant Selector */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-5">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#EAEAEA] pb-5">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Analysis Dashboard</h1>
-          <p className="text-xs text-gray-500 mt-1">
+          <h1 className="text-2xl font-semibold text-[#111111]">Analysis Dashboard</h1>
+          <p className="text-xs text-[#666560] mt-1">
             Pre-registered Bayesian Beta posteriors, bootstrap IKI intervals, and operational
             metrics.
           </p>
@@ -200,7 +200,7 @@ export function DashboardPage({
           <div className="flex items-center gap-3">
             <label
               htmlFor="dashboard-participant-select"
-              className="text-xs font-semibold text-gray-700 shrink-0"
+              className="text-xs font-medium text-[#666560] shrink-0"
             >
               Participant:
             </label>
@@ -209,7 +209,7 @@ export function DashboardPage({
               aria-label="Participant selector"
               value={selectedParticipantId}
               onChange={(e) => handleParticipantChange(e.target.value)}
-              className="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white text-gray-900 shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+              className="text-xs border border-[#D9D7D0] rounded-lg px-3 py-1.5 bg-white text-[#111111] focus:outline-none focus:border-[#111111] font-mono"
             >
               {participants.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -219,44 +219,44 @@ export function DashboardPage({
             </select>
           </div>
         ) : (
-          <div className="text-xs text-gray-500 italic">No participants enrolled yet.</div>
+          <div className="text-xs text-[#666560]">No participants enrolled yet.</div>
         )}
       </div>
 
       {/* Active Participant Info Banner */}
       {currentParticipant && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4 flex flex-wrap items-center justify-between gap-3 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="text-sm font-bold text-gray-900">{currentParticipant.alias}</div>
-            <span className="inline-block px-2 py-0.5 rounded text-xs uppercase font-medium bg-gray-100 text-gray-700">
+        <div className="typist-card p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="text-sm font-semibold text-[#111111]">{currentParticipant.alias}</div>
+            <span className="inline-block px-2 py-0.5 rounded-md border border-[#E4E2DC] text-[11px] uppercase font-medium bg-[#F3F2EE] text-[#4A4945]">
               Status: {currentParticipant.status}
             </span>
             <span
-              className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+              className={`inline-block px-2 py-0.5 rounded-md border text-[11px] font-medium ${
                 currentParticipant.is_builder
-                  ? "bg-purple-100 text-purple-800"
-                  : "bg-blue-100 text-blue-800"
+                  ? "bg-[#F3F2EE] text-[#4A4945] border-[#E4E2DC]"
+                  : "bg-[#EBF3FA] text-[#1F5E8B] border-[#CEE2F4]"
               }`}
             >
               {currentParticipant.is_builder ? "Builder (Unblinded)" : "Peer (Blinded)"}
             </span>
           </div>
-          <div className="text-xs text-gray-500 font-mono">
+          <div className="text-xs text-[#666560] font-mono tabular-nums">
             {currentParticipant.completed_sessions} completed session(s)
           </div>
         </div>
       )}
 
       {/* Tabs Navigation */}
-      <div className="border-b border-gray-200">
-        <nav className="flex space-x-6" aria-label="Dashboard Tabs">
+      <div className="border-b border-[#EAEAEA]">
+        <nav className="flex flex-wrap gap-6" aria-label="Dashboard Tabs">
           <button
             type="button"
             onClick={() => handleTabChange("outcomes")}
-            className={`py-3 px-1 border-b-2 text-sm font-medium transition-colors ${
+            className={`py-2.5 px-0.5 border-b-2 text-xs font-medium typist-fluid ${
               activeTab === "outcomes"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-[#111111] text-[#111111]"
+                : "border-transparent text-[#666560] hover:text-[#111111]"
             }`}
           >
             Outcomes &amp; Timing
@@ -264,10 +264,10 @@ export function DashboardPage({
           <button
             type="button"
             onClick={() => handleTabChange("trend")}
-            className={`py-3 px-1 border-b-2 text-sm font-medium transition-colors ${
+            className={`py-2.5 px-0.5 border-b-2 text-xs font-medium typist-fluid ${
               activeTab === "trend"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-[#111111] text-[#111111]"
+                : "border-transparent text-[#666560] hover:text-[#111111]"
             }`}
           >
             Session Trend
@@ -275,10 +275,10 @@ export function DashboardPage({
           <button
             type="button"
             onClick={() => handleTabChange("matrix")}
-            className={`py-3 px-1 border-b-2 text-sm font-medium transition-colors ${
+            className={`py-2.5 px-0.5 border-b-2 text-xs font-medium typist-fluid ${
               activeTab === "matrix"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-[#111111] text-[#111111]"
+                : "border-transparent text-[#666560] hover:text-[#111111]"
             }`}
           >
             Bigram Matrix
@@ -286,10 +286,10 @@ export function DashboardPage({
           <button
             type="button"
             onClick={() => handleTabChange("generation")}
-            className={`py-3 px-1 border-b-2 text-sm font-medium transition-colors ${
+            className={`py-2.5 px-0.5 border-b-2 text-xs font-medium typist-fluid ${
               activeTab === "generation"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-[#111111] text-[#111111]"
+                : "border-transparent text-[#666560] hover:text-[#111111]"
             }`}
           >
             Drill Generation
@@ -297,10 +297,10 @@ export function DashboardPage({
           <button
             type="button"
             onClick={() => handleTabChange("overhead")}
-            className={`py-3 px-1 border-b-2 text-sm font-medium transition-colors ${
+            className={`py-2.5 px-0.5 border-b-2 text-xs font-medium typist-fluid ${
               activeTab === "overhead"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                ? "border-[#111111] text-[#111111]"
+                : "border-transparent text-[#666560] hover:text-[#111111]"
             }`}
           >
             Telemetry Overhead

@@ -69,24 +69,24 @@ export function TrendTab({ trend, loading }: TrendTabProps): React.JSX.Element {
   return (
     <div className="space-y-6">
       {/* Progression Chart Card */}
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5 space-y-4">
+      <div className="typist-card p-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">
+            <h3 className="text-base font-semibold tracking-tight text-[#111111]">
               Session Performance Trajectory
             </h3>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-[#666560]">
               Chronological WPM (left axis) and Accuracy (right axis) progression across study days.
             </p>
           </div>
           <div className="flex items-center gap-4 text-xs">
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-blue-600 inline-block" />
-              <span className="text-gray-700 font-medium">WPM</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-[#111111] inline-block" />
+              <span className="text-[#111111] font-medium">WPM</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-emerald-600 inline-block" />
-              <span className="text-gray-700 font-medium">Accuracy</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-[#2B6E3F] inline-block" />
+              <span className="text-[#111111] font-medium">Accuracy</span>
             </div>
           </div>
         </div>
@@ -110,14 +110,14 @@ export function TrendTab({ trend, loading }: TrendTabProps): React.JSX.Element {
                     y1={y}
                     x2={width - padRight}
                     y2={y}
-                    stroke="#f3f4f6"
+                    stroke="#eaeaea"
                     strokeWidth={1}
                   />
                   <text
                     x={padLeft - 8}
                     y={y + 3}
                     textAnchor="end"
-                    className="text-[10px] fill-gray-400 font-mono"
+                    className="text-[10px] fill-[#9A9992] font-mono"
                   >
                     {wpmVal}
                   </text>
@@ -125,7 +125,7 @@ export function TrendTab({ trend, loading }: TrendTabProps): React.JSX.Element {
                     x={width - padRight + 8}
                     y={y + 3}
                     textAnchor="start"
-                    className="text-[10px] fill-gray-400 font-mono"
+                    className="text-[10px] fill-[#9A9992] font-mono"
                   >
                     {accVal}%
                   </text>
@@ -137,8 +137,8 @@ export function TrendTab({ trend, loading }: TrendTabProps): React.JSX.Element {
             {wpmPoints && (
               <polyline
                 fill="none"
-                stroke="#2563eb"
-                strokeWidth={2.5}
+                stroke="#111111"
+                strokeWidth={2}
                 points={wpmPoints}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -149,8 +149,8 @@ export function TrendTab({ trend, loading }: TrendTabProps): React.JSX.Element {
             {accPoints && (
               <polyline
                 fill="none"
-                stroke="#059669"
-                strokeWidth={2.5}
+                stroke="#2B6E3F"
+                strokeWidth={2}
                 points={accPoints}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -169,7 +169,7 @@ export function TrendTab({ trend, loading }: TrendTabProps): React.JSX.Element {
                       cx={x}
                       cy={yWpm}
                       r={3.5}
-                      className="fill-blue-600 stroke-white stroke-2"
+                      className="fill-[#111111] stroke-white stroke-2"
                     />
                   )}
                   {s.accuracy !== null && (
@@ -177,14 +177,14 @@ export function TrendTab({ trend, loading }: TrendTabProps): React.JSX.Element {
                       cx={x}
                       cy={yAcc}
                       r={3.5}
-                      className="fill-emerald-600 stroke-white stroke-2"
+                      className="fill-[#2B6E3F] stroke-white stroke-2"
                     />
                   )}
                   <text
                     x={x}
                     y={height - 12}
                     textAnchor="middle"
-                    className="text-[10px] fill-gray-500 font-mono"
+                    className="text-[10px] fill-[#666560] font-mono"
                   >
                     D{s.day_index}
                   </text>
@@ -196,12 +196,14 @@ export function TrendTab({ trend, loading }: TrendTabProps): React.JSX.Element {
       </div>
 
       {/* Session Progression Table */}
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5 space-y-4">
-        <h3 className="text-base font-semibold text-gray-900">Completed Sessions Log</h3>
+      <div className="typist-card p-5 space-y-4">
+        <h3 className="text-base font-semibold tracking-tight text-[#111111]">
+          Completed Sessions Log
+        </h3>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-gray-700">
-            <thead className="bg-gray-50 text-gray-700 uppercase font-semibold border-b border-gray-200">
+          <table className="w-full text-left text-xs text-[#111111]">
+            <thead className="bg-[#F6F5F2] text-[#666560] font-medium border-b border-[#EAEAEA]">
               <tr>
                 <th className="py-2.5 px-3">Day</th>
                 <th className="py-2.5 px-3">Phase</th>
@@ -216,25 +218,25 @@ export function TrendTab({ trend, loading }: TrendTabProps): React.JSX.Element {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 font-mono">
+            <tbody className="divide-y divide-[#EAEAEA] font-mono tabular-nums">
               {trend.map((s) => (
-                <tr key={s.session_id} className="hover:bg-gray-50/50">
-                  <td className="py-2 px-3 font-semibold text-gray-900">Day {s.day_index}</td>
+                <tr key={s.session_id} className="hover:bg-[#FBFBFA]">
+                  <td className="py-2 px-3 font-semibold text-[#111111]">Day {s.day_index}</td>
                   <td className="py-2 px-3">
-                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-gray-100 text-gray-700">
+                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] uppercase font-medium bg-[#F3F2EE] text-[#666560]">
                       {s.phase}
                     </span>
                   </td>
-                  <td className="py-2 px-3 text-gray-500" title={s.session_id}>
+                  <td className="py-2 px-3 text-[#666560]" title={s.session_id}>
                     {s.session_id.slice(0, 8)}...
                   </td>
-                  <td className="py-2 px-3 text-gray-600 font-sans">
+                  <td className="py-2 px-3 text-[#666560] font-sans">
                     {s.started_at.slice(0, 16).replace("T", " ")}
                   </td>
-                  <td className="py-2 px-3 font-semibold text-gray-900">
+                  <td className="py-2 px-3 font-semibold text-[#111111]">
                     {s.wpm !== null ? s.wpm.toFixed(1) : "—"}
                   </td>
-                  <td className="py-2 px-3 font-semibold text-gray-900">
+                  <td className="py-2 px-3 font-semibold text-[#111111]">
                     {s.accuracy !== null ? `${(s.accuracy * 100).toFixed(1)}%` : "—"}
                   </td>
                   {displayedSets.map((lbl) => {

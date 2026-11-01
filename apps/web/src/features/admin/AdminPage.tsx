@@ -168,61 +168,63 @@ export function AdminPage({
 
   // Worker badge styling
   let workerBadgeText = "Worker Inactive";
-  let workerBadgeColor = "bg-red-100 text-red-800 border-red-200";
+  let workerBadgeColor = "bg-[#FDEBEB] text-[#9F2F2D] border-[#F5D0D2]";
   if (health?.worker) {
     const age = health.worker.heartbeat_age_s;
     const ageText = age !== null ? `${Math.round(age)}s ago` : "unknown";
     if (health.worker.status === "ok") {
       workerBadgeText = `Worker Active (heartbeat ${ageText})`;
-      workerBadgeColor = "bg-green-100 text-green-800 border-green-200";
+      workerBadgeColor = "bg-[#EDF3EC] text-[#2B5930] border-[#D7E6D5]";
     } else if (health.worker.status === "stale") {
       workerBadgeText = `Worker Stale (heartbeat ${ageText})`;
-      workerBadgeColor = "bg-yellow-100 text-yellow-800 border-yellow-200";
+      workerBadgeColor = "bg-[#FBF3DB] text-[#8A5A00] border-[#EFE0B4]";
     }
   }
 
   const selectedParticipant = participants.find((p) => p.id === selectedId);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col" data-testid="admin-page">
+    <div className="min-h-screen bg-[#FBFBFA] flex flex-col" data-testid="admin-page">
       {/* Top Banner with Health Status */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex flex-wrap justify-between items-center gap-4">
+      <div className="mx-auto w-full max-w-6xl px-6 pt-8 pb-5 border-b border-[#EAEAEA] flex flex-wrap justify-between items-end gap-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Typist-ML Pilot Command Centre</h1>
-          <p className="text-xs text-gray-500">
-            Participant management, drill pool replenishment, worker monitor & data auditing
+          <h1 className="text-2xl font-semibold text-[#111111]">Typist-ML Pilot Command Centre</h1>
+          <p className="text-xs text-[#666560] mt-1">
+            Participant management, drill pool replenishment, worker monitor &amp; data auditing
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <span
-            className={`px-3 py-1 text-xs font-semibold rounded-full border ${workerBadgeColor}`}
+            className={`px-2.5 py-1 text-xs font-medium rounded-md border font-mono ${workerBadgeColor}`}
             data-testid="worker-status-badge"
           >
             {workerBadgeText}
           </span>
         </div>
-      </header>
+      </div>
 
       {/* Global Error Alert */}
       {error && (
-        <div
-          className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg text-sm flex justify-between items-center"
-          data-testid="admin-error-banner"
-        >
-          <span>{error}</span>
-          <button
-            type="button"
-            onClick={() => setError(null)}
-            className="text-xs font-semibold text-red-600 hover:text-red-900 ml-4"
+        <div className="mx-auto w-full max-w-6xl px-6 mt-4">
+          <div
+            className="p-4 bg-[#FDEBEB] border border-[#F5D0D2] text-[#9F2F2D] rounded-lg text-xs flex justify-between items-center"
+            data-testid="admin-error-banner"
           >
-            Dismiss
-          </button>
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="text-xs font-semibold text-[#9F2F2D] underline ml-4"
+            >
+              Dismiss
+            </button>
+          </div>
         </div>
       )}
 
       {/* Main Workspace Layout */}
-      <main className="flex-1 p-6 flex flex-col md:flex-row gap-6">
+      <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-6 flex flex-col md:flex-row gap-6">
         {/* Left Column: Participant Selector */}
         <aside className="w-full md:w-80 shrink-0">
           <ParticipantList
@@ -239,14 +241,14 @@ export function AdminPage({
           {selectedParticipant ? (
             <>
               {/* Tab Navigation */}
-              <div className="flex border-b border-gray-200 bg-white px-4 rounded-t-lg">
+              <div className="flex gap-6 border-b border-[#EAEAEA]">
                 <button
                   type="button"
                   onClick={() => setActiveTab("pool")}
-                  className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+                  className={`py-2.5 px-0.5 text-xs font-medium border-b-2 typist-fluid ${
                     activeTab === "pool"
-                      ? "border-blue-600 text-blue-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700"
+                      ? "border-[#111111] text-[#111111]"
+                      : "border-transparent text-[#666560] hover:text-[#111111]"
                   }`}
                   data-testid="tab-pool"
                 >
@@ -255,10 +257,10 @@ export function AdminPage({
                 <button
                   type="button"
                   onClick={() => setActiveTab("jobs")}
-                  className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+                  className={`py-2.5 px-0.5 text-xs font-medium border-b-2 typist-fluid ${
                     activeTab === "jobs"
-                      ? "border-blue-600 text-blue-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700"
+                      ? "border-[#111111] text-[#111111]"
+                      : "border-transparent text-[#666560] hover:text-[#111111]"
                   }`}
                   data-testid="tab-jobs"
                 >
@@ -267,14 +269,14 @@ export function AdminPage({
                 <button
                   type="button"
                   onClick={() => setActiveTab("checks")}
-                  className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+                  className={`py-2.5 px-0.5 text-xs font-medium border-b-2 typist-fluid ${
                     activeTab === "checks"
-                      ? "border-blue-600 text-blue-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700"
+                      ? "border-[#111111] text-[#111111]"
+                      : "border-transparent text-[#666560] hover:text-[#111111]"
                   }`}
                   data-testid="tab-checks"
                 >
-                  Data Quality & Trends
+                  Data Quality &amp; Trends
                 </button>
               </div>
 
@@ -294,12 +296,12 @@ export function AdminPage({
               </div>
             </>
           ) : (
-            <div className="p-12 text-center bg-white border border-gray-200 rounded-lg text-gray-500">
+            <div className="p-12 text-center typist-card text-sm text-[#666560]">
               Select or enroll a participant to manage drill pools and inspect data checks.
             </div>
           )}
         </section>
-      </main>
+      </div>
     </div>
   );
 }

@@ -252,4 +252,25 @@ describe("EventBuffer", () => {
     );
     await expect(createFetchTransport().send("blk", { events: [] })).rejects.toThrow(/status 500/);
   });
+
+  it("drain waits for pending key-up and uploads the final batch before resolving", async () => {
+    const t = new FakeTransport();
+    const b = make(t, { keyUpWaitMs: 2000, flushRows: 50 });
+    b.onRow(row(0));
+    let drained = false;
+    const drainPromise = b.drain().then(() => {
+      drained = true;
+    });
+    await Promise.resolve();
+    expect(drained).toBe(false);
+    expect(t.batches.length).toBe(0);
+
+    b.onKeyUp({ seq: 0, t_up_ms: 42, dwell_ms: 42 });
+    await vi.advanceTimersByTimeAsync(0);
+    await drainPromise;
+    expect(drained).toBe(true);
+    expect(t.batches.length).toBe(1);
+    expect(t.batches[0]?.events[0]?.t_up_ms).toBe(42);
+    b.dispose();
+  });
 });

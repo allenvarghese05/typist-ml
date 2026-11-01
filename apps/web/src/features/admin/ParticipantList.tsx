@@ -10,13 +10,13 @@ export interface ParticipantListProps {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  enrolled: "bg-gray-100 text-gray-800",
-  baseline: "bg-blue-100 text-blue-800",
-  assigned: "bg-purple-100 text-purple-800",
-  practice: "bg-yellow-100 text-yellow-800",
-  retest: "bg-indigo-100 text-indigo-800",
-  done: "bg-green-100 text-green-800",
-  withdrawn: "bg-red-100 text-red-800",
+  enrolled: "bg-[#F3F2EE] text-[#4A4945] border-[#E4E2DC]",
+  baseline: "bg-[#EBF3FA] text-[#1F5E8B] border-[#CEE2F4]",
+  assigned: "bg-[#FBF3DB] text-[#8A5A00] border-[#EFE0B4]",
+  practice: "bg-[#EBF3FA] text-[#1F5E8B] border-[#CEE2F4]",
+  retest: "bg-[#EBF3FA] text-[#1F5E8B] border-[#CEE2F4]",
+  done: "bg-[#EDF3EC] text-[#2B5930] border-[#D7E6D5]",
+  withdrawn: "bg-[#FDEBEB] text-[#9F2F2D] border-[#F5D0D2]",
 };
 
 export function ParticipantList({
@@ -38,38 +38,35 @@ export function ParticipantList({
   };
 
   return (
-    <div className="flex flex-col gap-4 bg-white p-4 border border-gray-200 rounded-lg shadow-xs">
-      <h2 className="text-lg font-semibold text-gray-900">Participants</h2>
+    <div className="flex flex-col gap-4 typist-card p-5">
+      <h2 className="text-base font-semibold text-[#111111]">Participants</h2>
 
-      <form
-        onSubmit={handleCreate}
-        className="flex flex-col gap-2 p-3 bg-gray-50 rounded-md border border-gray-200"
-      >
-        <span className="text-xs font-semibold uppercase text-gray-600">Enroll Participant</span>
+      <form onSubmit={handleCreate} className="flex flex-col gap-2.5 p-3.5 typist-inset">
+        <span className="text-xs font-medium text-[#666560]">Enroll Participant</span>
         <div className="flex gap-2">
           <input
             type="text"
             placeholder="Participant alias"
             value={alias}
             onChange={(e) => setAlias(e.target.value)}
-            className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+            className="flex-1 px-3 py-1.5 text-xs border border-[#D9D7D0] rounded-lg bg-white text-[#111111] focus:outline-hidden focus:border-[#111111]"
             data-testid="new-alias-input"
           />
           <button
             type="submit"
             disabled={!alias.trim()}
-            className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="typist-btn-primary px-3 py-1.5 text-xs"
             data-testid="create-participant-btn"
           >
             Add
           </button>
         </div>
-        <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+        <label className="flex items-center gap-2 text-xs text-[#666560] cursor-pointer">
           <input
             type="checkbox"
             checked={isBuilder}
             onChange={(e) => setIsBuilder(e.target.checked)}
-            className="rounded-sm border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="rounded border-[#D9D7D0]"
             data-testid="builder-checkbox"
           />
           Builder (unblinded)
@@ -77,18 +74,18 @@ export function ParticipantList({
       </form>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm text-gray-700" data-testid="participants-table">
-          <thead className="text-xs uppercase bg-gray-50 text-gray-500 border-b border-gray-200">
+        <table className="w-full text-left text-xs text-[#4A4945]" data-testid="participants-table">
+          <thead className="text-[11px] text-[#666560] border-b border-[#EAEAEA]">
             <tr>
-              <th className="py-2 px-3">Alias</th>
-              <th className="py-2 px-3">Status</th>
-              <th className="py-2 px-3 text-right">Action</th>
+              <th className="py-2 px-2 font-medium">Alias</th>
+              <th className="py-2 px-2 font-medium">Status</th>
+              <th className="py-2 px-2 font-medium text-right">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y divide-[#F1F0EC]">
             {participants.length === 0 ? (
               <tr>
-                <td colSpan={3} className="py-4 text-center text-gray-500">
+                <td colSpan={3} className="py-4 text-center text-[#666560]">
                   No participants enrolled.
                 </td>
               </tr>
@@ -100,37 +97,37 @@ export function ParticipantList({
                   <tr
                     key={p.id}
                     onClick={() => onSelect(p.id)}
-                    className={`cursor-pointer transition-colors ${
-                      isSelected ? "bg-blue-50 font-medium" : "hover:bg-gray-50"
+                    className={`cursor-pointer typist-fluid ${
+                      isSelected ? "bg-[#F5F4F0] font-medium" : "hover:bg-[#FBFBFA]"
                     }`}
                     data-testid={`participant-row-${p.id}`}
                   >
-                    <td className="py-2 px-3">
-                      <div className="flex items-center gap-1.5">
+                    <td className="py-2.5 px-2">
+                      <div className="flex items-center gap-1.5 text-[#111111]">
                         <span>{p.alias}</span>
                         {p.is_builder && (
-                          <span className="text-[10px] px-1 py-0.5 bg-gray-200 text-gray-700 rounded-sm">
+                          <span className="text-[10px] px-1.5 py-0.5 bg-[#ECEAE3] text-[#4A4945] rounded">
                             Builder
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-400 font-mono">{p.id}</div>
+                      <div className="text-[11px] text-[#8A8883] font-mono">{p.id.slice(0, 8)}</div>
                     </td>
-                    <td className="py-2 px-3">
+                    <td className="py-2.5 px-2">
                       <span
-                        className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
-                          STATUS_COLORS[p.status] ?? "bg-gray-100 text-gray-800"
+                        className={`inline-block px-2 py-0.5 text-[11px] rounded-md border font-medium ${
+                          STATUS_COLORS[p.status] ?? "bg-[#F3F2EE] text-[#4A4945] border-[#E4E2DC]"
                         }`}
                       >
                         {p.status}
                       </span>
                     </td>
-                    <td className="py-2 px-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="py-2.5 px-2 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
                         <a
                           href={`#/results/${p.id}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="px-2 py-1 text-xs font-medium rounded-md text-blue-600 hover:text-blue-800 hover:underline"
+                          className="px-2 py-1 text-xs font-medium text-[#111111] hover:underline underline-offset-2"
                           data-testid={`debrief-link-${p.id}`}
                         >
                           Debrief
@@ -142,7 +139,7 @@ export function ParticipantList({
                             e.stopPropagation();
                             onAssign(p.id);
                           }}
-                          className="px-2.5 py-1 text-xs font-medium rounded-md bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                          className="typist-btn-primary px-2.5 py-1 text-xs"
                           data-testid={`assign-btn-${p.id}`}
                         >
                           Assign

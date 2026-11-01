@@ -1,1 +1,197 @@
 @import "tailwindcss";
+
+:root {
+  /* Warm Utilitarian Monochrome + Apple HIG Tokens */
+  --bg-canvas: #fbfbfa;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f5f4f0;
+  --bg-inset: #efeee9;
+  --bg-pill-active: #eceae3;
+
+  --border-hairline: #eaeaea;
+  --border-strong: #d9d7d0;
+
+  --ink-primary: #111111;
+  --ink-secondary: #666560;
+  --ink-tertiary: #8a8883;
+
+  /* Muted Semantic Spot Pastels (WCAG AA compliant foregrounds) */
+  --status-ok-bg: #edf3ec;
+  --status-ok-ink: #2b5930;
+  --status-ok-border: #d7e6d5;
+
+  --status-warn-bg: #fbf3db;
+  --status-warn-ink: #8a5a00;
+  --status-warn-border: #efe0b4;
+
+  --status-err-bg: #fdebeb;
+  --status-err-ink: #9f2f2d;
+  --status-err-border: #f5d0d2;
+
+  --status-info-bg: #ebf3fa;
+  --status-info-ink: #1f5e8b;
+  --status-info-border: #cee2f4;
+
+  --status-neutral-bg: #f3f2ee;
+  --status-neutral-ink: #4a4945;
+  --status-neutral-border: #e4e2dc;
+
+  /* Fluid Motion Curve */
+  --ease-fluid: cubic-bezier(0.16, 1, 0.3, 1);
+
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Helvetica Neue",
+    system-ui, sans-serif;
+  color: var(--ink-primary);
+  background-color: var(--bg-canvas);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-canvas);
+  color: var(--ink-primary);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  letter-spacing: -0.022em;
+}
+
+.font-editorial {
+  font-family: "New York", "Newsreader", "Instrument Serif", Georgia, Cambria, serif;
+  letter-spacing: -0.018em;
+}
+
+.font-mono {
+  font-family:
+    "SF Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tactile Apple / Minimalist Micro-UIs */
+.typist-glass-bar {
+  background-color: rgba(251, 251, 250, 0.86);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.typist-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-hairline);
+  border-radius: 10px;
+}
+
+.typist-inset {
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-hairline);
+  border-radius: 8px;
+}
+
+.typist-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--ink-primary);
+  color: #ffffff;
+  border: 1px solid var(--ink-primary);
+  border-radius: 8px;
+  font-weight: 500;
+  transition:
+    transform 160ms var(--ease-fluid),
+    background-color 160ms var(--ease-fluid),
+    opacity 160ms var(--ease-fluid);
+}
+
+.typist-btn-primary:hover:not(:disabled) {
+  background-color: #282826;
+  border-color: #282826;
+}
+
+.typist-btn-primary:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.typist-btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.typist-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--bg-surface);
+  color: var(--ink-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  font-weight: 500;
+  transition:
+    transform 160ms var(--ease-fluid),
+    background-color 160ms var(--ease-fluid),
+    border-color 160ms var(--ease-fluid);
+}
+
+.typist-btn-secondary:hover:not(:disabled) {
+  background-color: var(--bg-subtle);
+  border-color: #c7c5bd;
+}
+
+.typist-btn-secondary:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.typist-btn-secondary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.typist-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  padding: 0.1rem 0.4rem;
+  font-family: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--ink-secondary);
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  box-shadow: 0 1px 0 #dfddd6;
+}
+
+.typist-fluid {
+  transition:
+    transform 220ms var(--ease-fluid),
+    opacity 220ms var(--ease-fluid),
+    background-color 180ms var(--ease-fluid),
+    border-color 180ms var(--ease-fluid);
+}
+
+/* Respect Apple HIG Accessibility: Make motion optional */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-micro: 0ms;
+    --dur-standard: 0ms;
+    --dur-sheet: 0ms;
+  }
+
+  .typist-fluid,
+  .typist-btn-primary,
+  .typist-btn-secondary {
+    transition-duration: 0.01ms;
+  }
+}
