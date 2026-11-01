@@ -196,4 +196,52 @@ describe("TypingSurface", () => {
     press("a", "KeyA");
     expect(sink.rows.length).toBe(0);
   });
+
+  it("groups words into unbroken nowrap spans and keeps real spaces between words", () => {
+    render(
+      <TypingSurface
+        targetText="quick brown fox"
+        blockLabel="Block 1"
+        sink={createCollectorSink()}
+      />,
+    );
+    const wordSpans = document.querySelectorAll("[data-word]");
+    expect(wordSpans.length).toBe(3);
+    expect(wordSpans[0]?.textContent).toBe("quick");
+    expect(wordSpans[1]?.textContent).toBe("brown");
+    expect(wordSpans[2]?.textContent).toBe("fox");
+    expect(document.querySelector('[data-cell="5"]')?.textContent).toBe(" ");
+  });
+
+  it("highlights one behind on the character already typed rather than the upcoming untyped character", () => {
+    render(<TypingSurface targetText="abcd" blockLabel="Block 1" sink={createCollectorSink()} />);
+    // Before typing: no character has active-trail highlight
+    expect(document.querySelectorAll("[data-active-trail]").length).toBe(0);
+
+    // Type 'a' -> index 0 ('a') gets active-trail, index 1 ('b') stays untyped without highlight
+    press("a", "KeyA");
+    expect(document.querySelector('[data-cell="0"]')?.getAttribute("data-active-trail")).toBe(
+      "true",
+    );
+    expect(document.querySelector('[data-cell="1"]')?.getAttribute("data-active-trail")).toBeNull();
+
+    // Type 'b' -> highlight advances to index 1 ('b'), leaving index 0 and keeping index 2 clean
+    press("b", "KeyB");
+    expect(document.querySelector('[data-cell="0"]')?.getAttribute("data-active-trail")).toBeNull();
+    expect(document.querySelector('[data-cell="1"]')?.getAttribute("data-active-trail")).toBe(
+      "true",
+    );
+    expect(document.querySelector('[data-cell="2"]')?.getAttribute("data-active-trail")).toBeNull();
+
+    // Mistype at index 2 then Backspace -> highlight steps back to index 1 ('b')
+    press("x", "KeyX");
+    expect(document.querySelector('[data-cell="2"]')?.getAttribute("data-active-trail")).toBe(
+      "true",
+    );
+    press("Backspace", "Backspace");
+    expect(document.querySelector('[data-cell="1"]')?.getAttribute("data-active-trail")).toBe(
+      "true",
+    );
+    expect(document.querySelector('[data-cell="2"]')?.getAttribute("data-active-trail")).toBeNull();
+  });
 });

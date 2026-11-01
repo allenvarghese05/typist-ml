@@ -149,7 +149,10 @@ export function SessionPage({
             chosenId = stored;
           } else {
             const firstActive = parts.find((p) => p.status !== "done" && p.status !== "withdrawn");
-            chosenId = firstActive?.id ?? parts[0]?.id ?? "";
+            const firstRealDone = parts.find(
+              (p) => !p.is_builder && p.alias.toLowerCase() !== "pilot-builder",
+            );
+            chosenId = firstActive?.id ?? firstRealDone?.id ?? parts[0]?.id ?? "";
           }
         }
 
