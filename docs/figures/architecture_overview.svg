@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 500" width="980" height="500" role="img" aria-label="Typist-ML Zero-Cloud Monorepo Architecture">
+  <defs>
+    <style>
+      .bg { fill: #FBFBFA; }
+      .group-box { fill: #F6F5F2; stroke: #E4E2DC; stroke-width: 1.5; rx: 12; }
+      .node { fill: #FFFFFF; stroke: #D9D7D0; stroke-width: 1.25; rx: 8; }
+      .node-blue { fill: #EBF3FA; stroke: #B8D6EE; stroke-width: 1.25; rx: 8; }
+      .node-green { fill: #EDF3EC; stroke: #C5DEC2; stroke-width: 1.25; rx: 8; }
+      .node-amber { fill: #FBF3DB; stroke: #E6D39A; stroke-width: 1.25; rx: 8; }
+      .title { font: 600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #111111; }
+      .sub { font: 500 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #666560; }
+      .node-title { font: 600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #111111; }
+      .node-sub { font: 400 10.5px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #575652; }
+      .edge { stroke: #666560; stroke-width: 1.5; fill: none; }
+      .edge-blue { stroke: #1F5E8B; stroke-width: 1.5; fill: none; }
+      .edge-label { font: 500 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #4A4945; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#666560"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#1F5E8B"/>
+    </marker>
+  </defs>
+
+  <rect width="980" height="500" rx="14" class="bg" stroke="#E4E2DC" stroke-width="1"/>
+
+  <!-- Group 1: Browser Client -->
+  <rect x="24" y="22" width="932" height="114" class="group-box"/>
+  <text x="42" y="45" class="title">Browser Client · apps/web</text>
+  <text x="220" y="45" class="sub">React 19 · TypeScript Strict · Vite 8 · Display-Only Stats</text>
+
+  <rect x="42" y="58" width="218" height="62" class="node-blue"/>
+  <text x="56" y="81" class="node-title">Typing Surface &amp; TextCursor</text>
+  <text x="56" y="100" class="node-sub">performance.now() · #/</text>
+
+  <rect x="274" y="58" width="218" height="62" class="node"/>
+  <text x="288" y="81" class="node-title">Analytics Dashboard</text>
+  <text x="288" y="100" class="node-sub">26x26 SVG Matrix · #/dashboard</text>
+
+  <rect x="506" y="58" width="218" height="62" class="node"/>
+  <text x="520" y="81" class="node-title">Empirical Case Study Debrief</text>
+  <text x="520" y="100" class="node-sub">Blinded Lock &amp; Reveal · #/debrief</text>
+
+  <rect x="738" y="58" width="200" height="62" class="node"/>
+  <text x="752" y="81" class="node-title">Admin &amp; Quality Console</text>
+  <text x="752" y="100" class="node-sub">5-Gate Checks · #/admin</text>
+
+  <!-- Group 2: Backend API -->
+  <rect x="24" y="172" width="548" height="168" class="group-box"/>
+  <text x="42" y="195" class="title">Backend Service · services/api</text>
+  <text x="252" y="195" class="sub">Python 3.12 · FastAPI · SQLModel · Single Source of Truth</text>
+
+  <rect x="42" y="210" width="246" height="52" class="node"/>
+  <text x="56" y="232" class="node-title">D14 Bigram Attribution Engine</text>
+  <text x="56" y="249" class="node-sub">First-attempt IKI &amp; D24 pause filter</text>
+
+  <rect x="306" y="210" width="248" height="52" class="node"/>
+  <text x="320" y="232" class="node-title">Empirical Bayes &amp; Snake Freeze</text>
+  <text x="320" y="249" class="node-sub">Beta prior shrinkage · Form B composer</text>
+
+  <rect x="42" y="274" width="246" height="52" class="node"/>
+  <text x="56" y="296" class="node-title">Latin Square Session Planner</text>
+  <text x="56" y="313" class="node-sub">Counterbalanced blinded Block 1..4</text>
+
+  <rect x="306" y="274" width="248" height="52" class="node-green"/>
+  <text x="320" y="296" class="node-title">Bayesian DiD &amp; Bootstrap Engine</text>
+  <text x="320" y="313" class="node-sub">100k Jeffreys draws · 10k resamples</text>
+
+  <!-- Group 3: Async Drill Synthesis Worker -->
+  <rect x="596" y="172" width="360" height="298" class="group-box"/>
+  <text x="614" y="195" class="title">Async Drill Synthesis Worker</text>
+  <text x="808" y="195" class="sub">3-day buffer</text>
+
+  <rect x="614" y="210" width="154" height="44" class="node"/>
+  <text x="626" y="230" class="node-title">Arm · Control</text>
+  <text x="626" y="245" class="node-sub">Untargeted wordfreq</text>
+
+  <rect x="784" y="210" width="154" height="44" class="node"/>
+  <text x="796" y="230" class="node-title">Arm · Heuristic</text>
+  <text x="796" y="245" class="node-sub">Greedy real words</text>
+
+  <rect x="614" y="264" width="154" height="44" class="node"/>
+  <text x="626" y="284" class="node-title">Arm · 2nd-Order Markov</text>
+  <text x="626" y="299" class="node-sub">N-gram pseudowords</text>
+
+  <rect x="784" y="264" width="154" height="44" class="node-amber"/>
+  <text x="796" y="284" class="node-title">Arm · Local 1B LLM</text>
+  <text x="796" y="299" class="node-sub">Llama-3.2-1B-4bit MLX</text>
+
+  <rect x="614" y="344" width="324" height="54" class="node-blue"/>
+  <text x="630" y="367" class="node-title">Shared Deterministic Fairness Validator (D16, D30)</text>
+  <text x="630" y="385" class="node-sub">250-350 chars · a-z only · [0.10, 0.40] density · word cap &lt;= 2</text>
+
+  <rect x="614" y="412" width="324" height="44" class="node"/>
+  <text x="630" y="432" class="node-title">Pre-Generated Drill Pool Queue</text>
+  <text x="630" y="447" class="node-sub">Zero generation latency on typing hot path</text>
+
+  <!-- Group 4: Local Persistence -->
+  <rect x="24" y="368" width="548" height="102" class="group-box"/>
+  <text x="42" y="391" class="title">Local Persistence &amp; Reproducibility CLI</text>
+  <text x="305" y="391" class="sub">Zero cloud calls · Append-only events</text>
+
+  <rect x="42" y="404" width="256" height="52" class="node"/>
+  <text x="56" y="426" class="node-title">SQLite WAL · data/typist.db</text>
+  <text x="56" y="443" class="node-sub">Immutable assignment trigger (0005)</text>
+
+  <rect x="314" y="404" width="240" height="52" class="node"/>
+  <text x="328" y="426" class="node-title">typist CLI · Audit &amp; Figures</text>
+  <text x="328" y="443" class="node-sub">300 DPI plots · check-readme gate</text>
+
+  <!-- Edges -->
+  <path d="M 118 120 L 118 208" class="edge-blue" marker-end="url(#arrow-blue)"/>
+  <text x="125" y="158" class="edge-label">Keystroke batches</text>
+
+  <path d="M 206 274 L 206 122" class="edge" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+  <text x="212" y="158" class="edge-label">Masked blocks</text>
+
+  <path d="M 430 274 L 430 122" class="edge-blue" marker-end="url(#arrow-blue)"/>
+  <path d="M 554 298 L 575 298 L 575 122" class="edge-blue" marker-end="url(#arrow-blue)"/>
+  <text x="438" y="158" class="edge-label">Posteriors &amp; matrices</text>
+
+  <path d="M 165 326 L 165 402" class="edge" marker-end="url(#arrow)"/>
+  <path d="M 430 326 L 430 402" class="edge" marker-end="url(#arrow)"/>
+  <path d="M 298 430 L 312 430" class="edge" marker-end="url(#arrow)"/>
+
+  <path d="M 691 308 L 691 342" class="edge" marker-end="url(#arrow)"/>
+  <path d="M 861 308 L 861 342" class="edge" marker-end="url(#arrow)"/>
+  <path d="M 776 398 L 776 410" class="edge" marker-end="url(#arrow)"/>
+  <path d="M 614 434 L 556 434" class="edge-blue" marker-end="url(#arrow-blue)"/>
+</svg>
