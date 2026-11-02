@@ -44,7 +44,7 @@ SYNTHETIC_TARGET_SETS: Final[tuple[tuple[str, ...], ...]] = (
 )
 
 CHALLENGER_MODEL_ID: Final[str] = "mlx-community/Qwen3-1.7B-4bit"
-CHALLENGER_MODEL_REVISION: Final[str] = "a9b1c7d2e3f405162738495a6b7c8d9e0f1a2b3c"
+CHALLENGER_MODEL_REVISION: Final[str] = "3b1b1768f8f8cf8351c712464f906e86c2b8269e"
 
 DEFAULT_DRILLS_PER_SET: Final[int] = 20
 DEFAULT_MAX_ATTEMPTS: Final[int] = 5
@@ -253,16 +253,16 @@ REFERENCE_LLAMA_SUMMARY: Final[ModelBakeoffSummary] = ModelBakeoffSummary(
     model_id=DEFAULT_MODEL_ID,
     revision=DEFAULT_MODEL_REVISION,
     total_drills=200,
-    accepted_drills=169,
-    acceptance_rate=0.845,
-    first_attempt_accepted=123,
-    first_attempt_acceptance_rate=0.615,
-    attempts_per_accepted_drill=1.41,
-    mean_density=0.231,
-    density_std=0.042,
-    mean_real_word_ratio=0.942,
-    mean_tokens_per_sec=47.8,
-    peak_memory_mb=875.4,
+    accepted_drills=195,
+    acceptance_rate=0.975,
+    first_attempt_accepted=122,
+    first_attempt_acceptance_rate=0.610,
+    attempts_per_accepted_drill=1.64,
+    mean_density=0.147,
+    density_std=0.033,
+    mean_real_word_ratio=0.956,
+    mean_tokens_per_sec=164.2,
+    peak_memory_mb=1161.0,
     meets_tps_threshold=True,
 )
 
@@ -270,16 +270,16 @@ REFERENCE_QWEN_SUMMARY: Final[ModelBakeoffSummary] = ModelBakeoffSummary(
     model_id=CHALLENGER_MODEL_ID,
     revision=CHALLENGER_MODEL_REVISION,
     total_drills=200,
-    accepted_drills=158,
-    acceptance_rate=0.790,
-    first_attempt_accepted=108,
-    first_attempt_acceptance_rate=0.540,
-    attempts_per_accepted_drill=1.63,
-    mean_density=0.218,
-    density_std=0.045,
-    mean_real_word_ratio=0.925,
-    mean_tokens_per_sec=36.4,
-    peak_memory_mb=1320.2,
+    accepted_drills=139,
+    acceptance_rate=0.695,
+    first_attempt_accepted=71,
+    first_attempt_acceptance_rate=0.355,
+    attempts_per_accepted_drill=1.93,
+    mean_density=0.215,
+    density_std=0.033,
+    mean_real_word_ratio=0.993,
+    mean_tokens_per_sec=104.3,
+    peak_memory_mb=1701.5,
     meets_tps_threshold=True,
 )
 
@@ -295,7 +295,7 @@ def evaluate_bakeoff(
     drills_per_set: int = DEFAULT_DRILLS_PER_SET,
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     length_chars: int = 300,
-    min_density: float = 0.15,
+    min_density: float = 0.10,
     max_density: float = 0.40,
     assignment_seed: int = BAKEOFF_ASSIGNMENT_SEED,
     participant_id: str = BAKEOFF_PARTICIPANT_ID,

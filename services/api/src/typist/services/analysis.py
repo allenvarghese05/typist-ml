@@ -677,10 +677,13 @@ def participant_results(
     )
 
 
-def overview_report(session: Session) -> Overview:
-    """Build system-wide overview: participants, overhead percentiles, and generation audit stats."""
+def overview_report(session: Session, participant_id: str | None = None) -> Overview:
+    """Build system-wide or per-participant overview: participants, overhead percentiles, and generation audit stats."""
+    p_stmt = select(Participant)
+    if participant_id is not None:
+        p_stmt = p_stmt.where(col(Participant.id) == participant_id)
     participants = session.exec(
-        select(Participant).order_by(col(Participant.created_at).asc(), col(Participant.id).asc())
+        p_stmt.order_by(col(Participant.created_at).asc(), col(Participant.id).asc())
     ).all()
     participant_summaries: list[ParticipantSummary] = []
     for p in participants:
@@ -705,7 +708,7 @@ def overview_report(session: Session) -> Overview:
             )
         )
 
-    raw_overhead = overhead_report(session, None, None)
+    raw_overhead = overhead_report(session, participant_id, None)
     overhead_entries = [
         SessionOverheadEntry(
             session_id=row.session_id,
@@ -730,7 +733,10 @@ def overview_report(session: Session) -> Overview:
     total_attempts = 0
 
     for arm in DRILL_ARMS:
-        drills = session.exec(select(Drill).where(col(Drill.arm) == arm)).all()
+        drill_stmt = select(Drill).where(col(Drill.arm) == arm)
+        if participant_id is not None:
+            drill_stmt = drill_stmt.where(col(Drill.participant_id) == participant_id)
+        drills = session.exec(drill_stmt).all()
         drills_count = len(drills)
         total_drills += drills_count
 
@@ -744,11 +750,14 @@ def overview_report(session: Session) -> Overview:
             sum(d.real_word_ratio for d in drills) / drills_count if drills_count > 0 else None
         )
 
-        attempts = session.exec(
+        att_stmt = (
             select(GenerationAttempt)
             .join(GenerationJob, col(GenerationAttempt.job_id) == col(GenerationJob.id))
             .where(col(GenerationJob.arm) == arm)
-        ).all()
+        )
+        if participant_id is not None:
+            att_stmt = att_stmt.where(col(GenerationJob.participant_id) == participant_id)
+        attempts = session.exec(att_stmt).all()
         attempts_count = len(attempts)
         total_attempts += attempts_count
 

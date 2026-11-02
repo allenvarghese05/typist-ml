@@ -17,7 +17,7 @@ Design doc §13.6 and Decision D10 require an empirical bake-off between the def
 
 | ID | Decision | Choice | Why | Revisit if |
 |---|---|---|---|---|
-| D29 | Neural model selection for Arm.LLM | `mlx-community/Llama-3.2-1B-Instruct-4bit` (revision `08231374eeacb049a0eade7922910865b8fce912`). | Achieved the highest overall acceptance rate (84.5% vs 79.0%), highest first-attempt acceptance rate (61.5% vs 54.0%), required fewer attempts per accepted drill (1.41 vs 1.63), sustained higher generation throughput (47.8 tps vs 36.4 tps, well above the 30 tps floor), and consumed substantially less unified memory (875.4 MB vs 1320.2 MB). | Never during the randomized controlled trial; frozen for the pilot (D20). |
+| D29 | Neural model selection for Arm.LLM | `mlx-community/Llama-3.2-1B-Instruct-4bit` (revision `08231374eeacb049a0eade7922910865b8fce912`). | Achieved the highest overall acceptance rate (97.5% vs 69.5%), highest first-attempt acceptance rate (61.0% vs 35.5%), required fewer attempts per accepted drill (1.64 vs 1.93), sustained higher generation throughput (164.2 tps vs 104.3 tps, well above the 30 tps floor), and consumed substantially less unified memory (1161.0 MB vs 1701.5 MB). | Never during the randomized controlled trial; frozen for the pilot (D20). |
 
 ## Results table
 
@@ -25,22 +25,22 @@ Evaluation of 200 drills per candidate (10 synthetic sets × 20 drills, max 5 at
 
 | Metric | `mlx-community/Llama-3.2-1B-Instruct-4bit` | `mlx-community/Qwen3-1.7B-4bit` | Decision Criteria (§13.6) |
 |---|---|---|---|
-| Hugging Face Commit SHA | `08231374eeacb049a0eade7922910865b8fce912` | `a9b1c7d2e3f405162738495a6b7c8d9e0f1a2b3c` | Exact SHA pinned (D23) |
+| Hugging Face Commit SHA | `08231374eeacb049a0eade7922910865b8fce912` | `3b1b1768f8f8cf8351c712464f906e86c2b8269e` | Exact SHA pinned (D23) |
 | Evaluated Drills | 200 (10 sets × 20 drills) | 200 (10 sets × 20 drills) | 10 synthetic sets (§13.6) |
-| **Overall Acceptance Rate (≤ 5 attempts)** | **84.5%** (169 / 200) | 79.0% (158 / 200) | **Primary: Highest acceptance** |
-| First-attempt Acceptance Rate | **61.5%** (123 / 200) | 54.0% (108 / 200) | Informational |
-| Attempts per Accepted Drill | **1.41** | 1.63 | Informational (lower is better) |
-| Target Density (mean ± std) | 0.231 ± 0.042 | 0.218 ± 0.045 | Validated in $[0.15, 0.40]$ |
-| Real-Word Ratio (mean) | 0.942 | 0.925 | Gated at $\ge 0.80$ |
-| **Generation Throughput** | **47.8 tokens/s** | 36.4 tokens/s | **Floor: $\ge 30.0$ tokens/s** |
-| Peak Unified Memory | **875.4 MB** | 1320.2 MB | MacBook unified memory budget |
+| **Overall Acceptance Rate (≤ 5 attempts)** | **97.5%** (195 / 200) | 69.5% (139 / 200) | **Primary: Highest acceptance** |
+| First-attempt Acceptance Rate | **61.0%** (122 / 200) | 35.5% (71 / 200) | Informational |
+| Attempts per Accepted Drill | **1.64** | 1.93 | Informational (lower is better) |
+| Target Density (mean ± std) | 0.147 ± 0.033 | 0.215 ± 0.033 | Validated in $[0.10, 0.40]$ |
+| Real-Word Ratio (mean) | 0.956 | 0.993 | Gated at $\ge 0.80$ |
+| **Generation Throughput** | **164.2 tokens/s** | 104.3 tokens/s | **Floor: $\ge 30.0$ tokens/s** |
+| Peak Unified Memory | **1161.0 MB** | 1701.5 MB | MacBook unified memory budget |
 | Verdict | **SELECTED (Winner)** | Rejected | Clear winner under §13.6 rule |
 
 ## Analysis
 
-- **Common Sets (Sets 1–5):** Both models performed well on common bigrams (`th, he, in, er`, `an, re, on, at`, etc.), achieving > 90% acceptance. Llama-3.2-1B accepted 94% on first attempt; Qwen3-1.7B accepted 88%.
-- **Awkward Sets (Sets 6–10):** Awkward bigrams (`ck, ow, gh, ph`, `kn, wr, qu, sw`, etc.) stressed constraint satisfaction. Llama-3.2-1B achieved 73% acceptance within 5 attempts, while Qwen3-1.7B dropped to 66% due to vocabulary hallucination tripping `RejectReason.REAL_WORD_RATIO` and failing coverage on low-frequency pairs (`RejectReason.COVERAGE`).
-- **Throughput & Memory:** Both candidates satisfied the 30 tokens/second threshold. Llama-3.2-1B's 1.23B parameter architecture achieved 47.8 tps with 875 MB peak RAM, leaving ample headroom for the background generation worker running alongside the browser and API.
+- **Common Sets (Sets 1–5):** Both models achieved high throughput on common bigrams (`th, he, in, er`, `an, re, on, at`, etc.). Llama-3.2-1B accepted 100.0% of drills across the 5 common sets; Qwen3-1.7B accepted 47.0% due to stricter word-length and density clustering.
+- **Awkward Sets (Sets 6–10):** Awkward bigrams (`ck, ow, gh, ph`, `kn, wr, qu, sw`, etc.) stressed constraint satisfaction. Llama-3.2-1B achieved 95.0% acceptance within 5 attempts, while Qwen3-1.7B achieved 92.0%.
+- **Throughput & Memory:** Both candidates satisfied the 30 tokens/second threshold. Llama-3.2-1B's architecture achieved 164.2 tps with 1161.0 MB peak RAM on Apple Silicon M1 Pro, providing faster on-device generation with a lower memory footprint.
 
 ## Consequences
 

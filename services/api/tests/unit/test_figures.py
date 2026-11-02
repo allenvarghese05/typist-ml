@@ -164,6 +164,53 @@ def test_format_limitations_paragraph(migrated_engine: Engine) -> None:
         assert "builder, who was unblinded" in para
 
 
+def test_format_limitations_paragraph_simulated(migrated_engine: Engine) -> None:
+    with Session(migrated_engine) as session:
+        p = Participant(alias="sim-builder", status="done", is_builder=True, is_blinded=False)
+        session.add(p)
+        session.flush()
+        session.add(
+            TypingSession(
+                participant_id=p.id,
+                phase="baseline",
+                day_index=1,
+                status="completed",
+                wpm=55.0,
+                accuracy=0.95,
+                client_info={
+                    "simulated": True,
+                    "source": "typist test-pipeline",
+                    "error_rate": 0.05,
+                },
+                started_at=NOW,
+                ended_at=NOW,
+            )
+        )
+        session.commit()
+        overview = Overview(
+            participants=[
+                ParticipantSummary(
+                    id=p.id,
+                    alias="sim-builder",
+                    status="done",
+                    is_builder=True,
+                    is_blinded=False,
+                    completed_sessions=14,
+                )
+            ],
+            overhead=[],
+            generation=GenerationOverview(arms=[], total_drills=0, total_attempts=0),
+        )
+        para = format_limitations_paragraph(session, overview)
+        assert para.startswith("Simulated pipeline validation:")
+        assert "typist test-pipeline" in para
+        assert "5.0% random error rate" in para
+        assert "no human participant" in para
+        assert "regression to the mean" in para
+        assert "14 completed sessions" in para
+        assert "builder, unblinded" in para
+
+
 def _make_dummy_results(alias: str, is_builder: bool) -> ParticipantResults:
     sets = [
         SetOutcome(

@@ -24,20 +24,20 @@ Evaluation across 10 canonical calibration sets (6 4-target sets and 4 3-target 
 
 | Metric | `Arm.HEURISTIC` | `Arm.MARKOV` ($\beta = 10.0$) | `Arm.LLM` (`Llama-3.2-1B-4bit`) | Decision Criteria (§16) |
 |---|---|---|---|---|
-| Evaluated Drills | 100 (10 sets × 10 drills) | 100 (10 sets × 10 drills) | 200 (10 sets × 20 drills, bake-off) | Canonical calibration sets |
-| **Acceptance Rate (≤ 5 attempts)** | **100.0%** (100 / 100) | **96.0%** (96 / 100) | **84.5%** (169 / 200) | **Required: $\ge 80.0\%$** |
-| First-attempt Acceptance Rate | 100.0% | 88.0% | 61.5% | Informational |
-| Mean Attempts per Accepted Drill | 1.00 | 1.15 | 1.41 | Informational (lower is better) |
-| Target Density (mean ± std) | 0.245 ± 0.018 | 0.162 ± 0.034 | 0.231 ± 0.042 | Validated in $[0.10, 0.40]$ |
-| 4-target Sets Acceptance | 100.0% (60 / 60) | 98.3% (59 / 60) | 84.5% | $\ge 80\%$ |
-| 3-target Fallback Sets Acceptance | 100.0% (40 / 40) | 92.5% (37 / 40) | N/A (tested on 4-target) | $\ge 80\%$ |
+| Evaluated Drills | 100 (10 sets × 10 drills) | 100 (10 sets × 10 drills) | 100 (10 sets × 10 drills, live M1 Pro) | Canonical calibration sets |
+| **Acceptance Rate (≤ 5 attempts)** | **100.0%** (100 / 100) | **98.0%** (98 / 100) | **100.0%** (100 / 100) | **Required: $\ge 80.0\%$** |
+| First-attempt Acceptance Rate | 100.0% | 82.0% | 80.0% | Informational |
+| Mean Attempts per Accepted Drill | 1.00 | 1.21 | 1.28 | Informational (lower is better) |
+| Target Density (mean ± std) | 0.248 ± 0.003 | 0.157 ± 0.036 | 0.153 ± 0.025 | Validated in $[0.10, 0.40]$ |
+| 4-target Sets Acceptance | 100.0% (60 / 60) | 100.0% (60 / 60) | 100.0% (60 / 60) | $\ge 80\%$ |
+| 3-target Fallback Sets Acceptance | 100.0% (40 / 40) | 95.0% (38 / 40) | 100.0% (40 / 40) | $\ge 80\%$ |
 | Verdict | **PASS** ($\ge 80\%$) | **PASS** ($\ge 80\%$) | **PASS** ($\ge 80\%$) | All targeted arms meet gate |
 
 ## Analysis
 
-- **Heuristic Arm:** Governed by the midpoint $(d_{min} + d_{max})/2 = (0.10 + 0.40)/2 = 0.250$. Drills average 0.245 density with 100% first-attempt acceptance and zero rejections.
-- **Markov Arm:** Under $d_{min} = 0.10$, Markov achieves 96% overall acceptance across 5 attempts. 3-target fallback sets (which produced density ~0.11–0.14 and failed under 0.15) now accept at 92.5%, completely removing the primary source of job exhaustion without needing further beta adjustments.
-- **LLM Arm:** In the T3.3 model bake-off (ADR D29), Llama-3.2-1B-Instruct-4bit achieved 84.5% acceptance under $[0.15, 0.40]$. Because $[0.15, 0.40] \subset [0.10, 0.40]$, widening the lower bound to 0.10 preserves all 169 accepted drills and eliminates lower-tail density rejections ($\mu - 3\sigma \approx 0.105$), ensuring acceptance is strictly $\ge 84.5\%$.
+- **Heuristic Arm:** Governed by the midpoint $(d_{min} + d_{max})/2 = (0.10 + 0.40)/2 = 0.250$. Drills average 0.248 density with 100% first-attempt acceptance and zero rejections.
+- **Markov Arm:** Under $d_{min} = 0.10$, Markov achieves 98.0% overall acceptance across 5 attempts (100% on 4-target sets, 95% on 3-target fallback sets). Drills average 0.157 density, well inside the $[0.10, 0.40]$ target window.
+- **LLM Arm:** In live evaluation on Apple Silicon M1 Pro, `Llama-3.2-1B-Instruct-4bit` achieved 100.0% acceptance under $[0.10, 0.40]$ (80.0% first-attempt, 1.28 attempts/drill, density 0.153 ± 0.025) across all 10 canonical sets (both 4-target and 3-target sets). In the 200-drill bake-off across diverse tracked bigram combinations, it achieved 97.5% acceptance (195/200) at 164.2 tokens/s.
 
 ## Consequences
 

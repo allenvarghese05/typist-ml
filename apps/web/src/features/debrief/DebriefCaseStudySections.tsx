@@ -36,7 +36,7 @@ export const GENERATOR_SPECS: Record<string, GeneratorSpecMeta> = {
     lexicalConstraint: "Standard corpus vocabulary; zero targeted bigram enrichment",
     computeProfile: "O(1) deterministic draw · 0 MB model footprint",
     hypothesisRole:
-      "Baseline counterfactual: isolates general typing volume, keyboard warm-up, and Hawthorne familiarity from targeted motor transfer.",
+      "Baseline counterfactual: separates general typing volume, keyboard warm-up, and task familiarity from targeted practice.",
   },
   heuristic: {
     mechanism: "Greedy frequency-weighted dictionary assembly",
@@ -277,13 +277,13 @@ export function CaseStudyAbstractSection({
         {bestErrorSet && (
           <p>
             <span className="font-semibold text-[#111111]">
-              Causal Difference-in-Differences Verdict:
+              Difference-in-Differences Contrast:
             </span>{" "}
-            Subtracting passive test-retest drift observed on the unpracticed reference set
+            Subtracting test-retest drift observed on the unpracticed reference set
             {controlSet
               ? ` (Set ${controlSet.set_label}: ${fmtPct(controlSet.baseline_error_rate)} to ${fmtPct(controlSet.retest_error_rate)}, d = ${fmtSignedPp(controlSet.error_rate_change)})`
               : ""}
-            , the strongest targeted error reduction occurred in{" "}
+            , the largest targeted error-rate contrast occurred in{" "}
             <span className="font-semibold text-[#111111]">{armDisplay(bestErrorSet)}</span> with
             net targeting effect <code>E = {fmtSignedPp(bestErrorSet.targeting_effect)}</code> (95%
             Jeffreys posterior CI{" "}
@@ -298,13 +298,13 @@ export function CaseStudyAbstractSection({
                 : "N/A"}
               ]
             </code>
-            , posterior probability of true causal benefit{" "}
+            , posterior probability{" "}
             <span className="font-semibold text-[#2B6E3F]">
               P(E &lt; 0) = {fmtPct(bestErrorSet.share_below_zero, 1)}
             </span>
             )
             {bestFluencySet
-              ? ` and net inter-keystroke fluency gain F = ${fmtSignedMs(bestFluencySet.iki_targeting_effect_ms)} on ${armDisplay(bestFluencySet)}.`
+              ? ` and net inter-keystroke interval shift F = ${fmtSignedMs(bestFluencySet.iki_targeting_effect_ms)} on ${armDisplay(bestFluencySet)}.`
               : "."}
           </p>
         )}
@@ -403,8 +403,8 @@ export function ExperimentalDesignSection(): React.JSX.Element {
         "Snake-draft dealing (1->A, 2->B, ..., 2k->A; D04) equalizes rank sums across sets prior to seeded PRNG arm permutation.",
     },
     {
-      threat: "Passage memorization vs. motor transfer",
-      risk: "Retesting on identical text conflates episodic recall of specific sentences with generalized motor-program speed.",
+      threat: "Passage memorization vs. transfer",
+      risk: "Retesting on identical text conflates memorizing specific sentences with general transition speed.",
       mitigation:
         "Disjoint corpus forms: Baseline uses fixed Form A prose, whereas Retest composes unseen participant-balanced Form B prose (§5).",
     },
@@ -420,12 +420,12 @@ export function ExperimentalDesignSection(): React.JSX.Element {
     <section id="cs-methodology" className="typist-card p-6 space-y-5">
       <div>
         <h3 className="text-base font-semibold tracking-tight text-[#111111]">
-          §2 · Experimental Design, Causal Identification &amp; Validity Controls
+          §2 · Experimental Design &amp; Within-Participant Controls
         </h3>
         <p className="text-xs text-[#666560] mt-1 leading-relaxed">
-          Why this protocol supports causal inference within a single participant: every typist acts
-          as their own matched control across parallel bigram sets trained simultaneously over the
-          same calendar days, hardware keyboard, and circadian conditions.
+          How the protocol controls for practice volume, passage difficulty, and baseline noise:
+          each participant serves as their own reference across parallel bigram sets practiced over
+          the same days and keyboard.
         </p>
       </div>
 
@@ -866,7 +866,7 @@ export function PerBigramForensicsSection({
     <section id="cs-bigrams" className="typist-card p-6 space-y-5">
       <div>
         <h3 className="text-base font-semibold tracking-tight text-[#111111]">
-          §7 · Assigned Weak Bigrams &amp; Per-Transition Micro-Forensics
+          §7 · Assigned Weak Bigrams &amp; Per-Transition Breakdown
         </h3>
         <p className="text-xs text-[#666560] mt-1 leading-relaxed">
           Individual transition-level breakdown across snake-dealt weak bigrams (D04), comparing

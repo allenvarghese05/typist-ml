@@ -10,15 +10,15 @@
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776ab?style=flat-square&logo=python&logoColor=white)](services/api/)
 [![React 19 + TypeScript](https://img.shields.io/badge/React_19-TypeScript_Strict-0284c7?style=flat-square&logo=typescript&logoColor=white)](apps/web/)
 [![Apple Silicon MLX](https://img.shields.io/badge/Inference-Apple_MLX_4--bit-ea580c?style=flat-square&logo=apple&logoColor=white)](https://github.com/ml-explore/mlx)
-[![Study Design](https://img.shields.io/badge/Study-Pre--Registered_RCT-059669?style=flat-square)](docs/analysis-plan.md)
+[![Study Design](https://img.shields.io/badge/Study-Pre--Registered_Experiment-059669?style=flat-square)](docs/analysis-plan.md)
 
-[Interface & Case Study](#interactive-application--case-study-walkthrough) · [Architecture](#system-architecture) · [Keystroke Physics](#keystroke-physics--biomechanical-telemetry) · [Bayesian Assignment](#experimental-protocol--empirical-bayes-assignment) · [Generative Arms](#the-4-generative-drill-arms--trade-offs) · [Statistical Inference](#pre-registered-statistical-inference) · [Pilot Results](#pilot-results) · [Agentic Pipeline](#autonomous-multi-agent-engineering-pipeline) · [Quickstart](#setup--quickstart)
+[Interface & Case Study](#interactive-application--case-study-walkthrough) · [Architecture](#system-architecture) · [Keystroke Timing](#keystroke-timing--telemetry-physics) · [Bayesian Assignment](#experimental-protocol--empirical-bayes-assignment) · [Generative Arms](#the-4-generative-drill-arms--trade-offs) · [Statistical Inference](#pre-registered-statistical-inference) · [Pipeline Validation](#pipeline-validation-simulated-data) · [Quickstart](#setup--quickstart)
 
 </div>
 
 ---
 
-**Typist-ML** is a complete, local-first typing coach engineered from the ground up as a within-subject, single-blind randomized controlled trial (RCT). Rather than treating typing speed as a coarse word-level average, the system captures sub-millisecond hardware keystroke physics, isolates individual character-transition weaknesses via **Empirical Bayes shrinkage**, synthesizes targeted practice drills across four competing generative paradigms (**Control**, **Dictionary Heuristic**, **2nd-Order Markov**, and an **On-Device 1B Quantized LLM** on Apple Silicon Metal/MLX), and evaluates motor-learning transfer under pre-registered **Bayesian difference-in-differences** inference.
+**Typist-ML** is a complete, local-first typing coach engineered from the ground up as a within-subject, single-blind controlled experiment. Rather than treating typing speed as a coarse word-level average, the system captures sub-millisecond keystroke timing physics, isolates individual character-transition weaknesses via **Empirical Bayes shrinkage**, synthesizes targeted practice drills across four competing generative paradigms (**Control**, **Dictionary Heuristic**, **2nd-Order Markov**, and an **On-Device 1B Quantized LLM** on Apple Silicon Metal/MLX), and evaluates motor-learning transfer under pre-registered **Bayesian difference-in-differences** inference.
 
 Status: **Complete** — Milestones M0–M4, tactile warm-paper workbench UI, and 8-section interactive Empirical Case Study (`#/debrief`) shipped.
 
@@ -28,7 +28,7 @@ Analysis plan (pre-registered): [docs/analysis-plan.md](docs/analysis-plan.md)
 
 | Telemetry Precision | Experimental Scale | Generative Paradigms | Verification & Reproducibility |
 | :--- | :--- | :--- | :--- |
-| **`0.20 ms` p95** keystroke handler (`< 1.0 ms` SLA) | **`14` sessions** · **`25,022`** recorded keystrokes | **4 arms** gated by an identical fairness validator | **`652` tests** (`173` Web + `479` API) + automated DB claim audit |
+| **`0.20 ms` p95** keystroke handler (`< 1.0 ms` SLA) | **`14` sessions** · **`38,113`** recorded keystrokes | **4 arms** gated by an identical fairness validator | **`654` tests** (`173` Web + `481` API) + automated DB claim audit |
 
 - **Interactive Results Notebook:** [`notebooks/03_results.ipynb`](notebooks/03_results.ipynb)
 - **Web Routes:** Typing Surface (`#/`) · Visual Analytics Dashboard (`#/dashboard`) · Interactive Empirical Case Study & Single-Blind Debrief (`#/debrief` / `#/results`) · Admin Console (`#/admin`)
@@ -54,8 +54,8 @@ Typist-ML pairs an intentional, warm-paper editorial interface (`#FAF9F6` canvas
   <img src="docs/figures/ui_debrief_case_study.png" width="100%" alt="Typist-ML Study Debrief and Empirical Case Study showing executive summary and 6-card macro KPI scorecard" />
 </div>
 
-- **Cryptographic Single-Blind Gate:** During Baseline (`Days 0–1`), Practice (`Days 2–11`), and Retest (`Days 12–13`), set-to-arm assignments remain locked behind an HTTP `403` guard so typing effort cannot be biased by arm identity.
-- **Interactive Research Monograph:** Upon completing Session 14, `#/debrief` unlocks an 8-section interactive case study covering the executive empirical verdict, protocol audit, Empirical Bayes $\hat{\theta}_b$ shrinkage derivation, serpentine set balancing, longitudinal trajectories, Bayesian forest plots, per-bigram drill-downs, and methodological limitations.
+- **Single-Blind Protocol Gate:** During Baseline (`Days 0–1`), Practice (`Days 2–11`), and Retest (`Days 12–13`), set-to-arm assignments remain locked behind an HTTP `403` guard so typing effort cannot be biased by arm identity.
+- **Interactive Case Study:** Upon completing Session 14, `#/debrief` unlocks an 8-section interactive case study covering the executive empirical verdict, protocol audit, Empirical Bayes $\hat{\theta}_b$ shrinkage derivation, serpentine set balancing, longitudinal trajectories, Bayesian forest plots, per-bigram drill-downs, and methodological limitations.
 
 ### 3. Longitudinal 14-Session Learning Trajectory & Set Divergence (`#/debrief`)
 
@@ -70,7 +70,7 @@ Typist-ML pairs an intentional, warm-paper editorial interface (`#FAF9F6` canvas
 </div>
 
 > [!NOTE]
-> Screenshots above illustrate the interactive application workbench. All confirmatory pilot metrics, intervals, and counts reported in [Pilot Results](#pilot-results) below trace strictly to the pre-registered `pilot-builder` evaluation audited via `just check-readme`.
+> Screenshots above illustrate the interactive application workbench. All confirmatory validation metrics, intervals, and counts reported in [Pipeline Validation (Simulated Data)](#pipeline-validation-simulated-data) below trace strictly to the simulated audit via `just check-readme`.
 
 ---
 
@@ -91,9 +91,9 @@ Typist-ML is structured as a zero-cloud monorepo. Every keystroke event, model f
 
 ---
 
-## Keystroke Physics & Biomechanical Telemetry
+## Keystroke Timing & Telemetry Physics
 
-Conventional typing tests score completed words at the end of a timer. Typist-ML models typing as a continuous neuromotor sequence of physical switch depressions $t_{\mathrm{down}}(j)$ and releases $t_{\mathrm{up}}(j)$ across adjacent lowercase letter pairs (bigrams $b = c_{j-1}c_j$).
+Conventional typing tests score completed words at the end of a timer. Typist-ML models typing as a continuous motor sequence of physical switch depressions $t_{\mathrm{down}}(j)$ and releases $t_{\mathrm{up}}(j)$ across adjacent lowercase letter pairs (bigrams $b = c_{j-1}c_j$).
 
 ```text
          t_down(j-1)         t_up(j-1)          t_down(j)          t_up(j)
@@ -170,7 +170,7 @@ When a typist makes a typo, hits `Backspace`, and retypes, naive string diffing 
 
 | Scenario (`target = "the"`) | Keystroke Stream | Attributed to `"th"` | Attributed to `"he"` | Why It Matters |
 | :--- | :--- | :--- | :--- | :--- |
-| **Clean fluent strike** | `t` → `h` → `e` | `1` attempt, `0` errors, clean IKI | `1` attempt, `0` errors, clean IKI | Baseline ballistic motor transition. |
+| **Clean fluent strike** | `t` → `h` → `e` | `1` attempt, `0` errors, clean IKI | `1` attempt, `0` errors, clean IKI | Baseline fluent motor transition. |
 | **Mistyped `h` (uncorrected)** | `t` → `x` → `e` | `1` attempt, **`1` error**, no IKI | **Skipped** (`a` at `h` was an error) | Prevents blaming `"he"` for a hand displacement that happened on `"th"`. |
 | **Mistyped `h`, fixed via Backspace** | `t` → `x` → `⌫` → `h` → `e` | `1` attempt, **`1` error**, no IKI | **Skipped** (`a` first attempt failed) | Retry strokes never double-count `"th"` attempts or fabricate artificial fluency. |
 
@@ -232,7 +232,7 @@ $$
 $$
 
 > [!TIP]
-> **Cryptographic Freeze:** Once snake dealing finishes, sets `{A, B, C, D}` are mapped to generative arms via a single seeded shuffle (`random.Random(f"{seed}:{participant_id}")`) and locked at the database layer via an immutable SQLite `BEFORE UPDATE` trigger. Neither the UI nor the participant sees arm labels until the final retest session is complete.
+> **Deterministic Assignment Freeze:** Once snake dealing finishes, sets `{A, B, C, D}` are mapped to generative arms via a single seeded shuffle (`random.Random(f"{seed}:{participant_id}")`) and locked at the database layer via an immutable SQLite `BEFORE UPDATE` trigger. Neither the UI nor the participant sees arm labels until the final retest session is complete.
 
 ### 3. Balanced 4×4 Latin Square Block Schedule
 
@@ -257,7 +257,7 @@ Typist-ML pits three distinct algorithmic drill-generation strategies against an
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Control** (`control`) | Frequency-weighted English word sampler (`wordfreq`) | **100% real words** | Untargeted baseline (`~0.00`) | `< 0.1 ms` | Captures general typing volume & task adaptation without targeting weak transitions. |
 | **Heuristic** (`heuristic`) | Greedy dictionary scorer maximizing target bigram hits | **100% real words** | High (`0.20 – 0.30`) | `< 0.2 ms` | High target density with valid vocabulary, but lacks sentence-level grammar (`"frame front rusty..."`). |
-| **Markov** (`markov`) | Character-level 2nd-order N-gram transition sampler | **Phonotactic pseudowords** (`~15–25%` real) | Very high (`0.25 – 0.40`) | `< 1.0 ms` | Isolates pure finger biomechanics without word-memory shortcuts, at the cost of alien non-words. |
+| **Markov** (`markov`) | Character-level 2nd-order N-gram transition sampler | **Phonotactic pseudowords** (`~15–25%` real) | Very high (`0.25 – 0.40`) | `< 1.0 ms` | Isolates pure key transition mechanics without word-memory shortcuts, at the cost of alien non-words. |
 | **Local LLM** (`llm`) | `Llama-3.2-1B-Instruct-4bit` via Apple Silicon MLX + rejection sampling | **Coherent English prose** (`~95%+` real) | Calibrated (`0.10 – 0.40`) | `~0.8 – 1.5 s` (async worker) | Synthesizes fluent, grammatical sentences embedding target bigrams; requires background pool buffering. |
 
 ### The Shared Fairness Validator Gate (D16, D30)
@@ -320,22 +320,24 @@ $$
 
 ---
 
-## Pilot Results
+## Pipeline Validation (Simulated Data)
 
-The reference pilot evaluation was executed across the full 14-session protocol (`2` baseline, `10` practice, `2` retest; **14 completed sessions** and **25,022 total keystrokes**) under the pre-registered two-set contingency mode comparing untargeted volume (`control`, Set A) against dictionary-targeted drills (`heuristic`, Set B).
+The pipeline was validated using end-to-end simulated keystroke execution across all 14 sessions (`2` baseline, `10` practice, `2` retest; **14 completed sessions** and **38,113 total keystrokes**) across all four arms (`control`, `heuristic`, `markov`, and `llm`). In this validation run, keystrokes were generated by `typist test-pipeline` with a fixed 5.0% error rate and no human participant (configured as builder, unblinded).
 
 ### Primary Outcome: Error Rate Change
 
 <div align="center">
-  <img src="docs/figures/set_error_rate_change.png" width="760" alt="Per-set error rate change between Baseline Form A and Retest Form B with 95% Jeffreys credible intervals" />
+  <img src="docs/figures/set_error_rate_change.png" width="760" alt="Pipeline Validation (Simulated Data): Per-Set Error Rate Change (95% Jeffreys CIs)" />
 </div>
 
 The table below reports baseline (Form A) and retest (Form B) error counts, exact equal-tailed 95% Jeffreys Beta credible intervals, within-set change $d(s)$, difference-in-differences targeting effect $E(s)$, and posterior probability $P(E(s) \lt 0)$:
 
 | Set | Arm | Assigned Bigrams | Baseline Errors / Attempts | Baseline 95% CI | Retest Errors / Attempts | Retest 95% CI | Error Rate Change $d(s)$ | Targeting Effect $E(s)$ | $P(E(s) \lt 0)$ |
 | :---: | :--- | :--- | ---: | :---: | ---: | :---: | ---: | ---: | ---: |
-| **A** | `control` | `be`, `ev`, `ly`, `nc` | 13/77 (16.9%) | `[0.0981, 0.2639]` | 7/155 (4.5%) | `[0.0204, 0.0866]` | -12.36% | — | — |
-| **B** | `heuristic` | `ay`, `fr`, `no`, `rs` | 14/84 (16.7%) | `[0.0989, 0.2570]` | 9/143 (6.3%) | `[0.0316, 0.1117]` | -10.38% | +1.98% | 37.7% |
+| **A** | `llm` | `ev`, `ly`, `uc`, `wa` | 12/76 (15.8%) | `[0.0893, 0.2519]` | 5/152 (3.3%) | `[0.0127, 0.0706]` | -12.50% | -6.83% | 85.6% |
+| **B** | `control` | `gr`, `ni`, `no`, `rs` | 12/79 (15.2%) | `[0.0858, 0.2429]` | 14/147 (9.5%) | `[0.0556, 0.1506]` | -5.67% | — | — |
+| **C** | `heuristic` | `ay`, `es`, `fr`, `to` | 14/104 (13.5%) | `[0.0793, 0.2099]` | 10/162 (6.2%) | `[0.0322, 0.1067]` | -7.29% | -1.62% | 60.3% |
+| **D** | `markov` | `be`, `co`, `it`, `nc` | 12/89 (13.5%) | `[0.0759, 0.2171]` | 5/156 (3.2%) | `[0.0123, 0.0688]` | -10.27% | -4.60% | 77.4% |
 
 ### Key Secondary Outcome: Clean Inter-Key Interval (IKI) Shift
 
@@ -343,27 +345,28 @@ Clean press-to-press transition latencies across unpaused first-attempt keystrok
 
 | Set | Arm | Baseline Median IKI ($n$) | Baseline IQR | Retest Median IKI ($n$) | Retest IQR | Shift $c(s)$ | Targeting Effect $F(s)$ | Bootstrap 95% CI |
 | :---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | :---: |
-| **A** | `control` | 142.2 ms (64) | 20.0 ms | 140.6 ms (148) | 19.8 ms | -1.6 ms | — | — |
-| **B** | `heuristic` | 139.3 ms (70) | 16.0 ms | 137.2 ms (134) | 20.9 ms | -2.0 ms | -0.4 ms | `[-8.4, +7.9]` ms |
+| **A** | `llm` | 141.0 ms (64) | 20.8 ms | 138.1 ms (147) | 19.8 ms | -3.0 ms | -4.3 ms | `[-10.7, +7.6]` ms |
+| **B** | `control` | 141.1 ms (67) | 17.4 ms | 142.5 ms (133) | 18.3 ms | +1.4 ms | — | — |
+| **C** | `heuristic` | 142.9 ms (90) | 18.2 ms | 138.1 ms (152) | 22.5 ms | -4.8 ms | -6.1 ms | `[-12.3, +2.5]` ms |
+| **D** | `markov` | 141.6 ms (77) | 16.5 ms | 141.6 ms (151) | 21.1 ms | +0.0 ms | -1.4 ms | `[-9.2, +5.0]` ms |
 
 ### Generation Summary & Telemetry Overhead
 
 | Arm | Drills | Mean Density | Real-Word Ratio | Acceptance Rate |
 |---|---:|---:|---:|---:|
 | control | 24 | 0.000 | 1.000 | 100.0% |
-| heuristic | 24 | 0.245 | 1.000 | 100.0% |
-| markov | 0 | - | - | - |
-| llm | 0 | - | - | - |
+| heuristic | 24 | 0.247 | 1.000 | 100.0% |
+| markov | 24 | 0.136 | 0.194 | 68.4% |
+| llm | 24 | 0.131 | 0.983 | 57.1% |
 
-Instrumentation overhead: handler p95 = 0.20 ms (target < 1.0 ms), dispatch lag p95 = 0.50 ms. LLM generation: N/A.
+Instrumentation overhead: handler p95 = 0.20 ms (target < 1.0 ms), dispatch lag p95 = 0.50 ms. LLM generation: 168.3 tokens/s on Apple Silicon.
 
-### Limitations & Study Interpretation
+### Limitations & Validation Interpretation
 
-> [!NOTE]
-> This pilot reports findings from N = 1 participant (builder, unblinded) across 14 completed sessions and 25,022 total keystrokes. The primary participant is the author and system builder, who was unblinded to arm assignments during typing; results are descriptive within-person comparisons and should be evaluated with this limitation in mind.
+Simulated pipeline validation: all 38,113 total keystrokes across 14 completed sessions were generated by `typist test-pipeline` at a fixed 5.0% random error rate with no human participant (configured as builder, unblinded). Because a stateless simulator cannot learn, any apparent drop in raw error rate on selected weak bigrams reflects regression to the mean rather than skill acquisition, and the held-out control contrast is evaluated strictly as an end-to-end null-effect calibration check.
 
-- **Substantial Longitudinal Improvement:** Error rates fell sharply across both sets (`-12.36%` in Set A `control`; `-10.38%` in Set B `heuristic`), reflecting strong general motor adaptation across the 10 practice days.
-- **Targeting Parity in Single-Subject Pilot:** The difference-in-differences contrast $E(\mathrm{heuristic}) = +1.98\%$ ($P(E \lt 0) = 37.7\%$) and latency contrast $F(\mathrm{heuristic}) = -0.4\text{ ms}$ (`[-8.4, +7.9] ms`) show broad parity between greedy dictionary targeting and plain typing volume in this $N = 1$ run, validating end-to-end telemetry precision, attribution invariants, and reproducible Bayesian reporting without overclaiming population effects.
+- **Regression to the Mean on Outlier Bigrams:** The apparent reduction in error rates (e.g., `-12.50%` in Set A, `-10.27%` in Set D, `-7.29%` in Set C, and `-5.67%` in Set B) occurs entirely because bigrams selected into sets had higher-than-average error counts in baseline (~13%–16%) due to binomial sampling noise around the 5.0% simulator truth. During retest, their observed error rates naturally reverted toward the 5.0% true generator rate.
+- **Calibration of Null Effect:** Because the unpracticed Control set underwent the same regression to the mean, the difference-in-differences estimator $E(s)$ correctly identified no statistically credible superiority beyond noise, validating that the pre-registered study design and difference-in-differences contrast prevent false discoveries from small-sample selection bias.
 
 ### Automated Claim Traceability
 
@@ -373,24 +376,6 @@ Every empirical figure, count, and interval in this README is programmatically a
 just figures       # Regenerate 300 DPI charts & Markdown snippets from SQLite
 just check-readme  # Verify zero divergence between README claims and database rows
 ```
-
----
-
-## Autonomous Multi-Agent Engineering Pipeline
-
-Every feature across Milestones M0–M4 (`T0.1` through `T4.5`) was engineered through a disciplined **5-phase multi-agent pipeline** enforcing strict separation between specification, architecture, implementation, and adversarial review:
-
-<div align="center">
-  <img src="docs/figures/agent_pipeline.svg" width="100%" alt="5-Phase Autonomous Multi-Agent Engineering Pipeline across Analyst, Architect, Builder, Reviewer, and Orchestrator" />
-</div>
-
-| Phase | Role | Model Configuration | Deliverable & Quality Gate |
-| :--- | :--- | :--- | :--- |
-| **1. Understand** | `analyst` | Gemini 4 Argon (Medium) | Audits design doc & ADRs without writing code; produces [`docs/plans/<task>-brief.md`](docs/plans/). |
-| **2. Blueprint** | `architect` | Gemini 4 Argon (Medium) | Authors exact types, SQL queries, math invariants, and test specs in [`docs/plans/<task>-plan.md`](docs/plans/). |
-| **3. Build** | `builder` | Claude Sonnet 4.6 (Medium) | Executes the blueprint step-by-step with atomic conventional commits and zero unapproved scope drift. |
-| **4. Review** | `reviewer` | Claude Opus 5.5 (Medium) | Read-only adversarial audit checking pre-registered math, D-number invariants, golden fixtures, and security gates. |
-| **5. Ship** | `orchestrator` | Main Session | Runs full-stack `just check` & `just security` gates and opens a single-task pull request. |
 
 ---
 

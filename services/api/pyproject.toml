@@ -74,6 +74,6 @@ executionEnvironments = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests/unit", "tests/integration"]
 # The mlx marker is registered in tests/conftest.py; pytester is used by tests/unit/test_mlx_marker.py.
 addopts = ["--strict-markers", "-p", "pytester"]

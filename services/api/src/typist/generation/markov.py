@@ -50,7 +50,12 @@ class MarkovGenerator:
         self._beta = beta
         self._model = model if model is not None else CharNGramModel.from_word_index(index)
 
-    def _sample_word(self, rng: random.Random, target_map: dict[str, set[str]]) -> str:
+    def _sample_word(
+        self,
+        rng: random.Random,
+        target_map: dict[str, set[str]],
+        first_letters: set[str] | None = None,
+    ) -> str:
         """Sample one pseudo-word of 3 to 10 characters using the seeded RNG.
 
         Discard and retry if a dead end is reached before valid completion (owner answer 5).
@@ -74,7 +79,11 @@ class MarkovGenerator:
                 for char, base_weight in next_transitions.items():
                     if char == END_CHAR and word_len < _MIN_WORD_LEN:
                         continue
-                    w = base_weight * (self._beta if char in boosted_seconds else 1.0)
+                    w = base_weight
+                    if char in boosted_seconds:
+                        w *= self._beta
+                    elif prev_char == START_CHAR and first_letters and char in first_letters:
+                        w *= 2.5
                     candidates.append(char)
                     weights.append(w)
                 if not candidates or sum(weights) <= 0.0:
@@ -96,16 +105,18 @@ class MarkovGenerator:
         """
         rng = random.Random(spec.seed)
         target_map: dict[str, set[str]] = defaultdict(set)
+        first_letters: set[str] = set()
         for bigram in spec.target_bigrams:
             if len(bigram) == 2:
                 target_map[bigram[0]].add(bigram[1])
+                first_letters.add(bigram[0])
 
         used: dict[str, int] = {}
         words: list[str] = []
         length = 0
 
         while True:
-            word = self._sample_word(rng, target_map)
+            word = self._sample_word(rng, target_map, first_letters)
             if used.get(word, 0) >= _MAX_USES_PER_DRILL:
                 continue
             addition = len(word) + (1 if words else 0)

@@ -551,7 +551,7 @@ export function DebriefPage({
               §6 Fluency F(s)
             </a>
             <a href="#cs-bigrams" className="hover:text-[#111111]">
-              §7 Bigram Forensics
+              §7 Bigram Breakdown
             </a>
             <a href="#cs-exclusions" className="hover:text-[#111111]">
               §8 Audit &amp; Exclusions
@@ -649,7 +649,7 @@ export function DebriefPage({
                             {spec.computeProfile}
                           </div>
                           <div>
-                            <span className="font-semibold text-[#111111]">Causal Role: </span>
+                            <span className="font-semibold text-[#111111]">Design Role: </span>
                             {spec.hypothesisRole}
                           </div>
                         </div>
@@ -1008,7 +1008,7 @@ export function DebriefPage({
           <section className="typist-card p-6 space-y-4" data-testid="diagnostic-nudges-card">
             <div>
               <h3 className="text-base font-semibold tracking-tight text-[#111111]">
-                Post-Retest Biomechanical Coaching Diagnostics (D12)
+                Post-Retest Transition Coaching Diagnostics (D12)
               </h3>
               <p className="text-xs text-[#666560] mt-1">
                 Actionable post-study feedback on transitions exhibiting residual error rate

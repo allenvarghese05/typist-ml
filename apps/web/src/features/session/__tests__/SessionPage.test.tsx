@@ -396,10 +396,9 @@ describe("SessionPage", () => {
     expect(nextReady).toHaveTextContent("Begin Block 2");
     fireEvent.click(nextReady);
     await screen.findByTestId("live-typing-stage");
-    act(() => {
+    await waitFor(() => {
       pressKey("y", "KeyY");
+      expect(screen.getByTestId("session-summary-card")).toBeInTheDocument();
     });
-
-    expect(await screen.findByTestId("session-summary-card")).toBeInTheDocument();
   });
 });

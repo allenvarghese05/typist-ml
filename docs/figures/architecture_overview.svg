@@ -39,7 +39,7 @@
   <text x="288" y="100" class="node-sub">26x26 SVG Matrix · #/dashboard</text>
 
   <rect x="506" y="58" width="218" height="62" class="node"/>
-  <text x="520" y="81" class="node-title">Empirical Case Study Debrief</text>
+  <text x="520" y="81" class="node-title">Outcome Debrief &amp; Unblinding</text>
   <text x="520" y="100" class="node-sub">Blinded Lock &amp; Reveal · #/debrief</text>
 
   <rect x="738" y="58" width="200" height="62" class="node"/>
@@ -90,7 +90,7 @@
 
   <rect x="614" y="344" width="324" height="54" class="node-blue"/>
   <text x="630" y="367" class="node-title">Shared Deterministic Fairness Validator (D16, D30)</text>
-  <text x="630" y="385" class="node-sub">250-350 chars · a-z only · [0.10, 0.40] density · word cap &lt;= 2</text>
+  <text x="630" y="385" class="node-sub">270-300 chars · a-z only · [0.10, 0.40] density · word cap &lt;= 3</text>
 
   <rect x="614" y="412" width="324" height="44" class="node"/>
   <text x="630" y="432" class="node-title">Pre-Generated Drill Pool Queue</text>

@@ -1,6 +1,8 @@
 """The `typist` command (design doc section 14.1). T0.3 adds only `typist db migrate`."""
 
+import json
 import random
+from collections.abc import Sequence
 from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
@@ -514,8 +516,22 @@ def test_pipeline_command(
     is_builder: bool = typer.Option(
         True, "--is-builder/--no-is-builder", help="Whether participant is the author/builder"
     ),
+    arms: str = typer.Option(
+        "auto",
+        "--arms",
+        help="Comma-separated arms to enable (default 'auto': 4 arms on Apple Silicon with cached model, else control,heuristic,markov).",
+    ),
 ) -> None:
     """Run an end-to-end experiment pipeline simulation with scripted keystrokes."""
+    from typist.generation.llm.runtime import (
+        DEFAULT_MODEL_ID,
+        DEFAULT_MODEL_REVISION,
+        LLMRuntimeProtocol,
+        MLXRuntime,
+        is_apple_silicon,
+        is_model_cached,
+    )
+
     settings = get_settings()
     engine = create_db_engine(settings.db_path)
     typer.echo(f"Running pipeline test against database: {settings.db_path}")
@@ -526,6 +542,18 @@ def test_pipeline_command(
         typer.echo("Building temporary corpus artifacts...")
         build_corpus(corpus_dir, word_count=5000, tracked_count=50)
     index = WordIndex.load(corpus_dir)
+
+    if arms.strip().lower() == "auto":
+        if is_apple_silicon() and is_model_cached(DEFAULT_MODEL_ID, DEFAULT_MODEL_REVISION):
+            arms_list = ("control", "heuristic", "markov", "llm")
+        else:
+            arms_list = ("control", "heuristic", "markov")
+    else:
+        arms_list = tuple(part.strip() for part in arms.split(",") if part.strip())
+
+    runtime: LLMRuntimeProtocol | None = None
+    if "llm" in arms_list:
+        runtime = MLXRuntime()
 
     fastapi_app = create_app(settings)
     fastapi_app.dependency_overrides[get_word_index] = lambda: index
@@ -543,6 +571,8 @@ def test_pipeline_command(
             seed=seed,
             log_fn=typer.echo,
             is_builder=is_builder,
+            arms_enabled=arms_list,
+            runtime=runtime,
         )
         typer.echo(
             f"\nSUCCESS: Participant '{result.alias}' ({result.participant_id}) reached status '{result.status}'."
@@ -762,6 +792,68 @@ def analyze_command(
                 raise typer.Exit(code=1) from exc
 
 
+def _verify_readme_claims(
+    readme_text: str,
+    *,
+    gen_table: str,
+    overhead_line: str,
+    limitations: str,
+    set_counts: Sequence[tuple[str, int, int, int, int]],
+) -> None:
+    """Run the 6 §15.3 / D18 / D19 verification gates against README.md text."""
+    # 1. Section 15.3 item 1: Chart reference
+    if "docs/figures/set_error_rate_change.png" not in readme_text:
+        typer.echo("FAIL: Primary outcome chart reference missing in README", err=True)
+        raise typer.Exit(code=1)
+
+    # 2. Section 15.3 item 2: Generation summary table
+    for line in gen_table.strip().splitlines():
+        if line.strip() not in readme_text:
+            typer.echo(f"FAIL: Generation table mismatch. Missing line: {line}", err=True)
+            raise typer.Exit(code=1)
+
+    # 3. Section 15.3 item 3: Overhead line
+    if overhead_line not in readme_text:
+        typer.echo(f"FAIL: Overhead line mismatch.\nExpected: {overhead_line}", err=True)
+        raise typer.Exit(code=1)
+
+    # 4. Section 15.3 item 4: Limitations paragraph
+    if limitations not in readme_text:
+        typer.echo(f"FAIL: Limitations paragraph mismatch.\nExpected: {limitations}", err=True)
+        raise typer.Exit(code=1)
+
+    # 5. Outcome metrics verification
+    for set_label, base_err, base_att, ret_err, ret_att in set_counts:
+        base_str = f"{base_err}/{base_att}"
+        ret_str = f"{ret_err}/{ret_att}"
+        if base_str not in readme_text:
+            typer.echo(
+                f"FAIL: Baseline counts for Set {set_label} ({base_str}) missing in README",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+        if ret_str not in readme_text:
+            typer.echo(
+                f"FAIL: Retest counts for Set {set_label} ({ret_str}) missing in README",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+    # 6. Honesty rules check (D18, D19)
+    if "builder, unblinded" not in readme_text and "unblinded" not in readme_text:
+        typer.echo("FAIL: Builder unblinded disclosure missing in README", err=True)
+        raise typer.Exit(code=1)
+
+    forbidden = ["webassembly", "wasm", "statistically significant", "p-value", "p < 0.05"]
+    for term in forbidden:
+        if term in readme_text.lower():
+            typer.echo(
+                f"FAIL: Forbidden marketing/significance term {term!r} found in README",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+
 @app.command("check-readme")
 def check_readme_command(
     readme_path: Path = typer.Option(  # noqa: B008
@@ -774,14 +866,69 @@ def check_readme_command(
         "--pid",
         help="Participant id to verify against (default: first completed participant).",
     ),
+    audit_json: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--audit-json",
+        help="Optional path to validation_audit.json snapshot produced by `typist figures`.",
+    ),
 ) -> None:
-    """Verify that all experimental claims and numbers in README.md trace to database records (T4.4)."""
+    """Verify that all experimental claims and numbers in README.md trace to database or audit records (T4.4)."""
     if not readme_path.exists():
         typer.echo(f"README file not found at {readme_path}", err=True)
         raise typer.Exit(code=1)
 
     readme_text = readme_path.read_text(encoding="utf-8")
+
+    if audit_json is not None:
+        if not audit_json.exists():
+            typer.echo(f"Audit JSON file not found at {audit_json}", err=True)
+            raise typer.Exit(code=1)
+        payload = json.loads(audit_json.read_text(encoding="utf-8"))
+        set_counts = [
+            (
+                str(s["set_label"]),
+                int(s["baseline_errors"]),
+                int(s["baseline_attempts"]),
+                int(s["retest_errors"]),
+                int(s["retest_attempts"]),
+            )
+            for s in payload["sets"]
+        ]
+        _verify_readme_claims(
+            readme_text,
+            gen_table=str(payload["generation_table"]),
+            overhead_line=str(payload["overhead_line"]),
+            limitations=str(payload["limitations_paragraph"]),
+            set_counts=set_counts,
+        )
+        typer.echo("README claims check passed: all numbers trace to validation audit records.")
+        return
+
     settings = get_settings()
+    default_audit = REPO_ROOT / "docs" / "figures" / "validation_audit.json"
+
+    if pid is None and not settings.db_path.exists() and default_audit.exists():
+        payload = json.loads(default_audit.read_text(encoding="utf-8"))
+        set_counts = [
+            (
+                str(s["set_label"]),
+                int(s["baseline_errors"]),
+                int(s["baseline_attempts"]),
+                int(s["retest_errors"]),
+                int(s["retest_attempts"]),
+            )
+            for s in payload["sets"]
+        ]
+        _verify_readme_claims(
+            readme_text,
+            gen_table=str(payload["generation_table"]),
+            overhead_line=str(payload["overhead_line"]),
+            limitations=str(payload["limitations_paragraph"]),
+            set_counts=set_counts,
+        )
+        typer.echo("README claims check passed: all numbers trace to validation audit records.")
+        return
+
     engine = create_db_engine(settings.db_path)
 
     with Session(engine) as session:
@@ -791,71 +938,41 @@ def check_readme_command(
                 typer.echo(f"Participant {pid!r} not found", err=True)
                 raise typer.Exit(code=1)
         else:
-            participant = session.exec(
+            done_participants = session.exec(
                 select(Participant)
                 .where(col(Participant.status) == "done")
                 .order_by(col(Participant.created_at))
-            ).first()
-            if participant is None:
+            ).all()
+            if not done_participants:
                 typer.echo("no completed participants found (status 'done')", err=True)
                 raise typer.Exit(code=1)
+            participant = next(
+                (
+                    p
+                    for p in done_participants
+                    if p.alias in ("pilot-builder", "sim-validation") or p.alias.startswith("sim-")
+                ),
+                done_participants[0],
+            )
 
-        overview = overview_report(session)
+        overview = overview_report(session, participant_id=participant.id)
         results = participant_results(session, participant.id)
 
-        # 1. Section 15.3 item 1: Chart reference
-        if "docs/figures/set_error_rate_change.png" not in readme_text:
-            typer.echo("FAIL: Primary outcome chart reference missing in README", err=True)
-            raise typer.Exit(code=1)
-
-        # 2. Section 15.3 item 2: Generation summary table
-        gen_table = format_generation_table(overview)
-        for line in gen_table.strip().splitlines():
-            if line.strip() not in readme_text:
-                typer.echo(f"FAIL: Generation table mismatch. Missing line: {line}", err=True)
-                raise typer.Exit(code=1)
-
-        # 3. Section 15.3 item 3: Overhead line
-        overhead_line = format_overhead_line(overview)
-        if overhead_line not in readme_text:
-            typer.echo(f"FAIL: Overhead line mismatch.\nExpected: {overhead_line}", err=True)
-            raise typer.Exit(code=1)
-
-        # 4. Section 15.3 item 4: Limitations paragraph
-        limitations = format_limitations_paragraph(session, overview)
-        if limitations not in readme_text:
-            typer.echo(f"FAIL: Limitations paragraph mismatch.\nExpected: {limitations}", err=True)
-            raise typer.Exit(code=1)
-
-        # 5. Outcome metrics verification
-        for s in results.sets:
-            base_str = f"{s.baseline_errors}/{s.baseline_attempts}"
-            ret_str = f"{s.retest_errors}/{s.retest_attempts}"
-            if base_str not in readme_text:
-                typer.echo(
-                    f"FAIL: Baseline counts for Set {s.set_label} ({base_str}) missing in README",
-                    err=True,
+        _verify_readme_claims(
+            readme_text,
+            gen_table=format_generation_table(overview),
+            overhead_line=format_overhead_line(overview),
+            limitations=format_limitations_paragraph(session, overview, pid=participant.id),
+            set_counts=[
+                (
+                    s.set_label,
+                    s.baseline_errors,
+                    s.baseline_attempts,
+                    s.retest_errors,
+                    s.retest_attempts,
                 )
-                raise typer.Exit(code=1)
-            if ret_str not in readme_text:
-                typer.echo(
-                    f"FAIL: Retest counts for Set {s.set_label} ({ret_str}) missing in README",
-                    err=True,
-                )
-                raise typer.Exit(code=1)
-
-        # 6. Honesty rules check (D18, D19)
-        if "builder, unblinded" not in readme_text and "unblinded" not in readme_text:
-            typer.echo("FAIL: Builder unblinded disclosure missing in README", err=True)
-            raise typer.Exit(code=1)
-
-        forbidden = ["webassembly", "wasm", "statistically significant", "p-value", "p < 0.05"]
-        for term in forbidden:
-            if term in readme_text.lower():
-                typer.echo(
-                    f"FAIL: Forbidden marketing/significance term {term!r} found in README",
-                    err=True,
-                )
-                raise typer.Exit(code=1)
+                for s in results.sets
+            ],
+        )
 
     typer.echo("README claims check passed: all numbers trace to database records.")

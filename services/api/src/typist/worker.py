@@ -174,7 +174,7 @@ def build_default_generators(
                 prompt_version=llm_config.prompt_version,
                 temperature=llm_config.temperature,
                 top_p=llm_config.top_p,
-                max_tokens=llm_config.max_tokens,
+                max_tokens=max(llm_config.max_tokens, 180),
             )
 
     return generators, validator_config

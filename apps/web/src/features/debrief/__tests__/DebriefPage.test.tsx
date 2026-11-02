@@ -412,13 +412,13 @@ describe("DebriefPage", () => {
     expect(await screen.findByTestId("debrief-revealed")).toBeInTheDocument();
     expect(screen.getByText(/§1 · Executive Case Study & Empirical Verdict/)).toBeInTheDocument();
     expect(
-      screen.getByText(/§2 · Experimental Design, Causal Identification & Validity Controls/),
+      screen.getByText(/§2 · Experimental Design & Within-Participant Controls/),
     ).toBeInTheDocument();
     expect(
       await screen.findByText(/§4 · Longitudinal 14-Session Learning Trajectory/),
     ).toBeInTheDocument();
     expect(
-      await screen.findByText(/§7 · Assigned Weak Bigrams & Per-Transition Micro-Forensics/),
+      await screen.findByText(/§7 · Assigned Weak Bigrams & Per-Transition Breakdown/),
     ).toBeInTheDocument();
   });
 });

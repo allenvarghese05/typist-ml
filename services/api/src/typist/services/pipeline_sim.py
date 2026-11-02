@@ -10,6 +10,7 @@ Never used as scientific evidence (CLAUDE.md; Project Guide).
 import random
 import unittest.mock
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -21,6 +22,7 @@ from sqlmodel import Session
 
 from typist.corpus.word_index import WordIndex
 from typist.db import unfreeze_config_for_testing
+from typist.generation.llm.runtime import LLMRuntimeProtocol
 from typist.models import (
     Drill,
     ExperimentConfig,
@@ -224,12 +226,23 @@ def run_pipeline_simulation(
     seed: int = 42,
     log_fn: Any = None,
     is_builder: bool = True,
+    arms_enabled: Sequence[str] = ("control", "heuristic"),
+    runtime: LLMRuntimeProtocol | None = None,
 ) -> PipelineSimulationResult:
     """Execute the complete experiment lifecycle from enrolment to done with scripted keystrokes."""
 
     def _log(msg: str) -> None:
         if log_fn:
             log_fn(msg)
+
+    active_arms = list(arms_enabled)
+    expected_set_labels = {chr(ord("A") + i) for i in range(len(active_arms))}
+    sim_client_info: dict[str, Any] = {
+        "simulated": True,
+        "source": "typist test-pipeline",
+        "error_rate": error_rate,
+        "seed": seed,
+    }
 
     id_rng = random.Random(seed)
 
@@ -276,7 +289,10 @@ def run_pipeline_simulation(
         # 4. Simulate baseline sessions (2 parts)
         _log("4. Typing baseline sessions...")
         for part in range(2):
-            resp = client.post(f"/api/v1/participants/{pid}/sessions")
+            resp = client.post(
+                f"/api/v1/participants/{pid}/sessions",
+                json={"client_info": sim_client_info},
+            )
             assert resp.status_code == 200, resp.text
             session_plan = resp.json()
             sid = session_plan["session_id"]
@@ -297,13 +313,15 @@ def run_pipeline_simulation(
             complete_resp = client.post(f"/api/v1/sessions/{sid}/complete")
             assert complete_resp.status_code == 200, complete_resp.text
 
-        # 5. Configure 2-set mode and assign
-        _log("5. Configuring 2-set mode and assigning participant...")
+        # 5. Configure arms_enabled and assign
+        _log(
+            f"5. Configuring {len(active_arms)}-arm mode ({active_arms}) and assigning participant..."
+        )
         unfreeze_config_for_testing(engine)
         with Session(engine) as s:
             row_arms = s.get(ExperimentConfig, "arms_enabled")
             if row_arms:
-                row_arms.value = ["control", "heuristic"]
+                row_arms.value = active_arms
                 s.add(row_arms)
             row_pd = s.get(ExperimentConfig, "practice_days")
             if row_pd:
@@ -316,13 +334,13 @@ def run_pipeline_simulation(
         assign_data = resp.json()
         assert assign_data["status"] == "assigned"
         assert assign_data["form_b_composed"] is True
-        assert set(assign_data["mapping"].keys()) == {"A", "B"}
+        assert set(assign_data["mapping"].keys()) == expected_set_labels
 
         # 6. Replenish drill pool and run worker
         _log("6. Replenishing drill pool and running generation worker...")
         resp = client.post("/api/v1/admin/pool/replenish", json={"participant_id": pid})
         assert resp.status_code == 200, resp.text
-        while run_worker_once(engine, db_path, index) is not None:
+        while run_worker_once(engine, db_path, index, runtime=runtime) is not None:
             pass
 
         # 7. Simulate practice sessions across Latin square
@@ -330,14 +348,17 @@ def run_pipeline_simulation(
         for day in range(1, practice_days + 1):
             # Ensure drill pool is replenished for the upcoming practice session
             client.post("/api/v1/admin/pool/replenish", json={"participant_id": pid})
-            while run_worker_once(engine, db_path, index) is not None:
+            while run_worker_once(engine, db_path, index, runtime=runtime) is not None:
                 pass
-            resp = client.post(f"/api/v1/participants/{pid}/sessions")
+            resp = client.post(
+                f"/api/v1/participants/{pid}/sessions",
+                json={"client_info": sim_client_info},
+            )
             assert resp.status_code == 200, resp.text
             session_plan = resp.json()
             sid = session_plan["session_id"]
             blocks = session_plan["blocks"]
-            assert len(blocks) == 2
+            assert len(blocks) == len(active_arms)
 
             for b_idx, block in enumerate(blocks):
                 bid = block["block_id"]
@@ -359,7 +380,10 @@ def run_pipeline_simulation(
         # 8. Simulate retest sessions (2 parts)
         _log("8. Typing retest sessions (Form B)...")
         for part in range(2):
-            resp = client.post(f"/api/v1/participants/{pid}/sessions")
+            resp = client.post(
+                f"/api/v1/participants/{pid}/sessions",
+                json={"client_info": sim_client_info},
+            )
             assert resp.status_code == 200, resp.text
             session_plan = resp.json()
             assert session_plan["phase"] == "retest"
@@ -395,7 +419,7 @@ def run_pipeline_simulation(
         assert resp.status_code == 200, resp.text
         analysis_data = resp.json()
         assert analysis_data["status"] == "done"
-        assert len(analysis_data["sets"]) == 2
+        assert len(analysis_data["sets"]) == len(active_arms)
 
         # 11. Verify stats recompute
         _log("11. Verifying stats recompute idempotence...")

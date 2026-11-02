@@ -11,6 +11,7 @@ Transforms raw model text into valid typing practice candidate text:
 import re
 from typing import Final
 
+_THINK_BLOCK_PATTERN: Final[re.Pattern[str]] = re.compile(r"<think>.*?(?:</think>|$)", re.DOTALL)
 _NON_AZ_PATTERN: Final[re.Pattern[str]] = re.compile(r"[^a-z]+")
 
 
@@ -20,7 +21,7 @@ def clean_llm_output(raw_output: str, max_chars: int = 300) -> str:
     Returns lowercase words separated by single spaces. Does not drop non-dictionary words;
     the validator evaluates real_word_ratio against WordIndex.words.
     """
-    lowered = raw_output.lower()
+    lowered = _THINK_BLOCK_PATTERN.sub(" ", raw_output.lower())
     spaced = _NON_AZ_PATTERN.sub(" ", lowered).strip()
     if not spaced:
         return ""

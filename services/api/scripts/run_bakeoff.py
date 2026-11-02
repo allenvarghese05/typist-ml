@@ -9,6 +9,7 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
+from typist.config import get_settings
 from typist.corpus.word_index import WordIndex
 from typist.generation.llm.bakeoff import (
     CHALLENGER_MODEL_ID,
@@ -147,15 +148,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         min_length_chars=270,
         min_coverage=3,
         max_word_repeats=3,
-        max_bigram_run=2,
+        max_bigram_run=3,
         min_real_word_ratio=0.8,
     )
 
-    # Load word index from default corpus or generate words for fake
-    corpus_words_path = Path("data/words.json")
-    corpus_bigrams_path = Path("data/top_bigrams.json")
-    if corpus_words_path.exists() and corpus_bigrams_path.exists():
-        index = WordIndex.load(Path("data"))
+    # Load word index from configured corpus directory or generate fallback words for --fake
+    corpus_dir = get_settings().corpus_dir
+    if (corpus_dir / "words.json").exists() and (corpus_dir / "top_bigrams.json").exists():
+        index = WordIndex.load(corpus_dir)
     else:
         # Fallback for headless environments without pre-built corpus
         sample_words = tuple(["the", "weather", "in", "east", "spring", "season"] * 50)

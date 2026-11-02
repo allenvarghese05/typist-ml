@@ -132,16 +132,33 @@ class MLXRuntime:
         sample_utils: Any = importlib.import_module("mlx_lm.sample_utils")
 
         mx.random.seed(seed)
-        prompt = self._tokenizer.apply_chat_template(
-            list(messages), add_generation_prompt=True, tokenize=False
-        )
+        try:
+            prompt = self._tokenizer.apply_chat_template(
+                list(messages),
+                add_generation_prompt=True,
+                tokenize=False,
+                enable_thinking=False,
+            )
+        except TypeError:
+            prompt = self._tokenizer.apply_chat_template(
+                list(messages), add_generation_prompt=True, tokenize=False
+            )
         sampler = sample_utils.make_sampler(temp=temp, top_p=top_p)
+        logits_processors = sample_utils.make_logits_processors(
+            repetition_penalty=1.22,
+            repetition_context_size=80,
+        )
 
         start_time = time.perf_counter()
         text = ""
         last: Any = None
         for resp in mlx_lm.stream_generate(
-            self._model, self._tokenizer, prompt, max_tokens=max_tokens, sampler=sampler
+            self._model,
+            self._tokenizer,
+            prompt,
+            max_tokens=max_tokens,
+            sampler=sampler,
+            logits_processors=logits_processors,
         ):
             text += resp.text
             last = resp
