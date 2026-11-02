@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 250" width="980" height="250" role="img" aria-label="D14 First-Attempt Bigram Attribution State Machine">
+  <defs>
+    <style>
+      .bg { fill: #FBFBFA; stroke: #E4E2DC; stroke-width: 1; }
+      .box { fill: #FFFFFF; stroke: #D9D7D0; stroke-width: 1.25; rx: 8; }
+      .gate { fill: #F6F5F2; stroke: #CBC8BF; stroke-width: 1.25; rx: 8; }
+      .ok { fill: #EDF3EC; stroke: #BBD8B7; stroke-width: 1.25; rx: 8; }
+      .err { fill: #FCEBEC; stroke: #EEBFC2; stroke-width: 1.25; rx: 8; }
+      .warn { fill: #FBF3DB; stroke: #E6D39A; stroke-width: 1.25; rx: 8; }
+      .skip { fill: #F3F2EE; stroke: #D9D7D0; stroke-width: 1.25; rx: 8; }
+      .h { font: 600 11.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #111111; }
+      .s { font: 400 10px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #575652; }
+      .lbl-y { font: 600 10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #2B6E3F; }
+      .lbl-n { font: 600 10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #9F2F2D; }
+      .line { stroke: #666560; stroke-width: 1.4; fill: none; }
+    </style>
+    <marker id="arr" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#666560"/>
+    </marker>
+  </defs>
+
+  <rect width="980" height="250" rx="12" class="bg"/>
+
+  <!-- Node 1: Target Pair -->
+  <rect x="20" y="34" width="136" height="52" class="box"/>
+  <text x="88" y="56" text-anchor="middle" class="h">Target Pair (j-1, j)</text>
+  <text x="88" y="73" text-anchor="middle" class="s">b = c[j-1] + c[j]</text>
+
+  <!-- Gate 1: Both a-z -->
+  <rect x="182" y="34" width="132" height="52" class="gate"/>
+  <text x="248" y="56" text-anchor="middle" class="h">Both lowercase?</text>
+  <text x="248" y="73" text-anchor="middle" class="s">'a' &lt;= c &lt;= 'z'</text>
+
+  <!-- Gate 2: a correct -->
+  <rect x="340" y="34" width="150" height="52" class="gate"/>
+  <text x="415" y="56" text-anchor="middle" class="h">First stroke a at j-1</text>
+  <text x="415" y="73" text-anchor="middle" class="s">a.outcome == correct?</text>
+
+  <!-- Gate 3: No Backspace -->
+  <rect x="516" y="34" width="158" height="52" class="gate"/>
+  <text x="595" y="56" text-anchor="middle" class="h">Clean adjacency?</text>
+  <text x="595" y="73" text-anchor="middle" class="s">No Backspace in (a, b)</text>
+
+  <!-- Count Attempt -->
+  <rect x="700" y="34" width="128" height="52" class="box" style="stroke:#1F5E8B;fill:#EBF3FA;"/>
+  <text x="764" y="56" text-anchor="middle" class="h">+1 Attempt</text>
+  <text x="764" y="73" text-anchor="middle" class="s">b = 1st stroke at j</text>
+
+  <!-- Gate 4: b correct? -->
+  <rect x="850" y="34" width="110" height="52" class="gate"/>
+  <text x="905" y="56" text-anchor="middle" class="h">b correct?</text>
+  <text x="905" y="73" text-anchor="middle" class="s">b == c[j]</text>
+
+  <!-- Bottom Row Outcomes -->
+  <rect x="340" y="162" width="190" height="54" class="skip"/>
+  <text x="435" y="185" text-anchor="middle" class="h">Skip Transition Pair</text>
+  <text x="435" y="202" text-anchor="middle" class="s">Zero attempt / error / IKI</text>
+
+  <rect x="562" y="162" width="128" height="54" class="warn"/>
+  <text x="626" y="185" text-anchor="middle" class="h">Attempt Only</text>
+  <text x="626" y="202" text-anchor="middle" class="s">Drop paused IKI</text>
+
+  <rect x="706" y="162" width="132" height="54" class="ok"/>
+  <text x="772" y="185" text-anchor="middle" class="h">+1 Clean IKI</text>
+  <text x="772" y="202" text-anchor="middle" class="s">0 &lt; IKI &lt;= 2000ms</text>
+
+  <rect x="850" y="162" width="110" height="54" class="err"/>
+  <text x="905" y="185" text-anchor="middle" class="h">+1 Error</text>
+  <text x="905" y="202" text-anchor="middle" class="s">No IKI sample</text>
+
+  <!-- Top Horizontal Connectors -->
+  <path d="M 156 60 L 180 60" class="line" marker-end="url(#arr)"/>
+  <path d="M 314 60 L 338 60" class="line" marker-end="url(#arr)"/>
+  <text x="326" y="53" text-anchor="middle" class="lbl-y">Yes</text>
+
+  <path d="M 490 60 L 514 60" class="line" marker-end="url(#arr)"/>
+  <text x="502" y="53" text-anchor="middle" class="lbl-y">Yes</text>
+
+  <path d="M 674 60 L 698 60" class="line" marker-end="url(#arr)"/>
+  <text x="686" y="53" text-anchor="middle" class="lbl-y">Yes</text>
+
+  <path d="M 828 60 L 848 60" class="line" marker-end="url(#arr)"/>
+
+  <!-- Skip Connectors -->
+  <path d="M 248 86 L 248 189 L 338 189" class="line" marker-end="url(#arr)"/>
+  <text x="260" y="104" class="lbl-n">No</text>
+
+  <path d="M 415 86 L 415 160" class="line" marker-end="url(#arr)"/>
+  <text x="427" y="104" class="lbl-n">No</text>
+
+  <path d="M 595 86 L 595 126 L 475 126 L 475 160" class="line" marker-end="url(#arr)"/>
+  <text x="582" y="104" text-anchor="end" class="lbl-n">No</text>
+
+  <!-- b outcome Connectors -->
+  <path d="M 925 86 L 925 160" class="line" marker-end="url(#arr)"/>
+  <text x="938" y="104" class="lbl-n">No</text>
+
+  <path d="M 880 86 L 880 126 L 772 126 L 772 160" class="line" marker-end="url(#arr)"/>
+  <text x="832" y="119" text-anchor="middle" class="lbl-y">Yes · unpaused</text>
+
+  <path d="M 772 126 L 626 126 L 626 160" class="line" stroke-dasharray="4 2" marker-end="url(#arr)"/>
+  <text x="698" y="119" text-anchor="middle" class="lbl-n">Paused (&gt;2000ms)</text>
+</svg>

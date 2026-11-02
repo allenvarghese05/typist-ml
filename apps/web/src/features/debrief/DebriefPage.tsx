@@ -1,11 +1,31 @@
 import { useEffect, useState } from "react";
 import {
+  type BigramMatrix,
+  fetchOverview,
   fetchParticipantResults,
+  fetchParticipantTrend,
   fetchSessionMatrix,
+  type Overview,
   type ParticipantResults,
+  type SessionTrendEntry,
 } from "../../api/analysis";
-import { fetchParticipants, type ParticipantResponse } from "../../api/client";
+import {
+  type ChecksResponse,
+  fetchChecks,
+  fetchParticipants,
+  type ParticipantResponse,
+} from "../../api/client";
 import { IntervalPlot } from "../dashboard/IntervalPlot";
+import {
+  CaseStudyAbstractSection,
+  classifyEvidence,
+  ExperimentalDesignSection,
+  GENERATOR_SPECS,
+  LongitudinalTrajectorySection,
+  type PerBigramComparison,
+  PerBigramForensicsSection,
+  SystemVerificationSection,
+} from "./DebriefCaseStudySections";
 
 export interface DebriefPageProps {
   readonly initialParticipantId?: string;
@@ -49,18 +69,48 @@ export const ARM_METADATA: Record<string, ArmDisplayMeta> = {
 };
 
 function formatPercent(value: number | null, decimals = 1): string {
-  if (value === null) return "—";
+  if (value === null) return "N/A";
   return `${(value * 100).toFixed(decimals)}%`;
 }
 
 function formatRate(value: number | null): string {
-  if (value === null) return "—";
+  if (value === null) return "N/A";
   return value > 0 ? `+${(value * 100).toFixed(2)}%` : `${(value * 100).toFixed(2)}%`;
 }
 
 function formatMs(value: number | null): string {
-  if (value === null) return "—";
+  if (value === null) return "N/A";
   return value > 0 ? `+${value.toFixed(1)} ms` : `${value.toFixed(1)} ms`;
+}
+
+interface PooledMatrixEntry {
+  attempts: number;
+  errors: number;
+  weightedIkiSum: number;
+  ikiWeight: number;
+}
+
+function poolMatrices(matrices: readonly BigramMatrix[]): Map<string, PooledMatrixEntry> {
+  const map = new Map<string, PooledMatrixEntry>();
+  for (const m of matrices) {
+    for (const cell of m.cells) {
+      const prev = map.get(cell.bigram) ?? {
+        attempts: 0,
+        errors: 0,
+        weightedIkiSum: 0,
+        ikiWeight: 0,
+      };
+      prev.attempts += cell.attempts;
+      prev.errors += cell.errors;
+      if (cell.iki_median_ms !== null) {
+        const w = Math.max(1, cell.iki_n);
+        prev.weightedIkiSum += cell.iki_median_ms * w;
+        prev.ikiWeight += w;
+      }
+      map.set(cell.bigram, prev);
+    }
+  }
+  return map;
 }
 
 interface WeakBigramNudge {
@@ -87,6 +137,10 @@ export function DebriefPage({
   }>({ status: "loading", results: null });
 
   const [nudges, setNudges] = useState<readonly WeakBigramNudge[]>([]);
+  const [bigramRows, setBigramRows] = useState<readonly PerBigramComparison[]>([]);
+  const [trend, setTrend] = useState<readonly SessionTrendEntry[]>([]);
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [checks, setChecks] = useState<ChecksResponse | null>(null);
 
   // 1. Fetch participants on mount
   useEffect(() => {
@@ -98,9 +152,9 @@ export function DebriefPage({
         setParticipants(parts);
         setLoadingParticipants(false);
 
-        // Determine initial participant if none explicitly chosen
         if (!initialParticipantId && parts.length > 0) {
-          const firstDone = parts.find((p) => p.status === "done");
+          const firstNonBuilderDone = parts.find((p) => p.status === "done" && !p.is_builder);
+          const firstDone = firstNonBuilderDone ?? parts.find((p) => p.status === "done");
           const defaultPid = firstDone ? firstDone.id : parts[0]?.id;
           if (defaultPid) {
             setSelectedId(defaultPid);
@@ -118,7 +172,6 @@ export function DebriefPage({
     };
   }, [fetchImpl, initialParticipantId]);
 
-  // Sync with prop changes
   useEffect(() => {
     if (initialParticipantId) {
       setSelectedId(initialParticipantId);
@@ -130,92 +183,139 @@ export function DebriefPage({
     window.location.hash = `#/results/${encodeURIComponent(pid)}`;
   };
 
-  // 2. Fetch analysis results whenever selectedId changes
+  // 2. Fetch analysis results + supplementary case-study telemetry whenever selectedId changes
   useEffect(() => {
     if (!selectedId) {
       setResultsState({ status: "not-found", results: null });
       setNudges([]);
+      setBigramRows([]);
+      setTrend([]);
+      setOverview(null);
+      setChecks(null);
       return;
     }
 
     let cancelled = false;
     setResultsState({ status: "loading", results: null });
     setNudges([]);
+    setBigramRows([]);
+    setTrend([]);
+    setOverview(null);
+    setChecks(null);
 
     fetchParticipantResults(selectedId, fetchImpl).then((res) => {
       if (cancelled) return;
       if (res.status === "ok") {
-        setResultsState({ status: "ok", results: res.results });
+        const participantResults = res.results;
+        setResultsState({ status: "ok", results: participantResults });
 
-        // Fetch retest session matrices to compute diagnostic nudges (D12)
-        const retestSessionIds = res.results.analyzed_retest_session_ids;
-        if (retestSessionIds.length > 0) {
-          Promise.all(retestSessionIds.map((sid) => fetchSessionMatrix(sid, fetchImpl)))
-            .then((matrixResults) => {
-              if (cancelled) return;
-              const completedMatrices = matrixResults
-                .filter((mr) => mr.status === "ok")
-                .map(
-                  (mr) =>
-                    (
-                      mr as {
-                        status: "ok";
-                        matrix: {
-                          cells: readonly {
-                            bigram: string;
-                            attempts: number;
-                            errors: number;
-                            error_rate: number | null;
-                            iki_median_ms: number | null;
-                          }[];
-                        };
-                      }
-                    ).matrix,
-                );
+        // Supplementary 1: Session progression trend
+        fetchParticipantTrend(selectedId, fetchImpl)
+          .then((tr) => {
+            if (!cancelled && tr.status === "ok" && Array.isArray(tr.trend)) {
+              setTrend(tr.trend);
+            }
+          })
+          .catch(() => {});
 
-              const bigramStats = new Map<
-                string,
-                { attempts: number; errors: number; ikiValues: number[] }
-              >();
-              for (const m of completedMatrices) {
-                for (const cell of m.cells) {
-                  const existing = bigramStats.get(cell.bigram) ?? {
-                    attempts: 0,
-                    errors: 0,
-                    ikiValues: [],
-                  };
-                  existing.attempts += cell.attempts;
-                  existing.errors += cell.errors;
-                  if (cell.iki_median_ms !== null) existing.ikiValues.push(cell.iki_median_ms);
-                  bigramStats.set(cell.bigram, existing);
+        // Supplementary 2: System overhead & generator fairness overview
+        fetchOverview(fetchImpl)
+          .then((ov) => {
+            if (
+              !cancelled &&
+              ov.status === "ok" &&
+              Array.isArray(ov.overview?.overhead) &&
+              Array.isArray(ov.overview?.generation?.arms)
+            ) {
+              setOverview(ov.overview);
+            }
+          })
+          .catch(() => {});
+
+        // Supplementary 3: 5-gate SQLite integrity checks
+        fetchChecks(selectedId, fetchImpl)
+          .then((chk) => {
+            if (!cancelled && chk && typeof chk.checks?.missing_keyups?.total_events === "number") {
+              setChecks(chk);
+            }
+          })
+          .catch(() => {});
+
+        // Supplementary 4: Baseline + Retest session matrices for per-bigram forensics & D12 nudges
+        const baseIds = participantResults.analyzed_baseline_session_ids;
+        const retestIds = participantResults.analyzed_retest_session_ids;
+        Promise.all([
+          Promise.all(baseIds.map((sid) => fetchSessionMatrix(sid, fetchImpl))),
+          Promise.all(retestIds.map((sid) => fetchSessionMatrix(sid, fetchImpl))),
+        ])
+          .then(([baseMatrixResults, retestMatrixResults]) => {
+            if (cancelled) return;
+            const baseMatrices = baseMatrixResults
+              .filter((mr): mr is { status: "ok"; matrix: BigramMatrix } => mr.status === "ok")
+              .map((mr) => mr.matrix);
+            const retestMatrices = retestMatrixResults
+              .filter((mr): mr is { status: "ok"; matrix: BigramMatrix } => mr.status === "ok")
+              .map((mr) => mr.matrix);
+
+            const basePool = poolMatrices(baseMatrices);
+            const retestPool = poolMatrices(retestMatrices);
+
+            const comparisons: PerBigramComparison[] = [];
+            const foundNudges: WeakBigramNudge[] = [];
+
+            for (const set of participantResults.sets) {
+              for (const bg of set.bigrams) {
+                const isDropped = set.dropped_bigrams.includes(bg);
+                const bStat = basePool.get(bg);
+                const rStat = retestPool.get(bg);
+
+                const bAtt = bStat?.attempts ?? 0;
+                const bErr = bStat?.errors ?? 0;
+                const bRate = bAtt > 0 ? bErr / bAtt : null;
+                const bIki =
+                  bStat && bStat.ikiWeight > 0 ? bStat.weightedIkiSum / bStat.ikiWeight : null;
+
+                const rAtt = rStat?.attempts ?? 0;
+                const rErr = rStat?.errors ?? 0;
+                const rRate = rAtt > 0 ? rErr / rAtt : null;
+                const rIki =
+                  rStat && rStat.ikiWeight > 0 ? rStat.weightedIkiSum / rStat.ikiWeight : null;
+
+                if (bAtt > 0 || rAtt > 0) {
+                  comparisons.push({
+                    bigram: bg,
+                    setLabel: set.set_label,
+                    arm: set.arm,
+                    dropped: isDropped,
+                    baselineAttempts: bAtt,
+                    baselineErrors: bErr,
+                    baselineErrorRate: bRate,
+                    baselineMedianIkiMs: bIki,
+                    retestAttempts: rAtt,
+                    retestErrors: rErr,
+                    retestErrorRate: rRate,
+                    retestMedianIkiMs: rIki,
+                  });
                 }
-              }
 
-              const foundNudges: WeakBigramNudge[] = [];
-              for (const set of res.results.sets) {
-                for (const bg of set.retained_bigrams) {
-                  const stat = bigramStats.get(bg);
-                  if (stat && stat.attempts > 0) {
-                    const errRate = stat.errors / stat.attempts;
-                    const medIki = stat.ikiValues.length > 0 ? (stat.ikiValues[0] ?? null) : null;
-                    if (errRate > 0.05 || (medIki !== null && medIki > 250)) {
-                      foundNudges.push({
-                        bigram: bg,
-                        setLabel: set.set_label,
-                        arm: set.arm,
-                        errorRate: errRate,
-                        medianIkiMs: medIki,
-                      });
-                    }
+                if (!isDropped && rAtt > 0 && rRate !== null) {
+                  if (rRate > 0.05 || (rIki !== null && rIki > 250)) {
+                    foundNudges.push({
+                      bigram: bg,
+                      setLabel: set.set_label,
+                      arm: set.arm,
+                      errorRate: rRate,
+                      medianIkiMs: rIki,
+                    });
                   }
                 }
               }
-              setNudges(foundNudges);
-            })
-            .catch(() => {
-              // Graceful fallback: ignore diagnostic fetch error
-            });
-        }
+            }
+
+            setBigramRows(comparisons);
+            setNudges(foundNudges);
+          })
+          .catch(() => {});
       } else if (res.status === "not-done") {
         setResultsState({ status: "not-done", results: null, message: res.message });
       } else if (res.status === "not-found") {
@@ -232,7 +332,7 @@ export function DebriefPage({
 
   if (loadingParticipants) {
     return (
-      <div className="p-8 max-w-6xl mx-auto text-center text-gray-500 animate-pulse">
+      <div className="p-8 max-w-6xl mx-auto text-center text-[#666560]">
         Loading debrief participants...
       </div>
     );
@@ -240,14 +340,60 @@ export function DebriefPage({
 
   const currentParticipant = participants.find((p) => p.id === selectedId);
 
+  // Dynamic symmetric bounds for forest plots so large real effects never clip
+  const activeResults = resultsState.results;
+  const maxAbsErrBound = activeResults
+    ? Math.max(
+        0.12,
+        ...activeResults.sets
+          .filter((s) => s.arm !== "control")
+          .flatMap((s) => [
+            Math.abs(s.posterior_effect_ci_lower ?? 0),
+            Math.abs(s.posterior_effect_ci_upper ?? 0),
+            Math.abs(s.posterior_effect_median ?? 0),
+          ])
+          .map((v) => Math.ceil(v * 20) / 20 + 0.02),
+      )
+    : 0.12;
+
+  const maxAbsIkiBound = activeResults
+    ? Math.max(
+        60,
+        ...activeResults.sets
+          .filter((s) => s.arm !== "control")
+          .flatMap((s) => [
+            Math.abs(s.iki_bootstrap_ci_lower_ms ?? 0),
+            Math.abs(s.iki_bootstrap_ci_upper_ms ?? 0),
+            Math.abs(s.iki_bootstrap_median_ms ?? 0),
+          ])
+          .map((v) => Math.ceil(v / 10) * 10 + 10),
+      )
+    : 60;
+
+  const totalKeystrokeEvents =
+    checks?.checks.missing_keyups.total_events ??
+    (overview
+      ? overview.overhead
+          .filter((o) => o.participant_id === selectedId)
+          .reduce((acc, r) => acc + r.events, 0) || null
+      : null);
+
+  const completedSessionCount =
+    trend.length > 0
+      ? trend.length
+      : (overview?.participants.find((p) => p.id === selectedId)?.completed_sessions ?? null);
+
   return (
     <div className="px-6 py-8 max-w-6xl mx-auto space-y-6" data-testid="debrief-page">
-      {/* Top Header & Participant Dropdown */}
+      {/* Top Header & Participant Dropdown (strictly free of arm names while blinded) */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#EAEAEA] pb-5">
         <div>
-          <h1 className="text-2xl font-semibold text-[#111111]">Study Debrief</h1>
+          <h1 className="text-2xl font-semibold text-[#111111]">
+            Study Debrief &amp; Empirical Case Study
+          </h1>
           <p className="text-xs text-[#666560] mt-1">
-            Participant debrief, experimental unblinding, and targeting outcomes (§11.3).
+            Within-participant longitudinal analysis, experimental unblinding, and confirmatory
+            statistical inference (§11.3, §15).
           </p>
         </div>
 
@@ -264,7 +410,7 @@ export function DebriefPage({
               aria-label="Participant selector"
               value={selectedId}
               onChange={(e) => handleSelectParticipant(e.target.value)}
-              className="text-xs border border-[#D9D7D0] rounded-lg px-3 py-1.5 bg-white text-[#111111] focus:outline-none focus:border-[#111111] font-mono"
+              className="text-xs border border-[#D9D7D0] rounded-lg px-3 py-1.5 bg-white text-[#111111] focus:outline-none focus:border-[#111111]"
             >
               {participants.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -281,7 +427,7 @@ export function DebriefPage({
       {/* Participant Identity Banner */}
       {currentParticipant && (
         <div className="typist-card p-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <div className="text-sm font-semibold text-[#111111]">{currentParticipant.alias}</div>
             <span
               className={`inline-block px-2 py-0.5 rounded-md border text-[11px] uppercase font-medium ${
@@ -301,8 +447,15 @@ export function DebriefPage({
             >
               {currentParticipant.is_builder ? "Builder (Unblinded)" : "Peer (Blinded)"}
             </span>
+            {currentParticipant.keyboard_label && (
+              <span className="inline-block px-2 py-0.5 rounded-md border border-[#E4E2DC] bg-[#F6F5F2] text-[11px] text-[#4A4945]">
+                Keyboard: {currentParticipant.keyboard_label}
+              </span>
+            )}
           </div>
-          <div className="text-xs text-[#8A8883] font-mono">ID: {currentParticipant.id}</div>
+          <div className="text-xs text-[#8A8883]">
+            Participant ID: <code>{currentParticipant.id}</code>
+          </div>
         </div>
       )}
 
@@ -350,78 +503,86 @@ export function DebriefPage({
             </div>
             <div>{resultsState.message ?? "Retest sessions have not yet concluded."}</div>
             <div className="text-[#666560] mt-2">
-              Check back here after completing Retest Day 2. Your arm assignments (Block 1–4 to
-              generators) and detailed diagnostic improvements will unlock immediately.
+              Return here after completing Retest Day 2. Block-to-generator mappings and full
+              confirmatory statistical tables become available immediately upon completion.
             </div>
           </div>
         </div>
       )}
 
       {resultsState.status === "not-found" && (
-        <div className="p-6 bg-red-50 border border-red-200 rounded text-red-800 text-sm">
+        <div className="p-6 bg-[#FCEBEC] border border-[#F3C8CA] rounded text-[#9F2F2D] text-sm">
           Participant results not found.
         </div>
       )}
 
       {resultsState.status === "error" && (
-        <div className="p-6 bg-red-50 border border-red-200 rounded text-red-800 text-sm">
+        <div className="p-6 bg-[#FCEBEC] border border-[#F3C8CA] rounded text-[#9F2F2D] text-sm">
           Error loading debrief: {resultsState.message ?? "Unknown error"}
         </div>
       )}
 
       {resultsState.status === "ok" && resultsState.results && (
         <div className="space-y-8" data-testid="debrief-revealed">
-          {/* Narrative Overview Card */}
-          <div className="typist-card p-6 space-y-4">
-            <h2 className="text-lg font-semibold tracking-tight text-[#111111]">
-              Study Debrief &amp; Progression
-            </h2>
-            <p className="text-xs text-[#666560] leading-relaxed">
-              Welcome to your debrief! In the baseline phase, your keystrokes were analyzed to
-              identify your slowest and most error-prone bigrams. These were dealt in snake order
-              into balanced sets (A, B, C, D) and trained over 10 practice days using 4 distinct
-              methods disguised as Blocks 1 to 4. Below is your overall performance change between
-              baseline and post-practice retest.
-            </p>
+          {/* Case Study Section Index Bar */}
+          <nav
+            aria-label="Case study sections"
+            className="typist-card px-4 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-[#666560]"
+          >
+            <span className="font-semibold text-[#111111]">Case Study Index:</span>
+            <a href="#cs-abstract" className="hover:text-[#111111]">
+              §1 Verdict
+            </a>
+            <a href="#cs-methodology" className="hover:text-[#111111]">
+              §2 Methodology
+            </a>
+            <a href="#cs-generators" className="hover:text-[#111111]">
+              §3 Arm Unblinding
+            </a>
+            {trend.length > 0 && (
+              <a href="#cs-trajectory" className="hover:text-[#111111]">
+                §4 Trajectory
+              </a>
+            )}
+            <a href="#cs-primary" className="hover:text-[#111111]">
+              §5 Error Rate E(s)
+            </a>
+            <a href="#cs-secondary" className="hover:text-[#111111]">
+              §6 Fluency F(s)
+            </a>
+            <a href="#cs-bigrams" className="hover:text-[#111111]">
+              §7 Bigram Forensics
+            </a>
+            <a href="#cs-exclusions" className="hover:text-[#111111]">
+              §8 Audit &amp; Exclusions
+            </a>
+          </nav>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
-              <div className="p-3 typist-inset">
-                <div className="text-[11px] text-[#666560] font-medium">Baseline WPM</div>
-                <div className="text-xl font-semibold text-[#111111] mt-1 font-mono tabular-nums">
-                  {resultsState.results.baseline_wpm?.toFixed(1) ?? "—"}
-                </div>
-              </div>
-              <div className="p-3 typist-inset">
-                <div className="text-[11px] text-[#666560] font-medium">Retest WPM</div>
-                <div className="text-xl font-semibold text-[#111111] mt-1 font-mono tabular-nums">
-                  {resultsState.results.retest_wpm?.toFixed(1) ?? "—"}
-                </div>
-              </div>
-              <div className="p-3 typist-inset">
-                <div className="text-[11px] text-[#666560] font-medium">Baseline Accuracy</div>
-                <div className="text-xl font-semibold text-[#111111] mt-1 font-mono tabular-nums">
-                  {formatPercent(resultsState.results.baseline_accuracy)}
-                </div>
-              </div>
-              <div className="p-3 typist-inset">
-                <div className="text-[11px] text-[#666560] font-medium">Retest Accuracy</div>
-                <div className="text-xl font-semibold text-[#111111] mt-1 font-mono tabular-nums">
-                  {formatPercent(resultsState.results.retest_accuracy)}
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* §1: Executive Case Study Abstract & Scorecard */}
+          <CaseStudyAbstractSection
+            results={resultsState.results}
+            revealed={revealed}
+            totalEvents={totalKeystrokeEvents}
+            completedSessionsCount={completedSessionCount}
+          />
 
-          {/* The Arm Reveal Section */}
-          <div className="typist-card p-6 space-y-5" data-testid="arm-reveal-card">
+          {/* §2: Experimental Design & Threats-to-Validity Matrix */}
+          <ExperimentalDesignSection />
+
+          {/* §3: The Arm Reveal & Generator Architecture */}
+          <section
+            id="cs-generators"
+            className="typist-card p-6 space-y-5"
+            data-testid="arm-reveal-card"
+          >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#EAEAEA] pb-4">
               <div>
                 <h3 className="text-base font-semibold tracking-tight text-[#111111]">
-                  The Arm Reveal: Generator Mapping (§3.2, §11.3)
+                  §3 · The Arm Reveal: Generator Architecture &amp; Trade-offs (§3.2, §6, §11.3)
                 </h3>
                 <p className="text-xs text-[#666560] mt-1">
-                  Unmasking the experimental drill generators assigned to each block during your 10
-                  practice sessions.
+                  Unmasking the experimental drill synthesis engines assigned to each bigram set
+                  during the 10-day practice intervention.
                 </p>
               </div>
               <button
@@ -442,16 +603,19 @@ export function DebriefPage({
                   description: "Experimental generator.",
                   badgeClass: "bg-[#F3F2EE] text-[#666560] border-[#EAEAEA]",
                 };
+                const spec = GENERATOR_SPECS[set.arm];
                 return (
                   <div
                     key={set.set_label}
                     className="p-4 typist-inset flex flex-col justify-between space-y-3"
                     data-testid={`arm-card-${set.set_label}`}
                   >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-semibold font-mono text-[#111111] uppercase">
-                          Set {set.set_label} (Block {idx + 1})
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-[#111111] uppercase">
+                          <code>
+                            Set {set.set_label} (Block {idx + 1})
+                          </code>
                         </span>
                         {revealed && (
                           <span
@@ -464,17 +628,41 @@ export function DebriefPage({
                       <div className="text-sm font-semibold text-[#111111]">
                         {revealed ? meta.name : `Masked (Block ${idx + 1})`}
                       </div>
-                      <p className="text-xs text-[#666560] mt-1 leading-relaxed">
+                      <p className="text-xs text-[#666560] leading-relaxed">
                         {revealed
                           ? meta.description
                           : "Identity hidden during study to ensure single-blind validity."}
                       </p>
+
+                      {revealed && spec && (
+                        <div className="pt-2 border-t border-[#EAEAEA] space-y-1.5 text-[11px] text-[#4A4945]">
+                          <div>
+                            <span className="font-semibold text-[#111111]">Mechanism: </span>
+                            {spec.mechanism}
+                          </div>
+                          <div>
+                            <span className="font-semibold text-[#111111]">Constraint: </span>
+                            {spec.lexicalConstraint}
+                          </div>
+                          <div>
+                            <span className="font-semibold text-[#111111]">Compute: </span>
+                            {spec.computeProfile}
+                          </div>
+                          <div>
+                            <span className="font-semibold text-[#111111]">Causal Role: </span>
+                            {spec.hypothesisRole}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="text-[11px] text-[#666560] font-mono border-t border-[#EAEAEA] pt-2">
-                      <span>{set.bigrams.length} assigned bigram(s)</span>
+                    <div className="text-[11px] text-[#666560] border-t border-[#EAEAEA] pt-2">
+                      <span>
+                        <code>{set.bigrams.length}</code> assigned bigram(s):{" "}
+                        <code>{set.bigrams.join(", ")}</code>
+                      </span>
                       {set.dropped_bigrams.length > 0 && (
-                        <span className="text-[#8A5A00] block text-[10px]">
+                        <span className="text-[#8A5A00] block text-[10px] mt-0.5">
                           ({set.dropped_bigrams.length} dropped from confirmatory test)
                         </span>
                       )}
@@ -483,64 +671,52 @@ export function DebriefPage({
                 );
               })}
             </div>
-          </div>
+          </section>
 
-          {/* Weak Bigrams by Set Section */}
-          <div className="typist-card p-6 space-y-4">
-            <h3 className="text-base font-semibold tracking-tight text-[#111111]">
-              Assigned Weak Bigrams by Set
-            </h3>
-            <p className="text-xs text-[#666560]">
-              Bigrams identified from baseline latency and dealt into matched sets in snake order
-              (D04).
-            </p>
+          {/* §4: Longitudinal 14-Session Learning Trajectory */}
+          <LongitudinalTrajectorySection
+            trend={trend}
+            sets={resultsState.results.sets}
+            revealed={revealed}
+          />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {resultsState.results.sets.map((set) => (
-                <div key={set.set_label} className="p-4 typist-inset">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-[#111111]">
-                      Set {set.set_label} ({revealed ? set.arm : "Masked"})
-                    </span>
-                    <span className="text-xs text-[#666560] font-mono">
-                      {set.retained_bigrams.length} retained
-                    </span>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {set.retained_bigrams.map((bg) => (
-                      <span
-                        key={bg}
-                        className="px-2 py-0.5 bg-white border border-[#EAEAEA] rounded text-xs font-mono font-medium text-[#111111]"
-                      >
-                        "{bg}"
-                      </span>
-                    ))}
-                    {set.dropped_bigrams.map((bg) => (
-                      <span
-                        key={bg}
-                        className="px-2 py-0.5 bg-[#FBF3DB] border border-[#EFE0B4] rounded text-xs font-mono text-[#8A5A00] line-through"
-                        title="Dropped: fewer than 20 retest observations (D23c)"
-                      >
-                        "{bg}"
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Primary Confirmatory Outcomes: Error Rate */}
-          <div className="typist-card p-6 space-y-5">
+          {/* §5: Primary Confirmatory Outcomes: Error Rate */}
+          <section id="cs-primary" className="typist-card p-6 space-y-5">
             <div>
               <h3 className="text-base font-semibold tracking-tight text-[#111111]">
                 Primary Confirmatory Outcome: Error Rate Targeting Effect E(s)
               </h3>
-              <p className="text-xs text-[#666560] mt-1">
-                E(s) = d(s) - d(control) under Jeffreys Beta posterior sampling. Negative targeting
-                effect denotes error reduction beyond normal practice.
+              <p className="text-xs text-[#666560] mt-1 leading-relaxed">
+                Difference-in-Differences estimation under independent non-informative Jeffreys{" "}
+                <code>Beta(1/2, 1/2)</code> conjugate posteriors (
+                {resultsState.results.posterior_draws.toLocaleString()} Monte Carlo draws, seed{" "}
+                <code>{resultsState.results.seed}</code>). Negative <code>E(s)</code> indicates
+                causal error reduction exceeding general typing practice.
               </p>
+            </div>
+
+            {/* Mathematical Model Callout */}
+            <div className="p-3.5 typist-inset grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-[#3D3C38]">
+              <div>
+                <div className="font-semibold text-[#111111]">1. Conjugate Cell Posterior</div>
+                <div className="mt-1 text-[#666560]">
+                  <code>p_(s,t) | (e, n) ~ Beta(e + 0.5, n - e + 0.5)</code>
+                </div>
+              </div>
+              <div>
+                <div className="font-semibold text-[#111111]">2. Within-Set Longitudinal Shift</div>
+                <div className="mt-1 text-[#666560]">
+                  <code>d(s) = p_(s,retest) - p_(s,baseline)</code>
+                </div>
+              </div>
+              <div>
+                <div className="font-semibold text-[#111111]">
+                  3. Counterfactual Targeting Effect
+                </div>
+                <div className="mt-1 text-[#666560]">
+                  <code>E(s) = d(s) - d(ref) · P_benefit = Pr(E(s) &lt; 0)</code>
+                </div>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -549,21 +725,25 @@ export function DebriefPage({
                   <tr>
                     <th className="py-2.5 px-3">Set</th>
                     <th className="py-2.5 px-3">Arm</th>
-                    <th className="py-2.5 px-3">Baseline Error</th>
-                    <th className="py-2.5 px-3">Retest Error</th>
-                    <th className="py-2.5 px-3">d(s) Change</th>
-                    <th className="py-2.5 px-3">Targeting Effect E(s)</th>
-                    <th className="py-2.5 px-3">95% Credible Interval</th>
+                    <th className="py-2.5 px-3">Baseline (e / n &amp; 95% CI)</th>
+                    <th className="py-2.5 px-3">Retest (e / n &amp; 95% CI)</th>
+                    <th className="py-2.5 px-3">d(s) Shift</th>
+                    <th className="py-2.5 px-3">Effect E(s)</th>
+                    <th className="py-2.5 px-3">95% Posterior CI</th>
                     <th className="py-2.5 px-3">P(E &lt; 0)</th>
+                    <th className="py-2.5 px-3">Inference</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#EAEAEA]">
+                <tbody className="divide-y divide-[#EAEAEA] tabular-nums">
                   {resultsState.results.sets.map((set) => {
                     const isControl = set.arm === "control";
+                    const evidence = classifyEvidence(set.share_below_zero);
                     return (
                       <tr key={set.set_label} className={isControl ? "bg-[#FBFBFA]" : undefined}>
-                        <td className="py-2 px-3 font-semibold text-[#111111]">{set.set_label}</td>
-                        <td className="py-2 px-3">
+                        <td className="py-2.5 px-3 font-semibold text-[#111111]">
+                          {set.set_label}
+                        </td>
+                        <td className="py-2.5 px-3">
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                               isControl
@@ -571,30 +751,67 @@ export function DebriefPage({
                                 : "bg-[#EBF3FA] text-[#1D5A8A]"
                             }`}
                           >
-                            {revealed ? (isControl ? "Control Set" : set.arm) : `Block (Masked)`}
+                            {revealed ? (isControl ? "Control Set" : set.arm) : "Block (Masked)"}
                           </span>
                         </td>
-                        <td className="py-2 px-3 font-mono tabular-nums">
-                          {formatPercent(set.baseline_error_rate)}
+                        <td className="py-2.5 px-3">
+                          <div className="font-medium">
+                            <code>
+                              {formatPercent(set.baseline_error_rate)} ({set.baseline_errors}/
+                              {set.baseline_attempts})
+                            </code>
+                          </div>
+                          {set.baseline_beta_ci_lower !== null &&
+                            set.baseline_beta_ci_upper !== null && (
+                              <div className="text-[10px] text-[#666560]">
+                                <code>
+                                  [{(set.baseline_beta_ci_lower * 100).toFixed(1)}%,{" "}
+                                  {(set.baseline_beta_ci_upper * 100).toFixed(1)}%]
+                                </code>
+                              </div>
+                            )}
                         </td>
-                        <td className="py-2 px-3 font-mono tabular-nums">
-                          {formatPercent(set.retest_error_rate)}
+                        <td className="py-2.5 px-3">
+                          <div className="font-medium">
+                            <code>
+                              {formatPercent(set.retest_error_rate)} ({set.retest_errors}/
+                              {set.retest_attempts})
+                            </code>
+                          </div>
+                          {set.retest_beta_ci_lower !== null &&
+                            set.retest_beta_ci_upper !== null && (
+                              <div className="text-[10px] text-[#666560]">
+                                <code>
+                                  [{(set.retest_beta_ci_lower * 100).toFixed(1)}%,{" "}
+                                  {(set.retest_beta_ci_upper * 100).toFixed(1)}%]
+                                </code>
+                              </div>
+                            )}
                         </td>
-                        <td className="py-2 px-3 font-mono tabular-nums">
-                          {formatRate(set.error_rate_change)}
+                        <td className="py-2.5 px-3">
+                          <code>{formatRate(set.error_rate_change)}</code>
                         </td>
-                        <td className="py-2 px-3 font-mono font-semibold tabular-nums">
-                          {isControl ? "—" : formatRate(set.targeting_effect)}
+                        <td className="py-2.5 px-3 font-semibold">
+                          <code>{isControl ? "Ref" : formatRate(set.targeting_effect)}</code>
                         </td>
-                        <td className="py-2 px-3 font-mono text-[#666560] tabular-nums">
-                          {isControl ||
-                          set.posterior_effect_ci_lower === null ||
-                          set.posterior_effect_ci_upper === null
-                            ? "—"
-                            : `[${(set.posterior_effect_ci_lower * 100).toFixed(2)}%, ${(set.posterior_effect_ci_upper * 100).toFixed(2)}%]`}
+                        <td className="py-2.5 px-3 text-[#666560]">
+                          <code>
+                            {isControl ||
+                            set.posterior_effect_ci_lower === null ||
+                            set.posterior_effect_ci_upper === null
+                              ? "N/A"
+                              : `[${(set.posterior_effect_ci_lower * 100).toFixed(2)}%, ${(set.posterior_effect_ci_upper * 100).toFixed(2)}%]`}
+                          </code>
                         </td>
-                        <td className="py-2 px-3 font-mono font-semibold tabular-nums">
-                          {isControl ? "—" : formatPercent(set.share_below_zero)}
+                        <td className="py-2.5 px-3 font-semibold">
+                          <code>{isControl ? "N/A" : formatPercent(set.share_below_zero)}</code>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${evidence.badgeClass}`}
+                          >
+                            {evidence.label}
+                          </span>
                         </td>
                       </tr>
                     );
@@ -606,7 +823,7 @@ export function DebriefPage({
             {/* Error Rate Whisker Forest Plot */}
             <div className="pt-3 border-t border-[#EAEAEA] space-y-1">
               <h4 className="text-xs font-medium text-[#666560] mb-2">
-                Targeting Effect Whisker Plot (Error Rate)
+                Posterior Forest Plot: Error Rate Effect E(s) vs. Zero-Effect Null
               </h4>
               {resultsState.results.sets
                 .filter((s) => s.arm !== "control")
@@ -619,24 +836,51 @@ export function DebriefPage({
                     lower={s.posterior_effect_ci_lower}
                     upper={s.posterior_effect_ci_upper}
                     unit=""
-                    minRange={-0.12}
-                    maxRange={0.12}
+                    minRange={-maxAbsErrBound}
+                    maxRange={maxAbsErrBound}
                     higherIsBetter={false}
                   />
                 ))}
             </div>
-          </div>
+          </section>
 
-          {/* Key Secondary Confirmatory Outcomes: Timing */}
-          <div className="typist-card p-6 space-y-5">
+          {/* §6: Key Secondary Confirmatory Outcomes: Timing */}
+          <section id="cs-secondary" className="typist-card p-6 space-y-5">
             <div>
               <h3 className="text-base font-semibold tracking-tight text-[#111111]">
                 Key Secondary Outcome: Median IKI Targeting Effect F(s)
               </h3>
-              <p className="text-xs text-[#666560] mt-1">
-                F(s) = c(s) - c(control) on clean keystroke intervals (ms) with 95% bootstrap
-                confidence intervals.
+              <p className="text-xs text-[#666560] mt-1 leading-relaxed">
+                Non-parametric Difference-in-Differences on pooled, unpaused (&lt;= 2000 ms, D24),
+                adjacent clean inter-keystroke intervals (<code>IKI = t_down[j] - t_down[j-1]</code>
+                ) with {resultsState.results.bootstrap_resamples.toLocaleString()} bootstrap
+                resamples. Negative <code>F(s)</code> denotes faster motor transition execution
+                beyond passive practice.
               </p>
+            </div>
+
+            {/* Timing Methodology Callout */}
+            <div className="p-3.5 typist-inset grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-[#3D3C38]">
+              <div>
+                <div className="font-semibold text-[#111111]">1. Raw Sample Pooling (A.6)</div>
+                <div className="mt-1 text-[#666560]">
+                  Clean samples are concatenated across blocks before taking one exact median (never
+                  a median-of-medians).
+                </div>
+              </div>
+              <div>
+                <div className="font-semibold text-[#111111]">2. Skew-Resistant Dispersion</div>
+                <div className="mt-1 text-[#666560]">
+                  Sample medians and interquartile ranges (<code>IQR = Q75 - Q25</code>) guard
+                  against heavy right-tail hesitations.
+                </div>
+              </div>
+              <div>
+                <div className="font-semibold text-[#111111]">3. Bootstrap Fluency Contrast</div>
+                <div className="mt-1 text-[#666560]">
+                  <code>c(s) = med_retest - med_base · F(s) = c(s) - c(ref)</code>
+                </div>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -645,20 +889,22 @@ export function DebriefPage({
                   <tr>
                     <th className="py-2.5 px-3">Set</th>
                     <th className="py-2.5 px-3">Arm</th>
-                    <th className="py-2.5 px-3">Baseline Median IKI</th>
-                    <th className="py-2.5 px-3">Retest Median IKI</th>
-                    <th className="py-2.5 px-3">c(s) Change</th>
-                    <th className="py-2.5 px-3">Targeting Effect F(s)</th>
+                    <th className="py-2.5 px-3">Baseline Median (IQR, n)</th>
+                    <th className="py-2.5 px-3">Retest Median (IQR, n)</th>
+                    <th className="py-2.5 px-3">c(s) Shift</th>
+                    <th className="py-2.5 px-3">Effect F(s)</th>
                     <th className="py-2.5 px-3">95% Bootstrap CI</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#EAEAEA]">
+                <tbody className="divide-y divide-[#EAEAEA] tabular-nums">
                   {resultsState.results.sets.map((set) => {
                     const isControl = set.arm === "control";
                     return (
                       <tr key={set.set_label} className={isControl ? "bg-[#FBFBFA]" : undefined}>
-                        <td className="py-2 px-3 font-semibold text-[#111111]">{set.set_label}</td>
-                        <td className="py-2 px-3">
+                        <td className="py-2.5 px-3 font-semibold text-[#111111]">
+                          {set.set_label}
+                        </td>
+                        <td className="py-2.5 px-3">
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                               isControl
@@ -666,31 +912,59 @@ export function DebriefPage({
                                 : "bg-[#EBF3FA] text-[#1D5A8A]"
                             }`}
                           >
-                            {revealed ? (isControl ? "Control Set" : set.arm) : `Block (Masked)`}
+                            {revealed ? (isControl ? "Control Set" : set.arm) : "Block (Masked)"}
                           </span>
                         </td>
-                        <td className="py-2 px-3 font-mono tabular-nums">
-                          {set.baseline_iki_median_ms !== null
-                            ? `${set.baseline_iki_median_ms.toFixed(1)} ms`
-                            : "—"}
+                        <td className="py-2.5 px-3">
+                          <div className="font-medium">
+                            <code>
+                              {set.baseline_iki_median_ms !== null
+                                ? `${set.baseline_iki_median_ms.toFixed(1)} ms`
+                                : "N/A"}
+                            </code>
+                          </div>
+                          <div className="text-[10px] text-[#666560]">
+                            <code>
+                              IQR{" "}
+                              {set.baseline_iki_iqr_ms !== null
+                                ? `${set.baseline_iki_iqr_ms.toFixed(1)} ms`
+                                : "N/A"}{" "}
+                              · n={set.baseline_iki_n}
+                            </code>
+                          </div>
                         </td>
-                        <td className="py-2 px-3 font-mono tabular-nums">
-                          {set.retest_iki_median_ms !== null
-                            ? `${set.retest_iki_median_ms.toFixed(1)} ms`
-                            : "—"}
+                        <td className="py-2.5 px-3">
+                          <div className="font-medium">
+                            <code>
+                              {set.retest_iki_median_ms !== null
+                                ? `${set.retest_iki_median_ms.toFixed(1)} ms`
+                                : "N/A"}
+                            </code>
+                          </div>
+                          <div className="text-[10px] text-[#666560]">
+                            <code>
+                              IQR{" "}
+                              {set.retest_iki_iqr_ms !== null
+                                ? `${set.retest_iki_iqr_ms.toFixed(1)} ms`
+                                : "N/A"}{" "}
+                              · n={set.retest_iki_n}
+                            </code>
+                          </div>
                         </td>
-                        <td className="py-2 px-3 font-mono tabular-nums">
-                          {formatMs(set.iki_change_ms)}
+                        <td className="py-2.5 px-3">
+                          <code>{formatMs(set.iki_change_ms)}</code>
                         </td>
-                        <td className="py-2 px-3 font-mono font-semibold tabular-nums">
-                          {isControl ? "—" : formatMs(set.iki_targeting_effect_ms)}
+                        <td className="py-2.5 px-3 font-semibold">
+                          <code>{isControl ? "Ref" : formatMs(set.iki_targeting_effect_ms)}</code>
                         </td>
-                        <td className="py-2 px-3 font-mono text-[#666560] tabular-nums">
-                          {isControl ||
-                          set.iki_bootstrap_ci_lower_ms === null ||
-                          set.iki_bootstrap_ci_upper_ms === null
-                            ? "—"
-                            : `[${set.iki_bootstrap_ci_lower_ms.toFixed(1)}, ${set.iki_bootstrap_ci_upper_ms.toFixed(1)}] ms`}
+                        <td className="py-2.5 px-3 text-[#666560]">
+                          <code>
+                            {isControl ||
+                            set.iki_bootstrap_ci_lower_ms === null ||
+                            set.iki_bootstrap_ci_upper_ms === null
+                              ? "N/A"
+                              : `[${set.iki_bootstrap_ci_lower_ms.toFixed(1)}, ${set.iki_bootstrap_ci_upper_ms.toFixed(1)}] ms`}
+                          </code>
                         </td>
                       </tr>
                     );
@@ -702,7 +976,7 @@ export function DebriefPage({
             {/* IKI Whisker Forest Plot */}
             <div className="pt-3 border-t border-[#EAEAEA] space-y-1">
               <h4 className="text-xs font-medium text-[#666560] mb-2">
-                Targeting Effect Whisker Plot (Median IKI)
+                Bootstrap Forest Plot: Median IKI Effect F(s) (ms)
               </h4>
               {resultsState.results.sets
                 .filter((s) => s.arm !== "control")
@@ -715,23 +989,30 @@ export function DebriefPage({
                     lower={s.iki_bootstrap_ci_lower_ms}
                     upper={s.iki_bootstrap_ci_upper_ms}
                     unit=" ms"
-                    minRange={-60}
-                    maxRange={60}
+                    minRange={-maxAbsIkiBound}
+                    maxRange={maxAbsIkiBound}
                     higherIsBetter={false}
                   />
                 ))}
             </div>
-          </div>
+          </section>
+
+          {/* §7: Assigned Weak Bigrams & Per-Transition Micro-Forensics */}
+          <PerBigramForensicsSection
+            rows={bigramRows}
+            sets={resultsState.results.sets}
+            revealed={revealed}
+          />
 
           {/* Targeting Diagnostic & Next Steps (D12) */}
-          <div className="typist-card p-6 space-y-4" data-testid="diagnostic-nudges-card">
+          <section className="typist-card p-6 space-y-4" data-testid="diagnostic-nudges-card">
             <div>
               <h3 className="text-base font-semibold tracking-tight text-[#111111]">
-                Targeting Diagnostic &amp; Next Steps (D12)
+                Post-Retest Biomechanical Coaching Diagnostics (D12)
               </h3>
               <p className="text-xs text-[#666560] mt-1">
-                Post-retest coaching feedback on bigrams that remained slow or error-prone at
-                retest.
+                Actionable post-study feedback on transitions exhibiting residual error rate
+                (&gt;5%) or hesitation (&gt;250 ms) on unseen Form B prose.
               </p>
             </div>
 
@@ -745,20 +1026,24 @@ export function DebriefPage({
                   {nudges.map((n) => (
                     <div
                       key={n.bigram}
-                      className="p-3 bg-[#FBF3DB] border border-[#EFE0B4] rounded-md text-xs space-y-1"
+                      className="p-3.5 bg-[#FBF3DB] border border-[#EFE0B4] rounded-md text-xs space-y-1.5"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-mono font-semibold text-[#111111] text-sm">
-                          "{n.bigram}"
+                        <span className="font-semibold text-[#111111] text-sm">
+                          <code>"{n.bigram}"</code>
                         </span>
-                        <span className="text-[#8A5A00] font-semibold font-mono tabular-nums">
-                          {formatPercent(n.errorRate)} error rate
-                          {n.medianIkiMs !== null ? ` · ${n.medianIkiMs.toFixed(0)}ms` : ""}
+                        <span className="text-[#8A5A00] font-semibold tabular-nums">
+                          <code>
+                            {formatPercent(n.errorRate)} error rate
+                            {n.medianIkiMs !== null ? ` · ${n.medianIkiMs.toFixed(0)} ms` : ""}
+                          </code>
                         </span>
                       </div>
-                      <p className="text-[#666560]">
-                        Assigned to Set {n.setLabel} ({revealed ? n.arm : "Masked"}). Continued
-                        focus recommended on finger transition cadence and conscious slowing.
+                      <p className="text-[#4A4945] leading-relaxed">
+                        Assigned to Set {n.setLabel} ({revealed ? n.arm : "Masked"}). Notice whether{" "}
+                        {n.arm === "control" && revealed
+                          ? "this transition belonged to the unpracticed reference set and never received targeted drills: scheduling dedicated dictionary or LLM drills on this pair is the highest-yield next step."
+                          : "same-hand or adjacent-finger crowding triggers premature keystrokes: practice deliberate 85%-tempo rhythmic release before accelerating."}
                       </p>
                     </div>
                   ))}
@@ -766,52 +1051,73 @@ export function DebriefPage({
               </div>
             ) : (
               <div className="p-4 bg-[#EDF3EC] border border-[#D4E4D2] rounded-md text-xs text-[#2B6E3F]">
-                <span className="font-semibold">Excellent typing precision!</span> All assigned weak
-                bigrams achieved high accuracy (&lt;5% error rate) during post-practice retest.
+                <span className="font-semibold">Clean post-study transfer!</span> Every retained
+                bigram achieved &lt;=5% error rate and &lt;=250 ms median transition latency on
+                unseen Form B retest passages.
               </div>
             )}
-          </div>
+          </section>
 
-          {/* Pre-registered Exclusions Card */}
-          <div className="typist-card p-6 space-y-4">
-            <h3 className="text-base font-semibold tracking-tight text-[#111111]">
-              Pre-registered Exclusions Report (D20, D23)
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-[#666560]">
-              <div>
-                <h4 className="font-medium text-[#666560] mb-2">Excluded Sessions</h4>
+          {/* §8: Instrumentation Overhead, Generator Fairness & 5-Gate Integrity Audit */}
+          <SystemVerificationSection
+            participantId={resultsState.results.participant_id}
+            overview={overview}
+            checks={checks}
+            revealed={revealed}
+            activeArms={resultsState.results.sets.map((s) => s.arm)}
+          />
+
+          {/* Pre-registered Exclusions & Reproducibility Manifest */}
+          <section id="cs-exclusions" className="typist-card p-6 space-y-5">
+            <div>
+              <h3 className="text-base font-semibold tracking-tight text-[#111111]">
+                Pre-registered Exclusions Report (D20, D23)
+              </h3>
+              <p className="text-xs text-[#666560] mt-1">
+                Pre-committed data filtering rules applied identically across all arms before
+                posterior sampling, plus deterministic session and PRNG audit identifiers.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs text-[#666560]">
+              <div className="p-4 typist-inset space-y-2">
+                <h4 className="font-semibold text-[#111111]">Excluded Sessions (D20)</h4>
                 {resultsState.results.exclusions?.excluded_sessions &&
                 resultsState.results.exclusions.excluded_sessions.length > 0 ? (
                   <ul className="divide-y divide-[#EAEAEA]">
                     {resultsState.results.exclusions.excluded_sessions.map((exc) => (
-                      <li key={exc.session_id} className="py-1.5 flex justify-between">
-                        <span className="font-mono">{exc.session_id.slice(0, 8)}...</span>
+                      <li key={exc.session_id} className="py-1.5 flex justify-between gap-2">
                         <span>
-                          Day {exc.day_index} ({exc.phase}) —{" "}
+                          <code>{exc.session_id.slice(0, 8)}...</code>
+                        </span>
+                        <span>
+                          Day {exc.day_index} ({exc.phase}) ·{" "}
                           <span className="font-medium text-[#8A5A00]">{exc.reason}</span>
                         </span>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-[#666560]">No sessions excluded.</p>
+                  <p className="text-[#666560]">
+                    No sessions excluded (0 abandoned or superseded).
+                  </p>
                 )}
               </div>
 
-              <div>
-                <h4 className="font-medium text-[#666560] mb-2">
-                  Dropped Bigrams (&lt;20 Retest Attempts)
+              <div className="p-4 typist-inset space-y-2">
+                <h4 className="font-semibold text-[#111111]">
+                  Dropped Bigrams (&lt;20 Retest Attempts, D23c)
                 </h4>
                 {resultsState.results.exclusions?.dropped_bigrams &&
                 resultsState.results.exclusions.dropped_bigrams.length > 0 ? (
                   <ul className="divide-y divide-[#EAEAEA]">
                     {resultsState.results.exclusions.dropped_bigrams.map((drp) => (
-                      <li key={drp.bigram} className="py-1.5 flex justify-between">
-                        <span className="font-mono font-semibold text-[#111111]">
-                          "{drp.bigram}"
+                      <li key={drp.bigram} className="py-1.5 flex justify-between gap-2">
+                        <span className="font-semibold text-[#111111]">
+                          <code>"{drp.bigram}"</code>
                         </span>
                         <span>
-                          Set {drp.set_label} ({revealed ? drp.arm : "Masked"}) —{" "}
+                          Set {drp.set_label} ({revealed ? drp.arm : "Masked"}) ·{" "}
                           <span className="text-[#8A5A00] font-medium">
                             {drp.retest_attempts} attempts
                           </span>
@@ -821,12 +1127,64 @@ export function DebriefPage({
                   </ul>
                 ) : (
                   <p className="text-[#666560]">
-                    No bigrams dropped (all had ≥20 retest attempts).
+                    No bigrams dropped (all achieved &gt;=20 retest attempts).
+                  </p>
+                )}
+              </div>
+
+              <div className="p-4 typist-inset space-y-2">
+                <h4 className="font-semibold text-[#111111]">Pause-Filtered Intervals (D24)</h4>
+                {resultsState.results.exclusions?.pause_counts &&
+                Object.keys(resultsState.results.exclusions.pause_counts).length > 0 ? (
+                  <ul className="divide-y divide-[#EAEAEA]">
+                    {Object.entries(resultsState.results.exclusions.pause_counts).map(
+                      ([cellKey, cnt]) => (
+                        <li key={cellKey} className="py-1.5 flex justify-between gap-2">
+                          <span>
+                            <code>{cellKey}</code>
+                          </span>
+                          <span className="font-medium text-[#111111]">
+                            <code>{cnt}</code> paused (&gt;2000 ms)
+                          </span>
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                ) : (
+                  <p className="text-[#666560]">
+                    0 transitions exceeded the strict 2000 ms pause threshold.
                   </p>
                 )}
               </div>
             </div>
-          </div>
+
+            {/* Reproducibility Audit Footer */}
+            <div className="p-3.5 typist-inset flex flex-wrap items-center justify-between gap-3 text-[11px] text-[#666560]">
+              <div>
+                <span className="font-semibold text-[#111111]">Baseline Form A Sessions: </span>
+                <code>
+                  {resultsState.results.analyzed_baseline_session_ids
+                    .map((s) => s.slice(0, 8))
+                    .join(", ")}
+                </code>
+              </div>
+              <div>
+                <span className="font-semibold text-[#111111]">Retest Form B Sessions: </span>
+                <code>
+                  {resultsState.results.analyzed_retest_session_ids
+                    .map((s) => s.slice(0, 8))
+                    .join(", ")}
+                </code>
+              </div>
+              <div>
+                <span className="font-semibold text-[#111111]">Reproducibility Seed: </span>
+                <code>
+                  seed={resultsState.results.seed} · draws={resultsState.results.posterior_draws} ·
+                  boot={resultsState.results.bootstrap_resamples}
+                </code>
+              </div>
+            </div>
+          </section>
         </div>
       )}
     </div>
