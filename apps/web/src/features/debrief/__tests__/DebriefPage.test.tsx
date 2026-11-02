@@ -237,7 +237,37 @@ function createFakeFetch() {
       return new Response(JSON.stringify(MOCK_PARTICIPANTS), { status: 200 });
     }
 
-    if (url.includes("/analysis/participants/p-done")) {
+    if (url.endsWith("/analysis/participants/p-done/trend")) {
+      return new Response(
+        JSON.stringify([
+          {
+            session_id: "s-base-1",
+            phase: "baseline",
+            day_index: 1,
+            started_at: "2026-10-20T10:00:00Z",
+            wpm: 42.0,
+            accuracy: 0.94,
+            per_set_error_rate: { A: 0.1, B: 0.12, C: 0.11, D: 0.15 },
+            per_set_attempts: { A: 50, B: 50, C: 50, D: 50 },
+            per_set_errors: { A: 5, B: 6, C: 5, D: 7 },
+          },
+          {
+            session_id: "s-ret-1",
+            phase: "retest",
+            day_index: 1,
+            started_at: "2026-11-01T10:00:00Z",
+            wpm: 52.0,
+            accuracy: 0.98,
+            per_set_error_rate: { A: 0.08, B: 0.04, C: 0.03, D: 0.02 },
+            per_set_attempts: { A: 50, B: 50, C: 50, D: 50 },
+            per_set_errors: { A: 4, B: 2, C: 1, D: 1 },
+          },
+        ]),
+        { status: 200 },
+      );
+    }
+
+    if (url.endsWith("/analysis/participants/p-done")) {
       return new Response(JSON.stringify(MOCK_RESULTS_DONE), { status: 200 });
     }
 
@@ -373,5 +403,22 @@ describe("DebriefPage", () => {
     expect(screen.getByText("s-abando...")).toBeInTheDocument();
     expect(screen.getByText(/abandoned/)).toBeInTheDocument();
     expect(screen.getByText(/14 attempts/)).toBeInTheDocument();
+  });
+
+  it("renders full case study sections including abstract, validity controls, trajectory, and per-bigram forensics", async () => {
+    const fakeFetch = createFakeFetch();
+    render(<DebriefPage initialParticipantId="p-done" fetchImpl={fakeFetch as typeof fetch} />);
+
+    expect(await screen.findByTestId("debrief-revealed")).toBeInTheDocument();
+    expect(screen.getByText(/§1 · Executive Case Study & Empirical Verdict/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/§2 · Experimental Design, Causal Identification & Validity Controls/),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(/§4 · Longitudinal 14-Session Learning Trajectory/),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(/§7 · Assigned Weak Bigrams & Per-Transition Micro-Forensics/),
+    ).toBeInTheDocument();
   });
 });
